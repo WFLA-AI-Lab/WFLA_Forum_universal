@@ -1,0 +1,53 @@
+{
+  "name": "wfla-wall-backend",
+  "version": "0.1.0",
+  "description": "A forum architecture aiming to be for universal use with a well-developed supervision, management, and usage system.",
+  "main": "src/index.ts",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "start": "node --experimental-strip-types src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit",
+    "migrate:local": "wrangler d1 migrations apply wfla-wall --local",
+    "migrate:remote": "wrangler d1 migrations apply wfla-wall --remote",
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WFLA-AI-Lab/WFLA_Forum_universal.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/WFLA-AI-Lab/WFLA_Forum_universal/issues"
+  },
+  "homepage": "https://github.com/WFLA-AI-Lab/WFLA_Forum_universal#readme",
+  "private": "true",
+  "dependencies": {
+    "@cloudflare/workers-types": "^5.20261021.1",
+    "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^5.0.5",
+    "bcryptjs": "^3.0.3",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "hono": "^4.13.13",
+    "isomorphic-dompurify": "^4.6.0",
+    "marked": "^18.1.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "better-sqlite3": "^13.0.3",
+    "miniflare": "^5.20261019.1-beta"
+  }
+}

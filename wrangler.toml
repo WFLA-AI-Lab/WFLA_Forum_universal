@@ -1,0 +1,18 @@
+name = "wfla-wall"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "wfla-wall"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "src/migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "wfla-wall-media"
+
+[vars]
+ENVIRONMENT = "local"
+FORUM_NAME = "世外墙 WFLA Wall"
+SESSION_TTL_SECONDS = "604800"
