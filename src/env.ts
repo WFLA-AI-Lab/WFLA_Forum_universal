@@ -8,6 +8,7 @@ export interface Env {
   MS_CLIENT_ID?: string;
   MS_CLIENT_SECRET?: string;
   MS_REDIRECT_URI?: string;
+  FRONTEND_ORIGIN?: string;
 }
 
 export type Role = 'owner' | 'admin' | 'moderator' | 'member' | 'guest';
@@ -36,3 +37,4 @@ export interface PaginationQuery {
   limit?: number;
   cursor?: string | null;
 }
+

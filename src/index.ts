@@ -17,8 +17,8 @@ app.use('*', cors({
   origin: (origin, c) => {
     const allowed = (c.env?.ENVIRONMENT === 'local')
       ? ['http://localhost:5173', 'http://127.0.0.1:5173']
-      : ['https://wfla-wall.pages.dev'];
-    return allowed.includes(origin ?? '') ? origin : 'https://wfla-wall.pages.dev';
+      : [c.env?.FRONTEND_ORIGIN ?? 'https://wfla-wall.pages.dev'];
+    return allowed.includes(origin ?? '') ? origin : (c.env?.FRONTEND_ORIGIN ?? 'https://wfla-wall.pages.dev');
   },
   credentials: true,
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -48,3 +48,4 @@ app.onError((error, c) => {
 });
 
 export default app;
+
