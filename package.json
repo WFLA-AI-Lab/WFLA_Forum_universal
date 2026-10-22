@@ -37,8 +37,7 @@
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "hono": "^4.13.13",
-    "isomorphic-dompurify": "^4.6.0",
-    "marked": "^18.1.1",
+    "sanitize-html": "^2.18.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0",
     "vitest": "^5.0.5",
@@ -47,6 +46,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "@types/sanitize-html": "^2.16.2",
     "better-sqlite3": "^13.0.3",
     "miniflare": "^5.20261019.1-beta"
   }
