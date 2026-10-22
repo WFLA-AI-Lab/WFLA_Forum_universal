@@ -12,5 +12,4 @@ migrations_dir = "src/migrations"
 ENVIRONMENT = "production"
 FORUM_NAME = "世外墙 WFLA Wall"
 SESSION_TTL_SECONDS = "604800"
-FRONTEND_ORIGIN = "https://wfla-wall.pages.dev"
-
+FRONTEND_ORIGIN = "https://forum.example.com"
