@@ -4,7 +4,7 @@ import type { Env, SessionUser } from '../../env';
 import { unauthorized } from '../../core/errors';
 import { createOpaqueToken } from './crypto';
 
-export const SESSION_COOKIE_PREFIX = '__Host-wfla_session';
+export const SESSION_COOKIE_PREFIX = 'wfla_session';
 export const SESSION_COOKIE_LOCAL = 'wfla_session';
 
 export function sessionCookieName(env: { ENVIRONMENT?: string }): string {
@@ -73,3 +73,4 @@ export async function sha256(value: string): Promise<string> {
 export function newToken(): string {
   return createOpaqueToken();
 }
+

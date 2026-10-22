@@ -8,12 +8,9 @@ database_name = "wfla-wall"
 database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 migrations_dir = "src/migrations"
 
-[[r2_buckets]]
-binding = "MEDIA"
-bucket_name = "wfla-wall-media"
-
 [vars]
 ENVIRONMENT = "production"
 FORUM_NAME = "世外墙 WFLA Wall"
 SESSION_TTL_SECONDS = "604800"
 FRONTEND_ORIGIN = "https://wfla-wall.pages.dev"
+

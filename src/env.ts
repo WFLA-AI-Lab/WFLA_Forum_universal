@@ -1,6 +1,6 @@
 export interface Env {
   DB: D1Database;
-  MEDIA: R2Bucket;
+  MEDIA?: R2Bucket;
   AUTH_SESSION_SECRET: string;
   ENVIRONMENT?: string;
   FORUM_NAME?: string;
@@ -37,4 +37,5 @@ export interface PaginationQuery {
   limit?: number;
   cursor?: string | null;
 }
+
 
