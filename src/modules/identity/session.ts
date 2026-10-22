@@ -4,7 +4,14 @@ import type { Env, SessionUser } from '../../env';
 import { unauthorized } from '../../core/errors';
 import { createOpaqueToken } from './crypto';
 
-export const SESSION_COOKIE = '__Host-wfla_session';
+export const SESSION_COOKIE_PREFIX = '__Host-wfla_session';
+export const SESSION_COOKIE_LOCAL = 'wfla_session';
+
+export function sessionCookieName(env: { ENVIRONMENT?: string }): string {
+  return env.ENVIRONMENT === 'local' ? SESSION_COOKIE_LOCAL : SESSION_COOKIE_PREFIX;
+}
+
+export const SESSION_COOKIE = SESSION_COOKIE_PREFIX;
 
 interface SessionRow {
   token_hash: string;
@@ -33,7 +40,7 @@ function mapUser(row: SessionRow): SessionUser {
 }
 
 export async function loadSession(c: Context<{ Bindings: Env }>): Promise<SessionUser | null> {
-  const token = getCookie(c, SESSION_COOKIE);
+  const token = getCookie(c, sessionCookieName(c.env));
   if (!token) return null;
   const tokenHash = await sha256(token);
   const result = await c.env.DB.prepare(

@@ -8,6 +8,7 @@ import { contentRoutes } from './modules/content/routes';
 import { moderationRoutes } from './modules/moderation/routes';
 import { notificationRoutes } from './modules/notification/routes';
 import { invitationRoutes } from './routes/invitation.routes';
+import { microsoftAuthRoutes } from './routes/microsoft-auth.routes';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api/v1');
 
@@ -32,6 +33,7 @@ app.route('/', contentRoutes);
 app.route('/', moderationRoutes);
 app.route('/', notificationRoutes);
 app.route('/', invitationRoutes);
+app.route('/', microsoftAuthRoutes);
 
 app.notFound(c => c.json({ error: { code: 'NOT_FOUND', message: '接口不存在' } }, 404));
 app.onError((error, c) => {

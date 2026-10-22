@@ -14,7 +14,9 @@
     "type-check": "tsc --noEmit",
     "migrate:local": "wrangler d1 migrations apply wfla-wall --local",
     "migrate:remote": "wrangler d1 migrations apply wfla-wall --remote",
-    "test": "vitest run"
+    "test": "vitest run",
+    "frontend:type-check": "npm --prefix frontend run type-check",
+    "frontend:build": "npm --prefix frontend run build"
   },
   "repository": {
     "type": "git",

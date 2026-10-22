@@ -186,3 +186,92 @@ contentRoutes.post('/threads/:id/view', async c => {
   await c.env.DB.prepare('UPDATE threads SET view_count = view_count + 1 WHERE id = ? AND status != ?').bind(id, 'deleted').run();
   return c.json({ success: true });
 });
+
+contentRoutes.put('/threads/:id/bookmark', async c => {
+  const actor = await requireUser(c);
+  const threadId = c.req.param('id');
+  const thread = await c.env.DB.prepare(`SELECT id FROM threads WHERE id = ? AND status != 'deleted'`).bind(threadId).first();
+  if (!thread) throw notFound('话题不存在');
+  const existing = await c.env.DB.prepare('SELECT id FROM bookmarks WHERE user_id = ? AND thread_id = ?').bind(actor.id, threadId).first();
+  if (!existing) {
+    await c.env.DB.prepare('INSERT INTO bookmarks (id, user_id, thread_id, created_at) VALUES (?, ?, ?, ?)')
+      .bind(createId(), actor.id, threadId, nowIso()).run();
+  }
+  return c.json({ bookmarked: true });
+});
+
+contentRoutes.delete('/threads/:id/bookmark', async c => {
+  const actor = await requireUser(c);
+  await c.env.DB.prepare('DELETE FROM bookmarks WHERE user_id = ? AND thread_id = ?').bind(actor.id, c.req.param('id')).run();
+  return c.json({ bookmarked: false });
+});
+
+contentRoutes.get('/bookmarks', async c => {
+  const actor = await requireUser(c);
+  const rows = await c.env.DB.prepare(
+    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.graduation_year AS author_graduation_year, u.role AS author_role
+       FROM bookmarks b JOIN threads t ON t.id = b.thread_id JOIN users u ON u.id = t.author_id
+      WHERE b.user_id = ? AND t.status != 'deleted' ORDER BY b.created_at DESC LIMIT 100`
+  ).bind(actor.id).all<ThreadRow>();
+  return c.json({ items: (rows.results ?? []).map(threadJson) });
+});
+
+contentRoutes.put('/reactions', async c => {
+  const actor = await requireUser(c);
+  if (actor.status !== 'active') throw new AppError('FORBIDDEN', '当前账号状态不能互动');
+  const body = await c.req.json().catch(() => null);
+  const targetType = String(body?.target_type ?? '');
+  const targetId = String(body?.target_id ?? '');
+  const reaction = String(body?.reaction ?? '');
+  if (!['thread','post'].includes(targetType) || !['like','dislike'].includes(reaction) || !targetId) throw badRequest('参数无效');
+  const table = targetType === 'thread' ? 'threads' : 'posts';
+  const target = await c.env.DB.prepare(`SELECT id FROM ${table} WHERE id = ? AND status != 'deleted'`).bind(targetId).first();
+  if (!target) throw badRequest('目标不存在');
+  const existing = await c.env.DB.prepare('SELECT id, reaction FROM reactions WHERE user_id = ? AND target_type = ? AND target_id = ?')
+    .bind(actor.id, targetType, targetId).first<{ id: string; reaction: string }>();
+  if (existing) {
+    await c.env.DB.prepare('UPDATE reactions SET reaction = ?, created_at = ? WHERE id = ?').bind(reaction, nowIso(), existing.id).run();
+  } else {
+    await c.env.DB.prepare('INSERT INTO reactions (id, user_id, target_type, target_id, reaction, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(createId(), actor.id, targetType, targetId, reaction, nowIso()).run();
+  }
+  const counts = await c.env.DB.prepare(
+    `SELECT SUM(CASE WHEN reaction='like' THEN 1 ELSE 0 END) AS likes, SUM(CASE WHEN reaction='dislike' THEN 1 ELSE 0 END) AS dislikes
+       FROM reactions WHERE target_type = ? AND target_id = ?`
+  ).bind(targetType, targetId).first<{ likes: number | null; dislikes: number | null }>();
+  return c.json({ likes: counts?.likes ?? 0, dislikes: counts?.dislikes ?? 0 });
+});
+
+contentRoutes.delete('/reactions', async c => {
+  const actor = await requireUser(c);
+  const targetType = String(c.req.query('target_type') ?? '');
+  const targetId = String(c.req.query('target_id') ?? '');
+  if (!['thread','post'].includes(targetType) || !targetId) throw badRequest('参数无效');
+  await c.env.DB.prepare('DELETE FROM reactions WHERE user_id = ? AND target_type = ? AND target_id = ?')
+    .bind(actor.id, targetType, targetId).run();
+  return c.json({ success: true });
+});
+
+contentRoutes.get('/search', async c => {
+  const q = (c.req.query('q') ?? '').trim();
+  if (q.length < 1 || q.length > 100) throw badRequest('搜索词必须为 1-100 字符');
+  const pattern = `%${q}%`;
+  const threads = await c.env.DB.prepare(
+    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.graduation_year AS author_graduation_year, u.role AS author_role
+       FROM threads t JOIN users u ON u.id = t.author_id
+      WHERE t.status = 'published' AND t.title LIKE ? ORDER BY t.last_activity_at DESC LIMIT 20`
+  ).bind(pattern).all<ThreadRow>();
+  const posts = await c.env.DB.prepare(
+    `SELECT p.id, p.thread_id, p.floor_number, p.created_at, t.title AS thread_title
+       FROM posts p JOIN threads t ON t.id = p.thread_id
+      WHERE p.status = 'published' AND t.status = 'published' AND p.content_markdown LIKE ? ORDER BY p.created_at DESC LIMIT 20`
+  ).bind(pattern).all<{ id: string; thread_id: string; floor_number: number; created_at: string; thread_title: string }>();
+  const users = await c.env.DB.prepare(
+    `SELECT id, username, real_name, graduation_year, role FROM users WHERE status = 'active' AND (username LIKE ? OR real_name LIKE ?) LIMIT 20`
+  ).bind(pattern, pattern).all<{ id: string; username: string; real_name: string; graduation_year: string; role: string }>();
+  return c.json({
+    threads: (threads.results ?? []).map(threadJson),
+    posts: posts.results ?? [],
+    users: users.results ?? []
+  });
+});

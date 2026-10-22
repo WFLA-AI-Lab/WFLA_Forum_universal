@@ -4,6 +4,7 @@ import { requireUser } from '../modules/identity/session';
 import { requireRole } from '../modules/access/service';
 import { badRequest, notFound } from '../core/errors';
 import { createId, nowIso } from '../core/utils';
+import bcrypt from 'bcryptjs';
 import { usernameSchema, passwordSchema, realNameSchema, graduationYearSchema } from '../core/validation';
 
 interface InvitationRow {
@@ -64,7 +65,7 @@ invitationRoutes.post('/register', async c => {
     c.env.DB.prepare(
       `INSERT INTO users (id, username, password_hash, real_name, graduation_year, role, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, 'member', 'pending', ?, ?)`
-    ).bind(id, username, password, realName, graduationYear, timestamp, timestamp),
+    ).bind(id, username, await bcrypt.hash(password, 12), realName, graduationYear, timestamp, timestamp),
     c.env.DB.prepare('UPDATE invitations SET used_by = ? WHERE id = ? AND used_by IS NULL').bind(id, invitation.id)
   ]);
   return c.json({ item: { id, username, real_name: realName, graduation_year: graduationYear, role: 'member', status: 'pending' } }, 201);

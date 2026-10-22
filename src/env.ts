@@ -5,6 +5,9 @@ export interface Env {
   ENVIRONMENT?: string;
   FORUM_NAME?: string;
   SESSION_TTL_SECONDS?: string;
+  MS_CLIENT_ID?: string;
+  MS_CLIENT_SECRET?: string;
+  MS_REDIRECT_URI?: string;
 }
 
 export type Role = 'owner' | 'admin' | 'moderator' | 'member' | 'guest';

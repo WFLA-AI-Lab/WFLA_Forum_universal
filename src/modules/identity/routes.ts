@@ -5,7 +5,7 @@ import type { Env, SessionUser } from '../../env';
 import { AppError, badRequest, conflict, unauthorized } from '../../core/errors';
 import { passwordSchema, realNameSchema, graduationYearSchema, usernameSchema } from '../../core/validation';
 import { createId, addSeconds, nowIso } from '../../core/utils';
-import { loadSession, newToken, requireUser, SESSION_COOKIE, sha256 } from './session';
+import { loadSession, newToken, requireUser, sessionCookieName, sha256 } from './session';
 import { atLeast, isAdmin, isOwner, requireRole } from '../access/service';
 import { enforceRateLimit } from './crypto';
 
@@ -53,10 +53,10 @@ identityRoutes.post('/login', async c => {
   const ttl = Number(c.env.SESSION_TTL_SECONDS ?? 604800);
   await c.env.DB.prepare('INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)')
     .bind(tokenHash, user.id, addSeconds(new Date(), ttl).toISOString(), nowIso()).run();
-  setCookie(c, SESSION_COOKIE, token, {
+  const isLocalEnv = c.env.ENVIRONMENT === 'local';
+  setCookie(c, sessionCookieName(c.env), token, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
+    sameSite: isLocalEnv ? 'Lax' : 'Strict',
     path: '/',
     maxAge: ttl
   });
@@ -66,12 +66,13 @@ identityRoutes.post('/login', async c => {
 identityRoutes.post('/logout', async c => {
   const user = await loadSession(c);
   if (user) {
-    const token = c.req.header('cookie')?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1];
+    const cookieName = sessionCookieName(c.env);
+    const token = c.req.header('cookie')?.match(new RegExp(cookieName + '=([^;]+)'))?.[1];
     if (token) {
       await c.env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await sha256(token)).run();
     }
   }
-  deleteCookie(c, SESSION_COOKIE, { path: '/' });
+  deleteCookie(c, sessionCookieName(c.env), { path: '/' });
   return c.json({ success: true });
 });
 
@@ -80,6 +81,31 @@ identityRoutes.get('/me', async c => {
   return c.json({ user: publicUser(user) });
 });
 
+identityRoutes.get('/users', async c => {
+  const actor = await requireUser(c);
+  requireRole(actor.role, 'moderator');
+  const rows = await c.env.DB.prepare(
+    'SELECT id, username, real_name, graduation_year, role, status, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT 300'
+  ).all();
+  return c.json({ items: rows.results ?? [] });
+});
+
+identityRoutes.post('/users/:id/role', async c => {
+  const actor = await requireUser(c);
+  requireRole(actor.role, 'admin');
+  const targetId = c.req.param('id');
+  const target = await c.env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(targetId).first<{ id: string; role: SessionUser['role'] }>();
+  if (!target) throw new AppError('NOT_FOUND', '用户不存在');
+  if (!isOwner(actor.role) && atLeast(target.role, 'admin')) throw new AppError('FORBIDDEN', '不能修改同级或更高权限用户');
+  const body = await c.req.json().catch(() => null);
+  const newRole = String(body?.role ?? '') as SessionUser['role'];
+  if (!['member','moderator','admin'].includes(newRole)) throw badRequest('角色无效');
+  await c.env.DB.prepare('UPDATE users SET role = ?, updated_at = ? WHERE id = ?').bind(newRole, nowIso(), targetId).run();
+  await c.env.DB.prepare(
+    'INSERT INTO audit_logs (id, actor_id, action, target_type, target_id, reason, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(createId(), actor.id, 'user.role_change', 'user', targetId, String(body?.reason ?? ''), JSON.stringify({ role: newRole }), nowIso()).run();
+  return c.json({ success: true });
+});
 identityRoutes.get('/users/:id', async c => {
   const id = c.req.param('id');
   const row = await c.env.DB.prepare(
