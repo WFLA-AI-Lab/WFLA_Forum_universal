@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import type { Env, SessionUser } from '../../env';
-import { AppError, badRequest, notFound } from '../../core/errors';
+import { badRequest, notFound } from '../../core/errors';
 import { contentSchema, reportTargetTypeSchema, titleSchema } from '../../core/validation';
 import { createId, nowIso } from '../../core/utils';
 import { requireUser } from '../identity/session';
-import { isAdmin, isOwner, requireRole } from '../access/service';
+import { requireRole } from '../access/service';
 import { renderMarkdown } from '../content/markdown';
 
 export const moderationRoutes = new Hono<{ Bindings: Env }>();
@@ -25,6 +25,13 @@ moderationRoutes.post('/reports', async c => {
     `INSERT INTO reports (id, reporter_id, target_type, target_id, reason, details, status, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)`
   ).bind(id, actor.id, targetType, targetId, reason, details, nowIso(), nowIso()).run();
+  const moderators = await c.env.DB.prepare(`SELECT id FROM users WHERE role IN ('moderator','admin','owner') AND status = 'active'`).all<{ id: string }>();
+  const reportTimestamp = nowIso();
+  for (const moderator of moderators.results ?? []) {
+    await c.env.DB.prepare(
+      'INSERT INTO notifications (id, recipient_id, type, title, body, link, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)'
+    ).bind(createId(), moderator.id, 'report', '收到新的举报', `${reason}：${details.slice(0, 120)}`, `/reports/${id}`, reportTimestamp).run();
+  }
   return c.json({ item: { id, status: 'open' } }, 201);
 });
 
@@ -127,8 +134,7 @@ moderationRoutes.get('/audit-logs', async c => {
 
 moderationRoutes.post('/announcements', async c => {
   const actor = await requireUser(c);
-  requireRole(actor.role, 'moderator');
-  if (!isAdmin(actor.role) && actor.role !== 'moderator') throw new AppError('FORBIDDEN', '只有管理员可以发布公告');
+  requireRole(actor.role, 'admin');
   const body = await c.req.json().catch(() => null);
   const title = titleSchema.parse(body?.title);
   const content = contentSchema.parse(body?.content);
@@ -142,6 +148,13 @@ moderationRoutes.post('/announcements', async c => {
     `INSERT INTO announcements (id, author_id, title, content_markdown, content_html, level, starts_at, ends_at, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, actor.id, title, content, renderMarkdown(content), level, startsAt.toISOString(), endsAt?.toISOString() ?? null, nowIso(), nowIso()).run();
+  const recipients = await c.env.DB.prepare(`SELECT id FROM users WHERE status = 'active'`).all<{ id: string }>();
+  const notificationTimestamp = nowIso();
+  for (const recipient of recipients.results ?? []) {
+    await c.env.DB.prepare(
+      'INSERT INTO notifications (id, recipient_id, type, title, body, link, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)'
+    ).bind(createId(), recipient.id, 'announcement', title, content.slice(0, 160), `/announcements/${id}`, notificationTimestamp).run();
+  }
   await insertAudit(c.env, actor.id, 'announcement.create', 'announcement', id, '', { level });
   return c.json({ item: { id } }, 201);
 });
@@ -169,8 +182,4 @@ export async function insertAudit(
   await env.DB.prepare(
     'INSERT INTO audit_logs (id, actor_id, action, target_type, target_id, reason, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(createId(), actorId, action, targetType, targetId, reason, JSON.stringify(metadata), nowIso()).run();
-}
-
-export function requireAnnouncementPermission(role: SessionUser['role']): void {
-  if (!isOwner(role) && role !== 'admin') throw new AppError('FORBIDDEN', '只有管理员可以发布公告');
 }

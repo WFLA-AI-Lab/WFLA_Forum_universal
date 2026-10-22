@@ -1,6 +1,6 @@
 # WFLA Wall Backend
 
-世外墙 WFLA Wall 后端 API，内测阶段由管理员分发账号。游客可以浏览公开内容；发帖、举报和通知需要登录。所有用户公开显示真实中文姓名与届别。
+世外墙 WFLA Wall 后端 API。注册采用邀请制；内测过渡期仍保留管理员分发账号。游客可以浏览公开内容；发帖、举报和通知需要登录。所有用户公开显示真实中文姓名与届别。
 
 ## 技术栈
 
@@ -43,6 +43,10 @@ node scripts/create-owner.mjs <username> <password> <真实中文姓名> <届别
 基础路径：`/api/v1`
 
 - `GET /health`
+- `POST /register`（邀请码注册，默认待激活）
+- `POST /invitations`（管理员发放邀请）
+- `GET /invitations`
+- `POST /users/:id/activate`（管理员激活注册）
 - `POST /login`
 - `POST /logout`
 - `GET /me`

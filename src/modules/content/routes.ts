@@ -149,6 +149,12 @@ contentRoutes.post('/threads/:id/posts', async c => {
      VALUES (?, ?, ?, ?, ?, ?, 'published', 0, ?, ?, ?)`
   ).bind(id, threadId, actor.id, parentPostId, content, renderMarkdown(content), floor, timestamp, timestamp).run();
   await c.env.DB.prepare('UPDATE threads SET reply_count = reply_count + 1, last_activity_at = ?, updated_at = ? WHERE id = ?').bind(timestamp, timestamp, threadId).run();
+  const threadAuthor = await c.env.DB.prepare('SELECT author_id, title FROM threads WHERE id = ?').bind(threadId).first<{ author_id: string; title: string }>();
+  if (threadAuthor && threadAuthor.author_id !== actor.id) {
+    await c.env.DB.prepare(
+      'INSERT INTO notifications (id, recipient_id, type, title, body, link, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)'
+    ).bind(createId(), threadAuthor.author_id, 'reply', '你的话题有新回复', `${actor.realName} 回复了「${threadAuthor.title}」`, `/threads/${threadId}`, timestamp).run();
+  }
   return c.json({ item: { id, floor_number: floor } }, 201);
 });
 
