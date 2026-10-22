@@ -6,9 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite --host 0.0.0.0 --port 5173",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/build-worker.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "build:worker": "node scripts/build-worker.mjs"
   },
   "keywords": [],
   "author": "",
