@@ -9,6 +9,9 @@ export interface Env {
   MS_CLIENT_SECRET?: string;
   MS_REDIRECT_URI?: string;
   FRONTEND_ORIGIN?: string;
+  COOKIE_SECURE?: boolean;
+  COOKIE_SAMESITE?: 'Lax' | 'Strict';
+  TRUST_PROXY_HEADERS?: boolean;
 }
 
 export type Role = 'owner' | 'admin' | 'moderator' | 'member' | 'guest';

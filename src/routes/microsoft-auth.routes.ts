@@ -38,7 +38,7 @@ async function issueSession(c: Context<{ Bindings: Env }>, env: Env, userId: str
     .bind(tokenHash, userId, addSeconds(new Date(), ttl).toISOString(), nowIso()).run();
   const isLocalEnv = env.ENVIRONMENT === 'local';
   setCookie(c, sessionCookieName(env), token, {
-    httpOnly: true, secure: !isLocalEnv, sameSite: isLocalEnv ? 'Lax' : 'Strict', path: '/', maxAge: ttl
+    httpOnly: true, secure: env.COOKIE_SECURE ?? !isLocalEnv, sameSite: env.COOKIE_SAMESITE ?? (isLocalEnv ? 'Lax' : 'Strict'), path: '/', maxAge: ttl
   });
 }
 

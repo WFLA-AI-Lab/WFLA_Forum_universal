@@ -32,7 +32,10 @@ identityRoutes.post('/login', async c => {
   if (!body || typeof body.username !== 'string' || typeof body.password !== 'string') {
     throw badRequest('用户名和密码不能为空');
   }
-  const ip = c.req.header('cf-connecting-ip') ?? 'unknown';
+  const forwarded = c.req.header('x-forwarded-for');
+  const ip = c.env.TRUST_PROXY_HEADERS && forwarded
+    ? forwarded.split(',')[0]?.trim() ?? 'unknown'
+    : (c.req.header('cf-connecting-ip') ?? 'unknown');
   await enforceRateLimit(`login:${ip}`);
   const row = await c.env.DB.prepare(
     'SELECT id, username, password_hash, real_name, graduation_year, role, status, created_at, updated_at FROM users WHERE username = ? COLLATE NOCASE'
@@ -56,7 +59,8 @@ identityRoutes.post('/login', async c => {
   const isLocalEnv = c.env.ENVIRONMENT === 'local';
   setCookie(c, sessionCookieName(c.env), token, {
     httpOnly: true,
-    sameSite: isLocalEnv ? 'Lax' : 'Strict',
+    secure: c.env.COOKIE_SECURE ?? !isLocalEnv,
+    sameSite: c.env.COOKIE_SAMESITE ?? (isLocalEnv ? 'Lax' : 'Strict'),
     path: '/',
     maxAge: ttl
   });

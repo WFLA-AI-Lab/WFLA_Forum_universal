@@ -45,7 +45,7 @@ type View =
   | { name: 'notifications' }
   | { name: 'admin'; tab: AdminTab };
 
-const API_ORIGIN = (import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:8787/api/v1').replace(/\/api\/v1$/, '');
+const API_ORIGIN = (import.meta.env.VITE_API_BASE ?? '/api/v1').replace(/\/api\/v1$/, '');
 
 const ROLE_LABEL: Record<string, string> = { owner: '负责人', admin: '管理员', moderator: '监管者', member: '成员' };
 const LEVEL_LABEL: Record<string, string> = { normal: '普通', important: '重要', urgent: '紧急' };

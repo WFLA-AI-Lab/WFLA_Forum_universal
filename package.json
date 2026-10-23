@@ -16,7 +16,13 @@
     "migrate:remote": "wrangler d1 migrations apply wfla-wall --remote",
     "test": "vitest run",
     "frontend:type-check": "npm --prefix frontend run type-check",
-    "frontend:build": "npm --prefix frontend run build"
+    "frontend:build": "npm --prefix frontend run build",
+    "selfhost:dev": "tsx watch src/selfhost/server.ts",
+    "selfhost:start": "tsx src/selfhost/server.ts",
+    "selfhost:migrate": "node scripts/selfhost-migrate.mjs",
+    "selfhost:create-owner": "node scripts/selfhost-create-owner.mjs",
+    "selfhost:backup": "node scripts/selfhost-backup.mjs",
+    "selfhost:build": "npm --prefix frontend run build"
   },
   "repository": {
     "type": "git",
@@ -34,6 +40,7 @@
   "dependencies": {
     "@cloudflare/workers-types": "^5.20261021.1",
     "@eslint/js": "^10.0.1",
+    "@hono/node-server": "^2.1.5",
     "@vitest/coverage-v8": "^5.0.5",
     "bcryptjs": "^3.0.3",
     "eslint": "^10.13.0",
@@ -47,9 +54,11 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.5",
     "@types/sanitize-html": "^2.16.2",
     "better-sqlite3": "^13.0.3",
-    "miniflare": "^5.20261019.1-beta"
+    "miniflare": "^5.20261019.1-beta",
+    "tsx": "^4.23.15"
   }
 }
