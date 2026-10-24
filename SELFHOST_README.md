@@ -110,3 +110,49 @@ data/              SQLite 数据库
 backups/           数据库备份
 .env               本机配置，不在 Git 中
 ```
+
+## 可选：本地 Caddy HTTPS 源站
+
+如果内网穿透要求“源站协议为 HTTPS”，可以让 Caddy 在本地解密 TLS：
+
+```text
+浏览器/隧道 -> https://127.0.0.1:8443 -> Caddy -> http://127.0.0.1:8888 -> 论坛
+```
+
+论坛仍然只监听 `8888`，不需要再开业务端口。
+
+依次运行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-caddy.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure-caddy.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-with-caddy.ps1
+```
+
+`configure-caddy.ps1` 会在本机生成：
+
+```text
+Caddyfile
+certs/site.crt
+certs/site.key
+certs/root-ca.crt
+```
+
+这些都是本机运行数据，已加入 `.gitignore`，不要提交或上传。
+
+隧道填写：
+
+```text
+本地地址：127.0.0.1
+本地端口：8443
+协议类型：HTTPS
+源协议：HTTPS
+SSL 证书：certs/site.crt
+SSL 私钥：certs/site.key
+```
+
+如果隧道程序不接受私钥路径，而由它自己处理源站 TLS，则把本地端口改成 `8888`、协议改为 HTTP，不要启用“源站 HTTPS”。
+
+这里生成的是内部 CA 证书，浏览器不会自动信任它。它只用于本地 HTTPS 源站链路；公网访客应通过隧道或 Cloudflare 的公开受信证书访问。需要让隧道客户端信任本地 CA 时，把 `certs/root-ca.crt` 导入该客户端所在机器的“受信任的根证书颁发机构”。
+
+如果隧道面板无法导入根 CA，不要强行使用“HTTPS + 自签证书”模式。改用它的纯 HTTP 映射，或使用 Cloudflare Tunnel。

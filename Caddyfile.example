@@ -1,0 +1,20 @@
+# Caddy 本地 HTTPS 源站示例（不要直接用于公网正式域名）
+# 先运行：scripts\configure-caddy.ps1
+# 再运行：scripts\start-with-caddy.ps1
+#
+# 浏览器/隧道 -> https://127.0.0.1:8443 -> http://127.0.0.1:8888
+
+{
+    admin off
+    auto_https off
+}
+
+127.0.0.1:8443 {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8888 {
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Host {host}
+        header_up X-Real-IP {remote_host}
+    }
+    tls ../certs/site.crt ../certs/site.key
+}

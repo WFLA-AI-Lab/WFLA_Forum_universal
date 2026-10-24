@@ -7,6 +7,10 @@
     "doc": "docs"
   },
   "scripts": {
+    "caddy:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-caddy.ps1",
+    "caddy:configure": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure-caddy.ps1",
+    "caddy:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-with-caddy.ps1",
+    "caddy:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-with-caddy.ps1 -CheckOnly",
     "dev": "wrangler dev --var ENVIRONMENT:local --var FRONTEND_ORIGIN:http://localhost:5173",
     "start": "node --experimental-strip-types src/index.ts",
     "build": "tsc -p tsconfig.json",

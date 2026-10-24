@@ -8,3 +8,9 @@ coverage/
 !.env.selfhost.example
 *.local
 .DS_Store
+certs/
+caddy-data/
+caddy-config/
+Caddyfile.local
+tools/caddy/
+Caddyfile
