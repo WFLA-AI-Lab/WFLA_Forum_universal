@@ -24,6 +24,41 @@ if (-not $script:Node) { $script:Node = (Get-Command node -ErrorAction SilentlyC
 # "unable to verify the first certificate"，登录回调将失败。
 $env:NODE_USE_SYSTEM_CA = '1'
 
+function Initialize-TrustedRoots {
+  if ($env:NODE_EXTRA_CA_CERTS) { return }
+  $caDir = Join-Path $script:Root 'data'
+  $caPath = Join-Path $caDir 'windows-root-cas.pem'
+  try {
+    if (-not (Test-Path -LiteralPath $caDir)) { New-Item -ItemType Directory -Force -Path $caDir | Out-Null }
+    $rebuild = $true
+    if (Test-Path -LiteralPath $caPath) {
+      # Rebuild weekly so rotated or newly installed roots are picked up.
+      $rebuild = ((Get-Date) - (Get-Item -LiteralPath $caPath).LastWriteTime).TotalDays -gt 7
+    }
+    if ($rebuild) {
+      $builder = [Text.StringBuilder]::new()
+      $count = 0
+      foreach ($store in @('Cert:\LocalMachine\Root', 'Cert:\CurrentUser\Root')) {
+        foreach ($cert in Get-ChildItem $store -ErrorAction SilentlyContinue) {
+          if ($cert.RawData.Length -le 0) { continue }
+          [void]$builder.AppendLine('-----BEGIN CERTIFICATE-----')
+          [void]$builder.AppendLine([Convert]::ToBase64String($cert.RawData, 'InsertLineBreaks'))
+          [void]$builder.AppendLine('-----END CERTIFICATE-----')
+          $count++
+        }
+      }
+      if ($count -gt 0) {
+        [IO.File]::WriteAllText($caPath, $builder.ToString(), [Text.UTF8Encoding]::new($false))
+        Write-Host "[准备] 已导出 $count 个系统根证书供 Node 信任。" -ForegroundColor DarkGray
+      }
+    }
+    if (Test-Path -LiteralPath $caPath) { $env:NODE_EXTRA_CA_CERTS = $caPath }
+  } catch {
+    Write-Host "[提示] 无法导出系统根证书（$($_.Exception.Message)）。" -ForegroundColor Yellow
+    Write-Host '       将仅依赖 NODE_USE_SYSTEM_CA；若第三方登录仍失败请查看诊断面板。' -ForegroundColor DarkGray
+  }
+}
+
 function Write-Section([string]$Text) {
   Write-Host ''
   Write-Host ('=' * 64) -ForegroundColor DarkCyan
@@ -76,6 +111,7 @@ function Build-Frontend {
 }
 
 try {
+  Initialize-TrustedRoots
   if (-not $script:Npm -or -not $script:Node) { throw '没有找到 Node.js / npm，请先安装 Node.js 22.12 或更高版本。' }
   $nodeVersionText = (& $script:Node -p "process.versions.node" 2>$null)
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($nodeVersionText)) { throw '无法读取 Node.js 版本，请重新安装 Node.js 22.12 或更高版本。' }
