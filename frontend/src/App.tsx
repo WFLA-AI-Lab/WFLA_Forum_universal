@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from './api';
-import type { Announcement, Board, Post, RuntimeSettings, Thread, User } from './types';
+import type { Announcement, Board, Diagnostics, Post, Provider, RuntimeSettings, Thread, User } from './types';
 
 interface Report {
   id: string;
@@ -107,7 +107,7 @@ function Notice({ flag, children }: { flag: string; children: React.ReactNode })
 export default function App() {
   const [view, setView] = useState<View>({ name: 'home' });
   const [me, setMe] = useState<User | null>(null);
-  const [providers, setProviders] = useState({ microsoft: false, github: false });
+  const [providers, setProviders] = useState<Provider>({ microsoft: false, github: false });
   const [forumName, setForumName] = useState('世外墙 WFLA Wall');
   const [boards, setBoards] = useState<Board[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -130,6 +130,8 @@ export default function App() {
   const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '', level: 'normal', ends_at: '' });
   const [newBoardForm, setNewBoardForm] = useState({ name: '', slug: '', description: '' });
   const [settings, setSettings] = useState<RuntimeSettings | null>(null);
+  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
+  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
   const [settingsForm, setSettingsForm] = useState({
     forum_name: '', public_origin: '', session_ttl_seconds: 604800, cookie_secure: false,
     cookie_samesite: 'Lax' as 'Lax' | 'Strict', trust_proxy_headers: false,
@@ -145,14 +147,32 @@ export default function App() {
   const isOwner = me?.role === 'owner';
   const adminTab = view.name === 'admin' ? view.tab : null;
 
-  useEffect(() => { void loadBase(); }, []);
+  useEffect(() => {
+    void loadBase();
+    // The OAuth callback redirects back here with a short status marker. Show it
+    // once, then strip it from the address bar so a refresh does not repeat it.
+    const params = new URLSearchParams(window.location.search);
+    const linked = params.get('linked');
+    const oauthError = params.get('oauth_error');
+    if (linked) {
+      const label = linked === 'microsoft' ? 'Microsoft' : linked === 'github' ? 'GitHub' : linked;
+      setSuccess(`${label} 账号已绑定到本论坛账号`);
+    }
+    if (oauthError) setError(oauthError);
+    if (linked || oauthError) {
+      params.delete('linked');
+      params.delete('oauth_error');
+      const query = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : ''));
+    }
+  }, []);
 
   async function loadBase() {
     try { const d = await api.get<{ user: User }>('/me'); setMe(d.user); } catch { setMe(null); }
     try { const d = await api.get<{ items: Board[] }>('/boards'); setBoards(d.items); } catch { setBoards([]); }
     try { const d = await api.get<{ items: Announcement[] }>('/announcements'); setAnnouncements(d.items); } catch { setAnnouncements([]); }
     try {
-      const d = await api.get<{ forum_name?: string; microsoft: boolean; github: boolean }>('/auth/providers');
+      const d = await api.get<Provider>('/auth/providers');
       setProviders(d);
       if (d.forum_name) setForumName(d.forum_name);
     } catch { setProviders({ microsoft: false, github: false }); }
@@ -264,7 +284,7 @@ export default function App() {
       const d = await api.patch<{ settings: RuntimeSettings; changed_fields: string[] }>('/admin/settings', body);
       setSettings(d.settings);
       setSettingsForm(f => ({ ...f, github_client_secret: '', microsoft_client_secret: '', confirm_password: '' }));
-      const prov = await api.get<{ forum_name?: string; microsoft: boolean; github: boolean }>('/auth/providers');
+      const prov = await api.get<Provider>('/auth/providers');
 
       setProviders(prov);
 
@@ -272,6 +292,16 @@ export default function App() {
 
       setSuccess('高级设置已保存并立即生效'); setError('');
     } catch (e) { setError((e as Error).message); }
+  }
+
+  async function runDiagnostics() {
+    setDiagnosticsBusy(true);
+    try {
+      const d = await api.get<Diagnostics>('/admin/diagnostics');
+      setDiagnostics(d);
+      setError('');
+    } catch (e) { setError((e as Error).message); }
+    finally { setDiagnosticsBusy(false); }
   }
 
   function resetSettingsPassword() {
@@ -812,6 +842,37 @@ export default function App() {
                         <FormField label={`Client Secret${settings.microsoft_client_secret_configured ? '（已配置，留空保留）' : ''}`}><input type="password" autoComplete="new-password" value={settingsForm.microsoft_client_secret} onChange={e => setSettingsForm({ ...settingsForm, microsoft_client_secret: e.target.value })} /></FormField>
                         {settings.microsoft_client_secret_configured && <label className="field" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><input type="checkbox" checked={settingsForm.clear_microsoft_client_secret} onChange={e => setSettingsForm({ ...settingsForm, clear_microsoft_client_secret: e.target.checked })} /><span>清除已保存的 Microsoft Secret</span></label>}
                       </div>
+                    </div>
+
+                    <div>
+                      <h3>第三方登录连通性</h3>
+                      <p style={{ margin: '0.25rem 0 0.75rem', color: 'var(--ef-ink-2)' }}>
+                        检查服务器能否访问 GitHub 与 Microsoft 的登录接口。配置修改后建议先运行一次。
+                      </p>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                        <Btn small onClick={() => void runDiagnostics()} disabled={diagnosticsBusy}>
+                          {diagnosticsBusy ? '检测中…' : '运行连通性检测'}
+                        </Btn>
+                      </div>
+                      {diagnostics && (
+                        <>
+                          <ul className="ef-ledger">
+                            {Object.entries(diagnostics.results).map(([key, result]) => (
+                              <li key={key}>
+                                <span>{result.label}</span>
+                                <span>
+                                  {result.ok
+                                    ? `正常 · ${result.status} · ${result.latency_ms}ms`
+                                    : `不通 · ${result.error ?? '未知错误'}`}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                          {diagnostics.hint
+                            ? <Notice flag="网络">{diagnostics.hint}</Notice>
+                            : <Notice flag="正常">第三方登录接口当前全部可达。</Notice>}
+                        </>
+                      )}
                     </div>
 
                     <Notice flag="安全">Secret 会使用 AUTH_SESSION_SECRET 派生的 AES-GCM 密钥加密保存，不会回显。保存前需要验证当前账号密码。</Notice>

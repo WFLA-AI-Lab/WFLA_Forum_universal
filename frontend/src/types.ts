@@ -68,3 +68,23 @@ export interface RuntimeSettings {
   microsoft_redirect_uri: string;
   updated_at: string | null;
 }
+
+export interface Provider {
+  forum_name?: string;
+  microsoft: boolean;
+  github: boolean;
+}
+
+export interface EndpointProbe {
+  label: string;
+  ok: boolean;
+  status: number;
+  latency_ms: number;
+  error: string | null;
+}
+
+export interface Diagnostics {
+  checked_at: string;
+  results: Record<string, EndpointProbe>;
+  hint: string | null;
+}

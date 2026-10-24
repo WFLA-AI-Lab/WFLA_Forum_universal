@@ -6,6 +6,7 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'RATE_LIMITED'
+  | 'UPSTREAM_ERROR'
   | 'INTERNAL_ERROR';
 
 const statusByCode: Record<ErrorCode, number> = {
@@ -16,6 +17,7 @@ const statusByCode: Record<ErrorCode, number> = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   RATE_LIMITED: 429,
+  UPSTREAM_ERROR: 502,
   INTERNAL_ERROR: 500
 };
 
@@ -51,4 +53,7 @@ export function conflict(message: string): AppError {
 }
 export function rateLimited(message = '请求过于频繁，请稍后再试'): AppError {
   return new AppError('RATE_LIMITED', message);
+}
+export function upstreamError(message: string, details?: unknown): AppError {
+  return new AppError('UPSTREAM_ERROR', message, details);
 }

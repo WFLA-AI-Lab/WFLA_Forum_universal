@@ -19,6 +19,11 @@ if (-not $script:Npm) { $script:Npm = (Get-Command npm -ErrorAction SilentlyCont
 $script:Node = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
 if (-not $script:Node) { $script:Node = (Get-Command node -ErrorAction SilentlyContinue).Source }
 
+# 第三方登录（GitHub / Microsoft）要求 Node 信任 Windows 根证书。
+# 缺少这一项时，被代理或内网穿透接管的 HTTPS 连接会报
+# "unable to verify the first certificate"，登录回调将失败。
+$env:NODE_USE_SYSTEM_CA = '1'
+
 function Write-Section([string]$Text) {
   Write-Host ''
   Write-Host ('=' * 64) -ForegroundColor DarkCyan
@@ -104,7 +109,15 @@ try {
   Write-Host '停止服务：在本窗口按 Ctrl+C。' -ForegroundColor DarkGray
   Write-Host ''
 
-  if ($CheckOnly) { Write-Host '自检通过。' -ForegroundColor Green; exit 0 }
+  if ($CheckOnly) {
+    Write-Host '[执行] 第三方登录出站连通性自检' -ForegroundColor Green
+    $probeFile = Join-Path $script:Root 'scripts\outbound-probe.mjs'
+    if (-not (Test-Path -LiteralPath $probeFile)) { throw "缺少连通性自检脚本：$probeFile" }
+    & $script:Node $probeFile
+    if ($LASTEXITCODE -ne 0) { throw '第三方登录出站连通性自检失败。' }
+    Write-Host '自检通过。' -ForegroundColor Green
+    exit 0
+  }
 
   # UNC shares cannot be used as a CMD working directory; bypass npm.cmd and start tsx directly.
   $tsxCli = Join-Path $script:Root 'node_modules\tsx\dist\cli.mjs'
