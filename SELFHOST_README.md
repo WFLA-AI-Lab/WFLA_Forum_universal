@@ -1,109 +1,103 @@
 # WFLA Wall 自托管部署（Windows / Node.js）
 
-本部署包保留 Cloudflare 代码，同时新增自托管模式：Node.js + better-sqlite3 + Hono。服务启动后，一个进程同时提供：
+本目录是可直接运行的完整自托管包：Node.js 同时提供 React 前端、论坛 API 和 SQLite 数据库。
 
-1. `public/` 中的 React 静态前端
-2. `/api/v1/*` 后端 API
-3. `data/wfla-wall.sqlite` 本地 SQLite 数据库
+## 快速开始
 
-## 服务器要求
+在项目内打开 PowerShell，双击 `scripts\一键配置.cmd`；或者运行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\一键配置.ps1
+```
+
+首次配置会依次询问：
+
+1. 监听方式：仅本机、局域网、反向代理/内网穿透
+2. 端口和浏览器实际访问地址
+3. 论坛名称
+4. 是否创建 4 个默认板块
+5. 管理员用户名、密码、真实中文姓名、届别
+6. 是否配置 Microsoft OAuth（可留到以后再配）
+
+脚本会生成 `.env` 和会话密钥，检查依赖，执行迁移，构建前端并创建管理员。脚本使用相对路径，不受当前终端目录影响。已有 `.env` 时会询问是否覆盖；选择保留时不会修改密钥，也不会重复创建 owner。
+
+配置完成后，日常启动：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\一键启动.ps1
+```
+
+也可以双击 `scripts\一键启动.cmd`。启动脚本会检查配置、数据库和前端文件，缺失前端时自动构建，然后在当前窗口运行服务。停止服务按 `Ctrl+C`。
+
+只做环境自检、不启动服务：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\一键启动.ps1 -CheckOnly
+```
+
+## 环境和网络
 
 - Windows 10/11 或 Windows Server
-- Node.js 20 或更高版本
-- PowerShell 7（用于服务脚本；日常 npm 命令可用 PowerShell 5.1）
-- 硬盘至少 2 GB 空间
-- 防火墙放行访问端口（默认 8787）
+- Node.js 20 或更高版本（推荐 Node.js 22 LTS）
+- 内网测试：防火墙放行 `PORT`（默认 8787），浏览器使用 `PUBLIC_ORIGIN`
+- 公网访问：必须通过 HTTPS 反向代理或可信内网穿透，并把 `PUBLIC_ORIGIN` 改成实际 HTTPS 地址
+- 只有前面确实有可信反向代理时才设置 `TRUST_PROXY_HEADERS=true`
 
-## 第一次安装
+`.env` 由一键配置生成，绝对不要提交到 Git。数据位置：
+
+```text
+data/wfla-wall.sqlite    论坛数据库
+backups/                 备份目录
+public/                  构建后的前端
+```
+
+## 手动操作（备用）
 
 ```powershell
-cd C:\wfla-wall
-npm ci
+npm ci --ignore-scripts
 npm run selfhost:migrate
 npm run selfhost:build
-Copy-Item .\frontend\dist\* .\public -Recurse -Force
-Copy-Item .\.env.selfhost.example .\.env
-notepad .\.env
-```
-
-`.env` 必须改：
-
-- `PUBLIC_ORIGIN`：浏览器访问你的完整地址，例如 `http://192.168.1.10:8787` 或 `https://forum.example.com`
-- `AUTH_SESSION_SECRET`：长随机字符串
-
-创建管理员账号：
-
-```powershell
-npm run selfhost:create-owner -- AdminUser YourStrongPassword123! 真实中文姓名 2026
-```
-
-然后启动：
-
-```powershell
+npm run selfhost:create-owner -- <用户名> <真实姓名> <届别>
 npm run selfhost:start
 ```
 
-浏览器打开 `PUBLIC_ORIGIN`。看到首页即成功。
+上面建号命令推荐配合 `WFLA_OWNER_PASSWORD` 环境变量使用，避免密码出现在命令历史。正常使用请优先运行一键配置脚本。
 
-## 每次更新代码
-
-```powershell
-npm ci
-npm run selfhost:migrate
-npm run selfhost:build
-Copy-Item .\frontend\dist\* .\public -Recurse -Force
-npm run selfhost:start
-```
-
-## 开机自启（Windows）
-
-以当前用户登录后自动运行：
-
-```powershell
-pwsh -ExecutionPolicy Bypass -File .\scripts\selfhost-windows-install.ps1
-```
-
-手动启动/停止：
-
-```powershell
-Start-ScheduledTask -TaskName 'WFLA Wall SelfHost'
-Stop-ScheduledTask -TaskName 'WFLA Wall SelfHost'
-```
-
-删除自启任务：
-
-```powershell
-Unregister-ScheduledTask -TaskName 'WFLA Wall SelfHost' -Confirm:$false
-```
-
-## 备份与恢复
+## 备份
 
 ```powershell
 npm run selfhost:backup
 ```
 
-备份在 `backups/`。恢复时停掉服务，把备份文件复制回 `data/wfla-wall.sqlite`，再启动。
+恢复：先停止服务，将备份文件复制为 `data/wfla-wall.sqlite`，再启动。
 
-## 安全要求
+## 开机自启
 
-1. 公网正式使用必须上 HTTPS，`PUBLIC_ORIGIN` 改成 `https://...`
-2. 如果前面有可信反向代理/内网穿透，把 `TRUST_PROXY_HEADERS=true`；否则保持 `false`
-3. `.env`、`data/`、`backups/` 都不能提交到 Git
-4. 定期备份
-5. 服务器上只开放必要端口
-6. 如果要面向学校开放，后续要走 ICP 备案流程，不要直接用个人内网服务做正式服务
+以当前用户登录后自动启动：
 
-## Linux/macOS
-
-命令相同：
-
-```bash
-npm ci
-npm run selfhost:migrate
-npm run selfhost:build
-mkdir -p public
-cp -R frontend/dist/* public/
-npm run selfhost:start
+```powershell
+pwsh -ExecutionPolicy Bypass -File .\scripts\selfhost-windows-install.ps1
 ```
 
-建议用 `systemd` 或 `pm2` 管理。
+该脚本需要 PowerShell 7。也可以直接使用一键启动脚本验证服务本身；无人值守服务建议后续用 NSSM 或 WinSW 包装。
+
+## 安全
+
+1. `.env`、`data/`、`backups/` 不属于源码，不能上传
+2. 公网必须使用 HTTPS，不能让明文 HTTP 承载密码和会话
+3. 权限默认拒绝，敏感操作有审计日志
+4. 定期备份，定期检查服务器访问日志与依赖更新
+5. 面向学校正式开放前，确认学校授权、内容监管和备案等流程
+
+## 目录说明
+
+```text
+src/               前端源码（打包版）
+src-backend/       扁平化的后端源码（打包版）
+frontend/          仓库版前端源码
+scripts/           配置、启动、迁移、建号、备份脚本
+public/            构建后的前端
+data/              SQLite 数据库
+backups/           数据库备份
+.env               本机配置，不在 Git 中
+```
