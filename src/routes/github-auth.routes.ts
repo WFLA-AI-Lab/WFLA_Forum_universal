@@ -24,11 +24,12 @@ interface GitHubEmail {
   verified?: boolean;
 }
 
-function requireGitHubConfig(env: Env): { clientId: string; redirectUri: string } {
+function requireGitHubConfig(env: Env): { clientId: string; clientSecret: string; redirectUri: string } {
   const clientId = env.GITHUB_CLIENT_ID;
+  const clientSecret = env.GITHUB_CLIENT_SECRET;
   const redirectUri = env.GITHUB_REDIRECT_URI;
-  if (!clientId || !redirectUri) throw badRequest('GitHub 登录尚未配置');
-  return { clientId, redirectUri };
+  if (!clientId || !clientSecret || !redirectUri) throw badRequest('GitHub 登录尚未配置完整');
+  return { clientId, clientSecret, redirectUri };
 }
 
 async function beginGitHubFlow(c: Context<{ Bindings: Env }>, mode: 'login' | 'link'): Promise<Response> {
@@ -69,9 +70,7 @@ githubAuthRoutes.get('/auth/github/callback', async c => {
   if (!code || !state) throw badRequest('回调参数缺失');
   const stateRow = await consumeOAuthState(c, 'github', state);
 
-  const { clientId, redirectUri } = requireGitHubConfig(c.env);
-  const clientSecret = c.env.GITHUB_CLIENT_SECRET;
-  if (!clientSecret) throw badRequest('GitHub 登录尚未配置');
+  const { clientId, clientSecret, redirectUri } = requireGitHubConfig(c.env);
 
   const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',

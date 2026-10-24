@@ -11,6 +11,7 @@ import { invitationRoutes } from './routes/invitation.routes';
 import { microsoftAuthRoutes } from './routes/microsoft-auth.routes';
 import { githubAuthRoutes } from './routes/github-auth.routes';
 import { oauthProviderRoutes } from './routes/oauth-provider.routes';
+import { settingsRoutes } from './modules/settings/routes';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api/v1');
 
@@ -39,6 +40,7 @@ app.route('/', invitationRoutes);
 app.route('/', microsoftAuthRoutes);
 app.route('/', githubAuthRoutes);
 app.route('/', oauthProviderRoutes);
+app.route('/', settingsRoutes);
 
 app.notFound(c => c.json({ error: { code: 'NOT_FOUND', message: '接口不存在' } }, 404));
 app.onError((error, c) => {

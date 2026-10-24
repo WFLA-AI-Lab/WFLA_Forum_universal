@@ -7,11 +7,15 @@ import { Hono } from 'hono';
 import apiApp from '../index';
 import { loadConfig, toEnv } from './config';
 import { SqliteD1 } from './sqlite-d1';
+import { applyStoredSettings } from '../modules/settings/service';
 
 const config = loadConfig();
 const db = new SqliteD1(config.dbPath);
 const env = toEnv(config, db as unknown as D1Database);
 const frontendRoot = resolve(config.frontendDir);
+
+// Runtime settings live in SQLite and override .env without a restart.
+await applyStoredSettings(env);
 
 if (!existsSync(frontendRoot)) {
   console.warn(`[wfla] 前端目录不存在：${frontendRoot}，仅提供 API。`);
@@ -24,7 +28,6 @@ selfHost.use('*', async (c, next) => {
   await next();
 });
 
-// API must be mounted before static files and the SPA fallback.
 selfHost.route('/', apiApp);
 
 if (existsSync(frontendRoot)) {
@@ -46,10 +49,10 @@ const server = createServer(requestListener);
 server.listen(config.port, config.host, () => {
   const address = server.address();
   const port = typeof address === 'object' && address ? address.port : config.port;
-  console.log(`[wfla] listening on ${config.publicOrigin} (local ${config.host}:${port})`);
+  console.log(`[wfla] listening on ${env.FRONTEND_ORIGIN ?? config.publicOrigin} (local ${config.host}:${port})`);
   console.log(`[wfla] database: ${config.dbPath}`);
   console.log(`[wfla] frontend: ${config.frontendDir}`);
-  console.log(`[wfla] cookie: Secure=${config.cookieSecure}, SameSite=${config.cookieSameSite}`);
+  console.log(`[wfla] cookie: Secure=${env.COOKIE_SECURE ?? config.cookieSecure}, SameSite=${env.COOKIE_SAMESITE ?? config.cookieSameSite}`);
 });
 
 function shutdown(signal: string): void {

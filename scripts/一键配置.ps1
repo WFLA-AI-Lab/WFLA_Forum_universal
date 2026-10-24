@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
   世外墙 WFLA Wall - 第一次一键配置
   用法：
@@ -11,7 +11,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$script:Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$script:Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 $script:EnvPath = Join-Path $script:Root '.env'
 $script:BACK = '__WFLA_BACK__'
 $script:Npm = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source

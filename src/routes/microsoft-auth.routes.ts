@@ -33,11 +33,12 @@ function decodeJwtPayload<T>(token: string): T | null {
   }
 }
 
-function requireMicrosoftConfig(env: Env): { clientId: string; redirectUri: string } {
+function requireMicrosoftConfig(env: Env): { clientId: string; clientSecret: string; redirectUri: string } {
   const clientId = env.MS_CLIENT_ID;
+  const clientSecret = env.MS_CLIENT_SECRET;
   const redirectUri = env.MS_REDIRECT_URI;
-  if (!clientId || !redirectUri) throw badRequest('Microsoft 登录尚未配置');
-  return { clientId, redirectUri };
+  if (!clientId || !clientSecret || !redirectUri) throw badRequest('Microsoft 登录尚未配置完整');
+  return { clientId, clientSecret, redirectUri };
 }
 
 async function beginMicrosoftFlow(c: Context<{ Bindings: Env }>, mode: 'login' | 'link'): Promise<Response> {
@@ -66,9 +67,7 @@ microsoftAuthRoutes.get('/auth/microsoft/callback', async c => {
   if (!code || !state) throw badRequest('回调参数缺失');
   const stateRow = await consumeOAuthState(c, 'microsoft', state);
 
-  const { clientId, redirectUri } = requireMicrosoftConfig(c.env);
-  const clientSecret = c.env.MS_CLIENT_SECRET;
-  if (!clientSecret) throw badRequest('Microsoft 登录尚未配置');
+  const { clientId, clientSecret, redirectUri } = requireMicrosoftConfig(c.env);
 
   const tokenRes = await fetch(`https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/token`, {
     method: 'POST',

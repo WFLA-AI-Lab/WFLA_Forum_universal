@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from './api';
-import type { Announcement, Board, Post, Thread, User } from './types';
+import type { Announcement, Board, Post, RuntimeSettings, Thread, User } from './types';
 
 interface Report {
   id: string;
@@ -34,7 +34,7 @@ interface Notification {
   created_at: string;
 }
 
-type AdminTab = 'users' | 'reports' | 'invitations' | 'announcements';
+type AdminTab = 'users' | 'reports' | 'invitations' | 'announcements' | 'settings';
 
 type View =
   | { name: 'home' }
@@ -53,7 +53,8 @@ const ADMIN_TABS: { key: AdminTab; en: string; zh: string }[] = [
   { key: 'users', en: 'USERS', zh: '用户' },
   { key: 'reports', en: 'REPORTS', zh: '举报' },
   { key: 'invitations', en: 'INVITATIONS', zh: '邀请码' },
-  { key: 'announcements', en: 'POSTS & BOARDS', zh: '公告与板块' }
+  { key: 'announcements', en: 'POSTS & BOARDS', zh: '公告与板块' },
+  { key: 'settings', en: 'ADVANCED', zh: '高级设置' }
 ];
 
 function formatDate(value: string): string {
@@ -107,6 +108,7 @@ export default function App() {
   const [view, setView] = useState<View>({ name: 'home' });
   const [me, setMe] = useState<User | null>(null);
   const [providers, setProviders] = useState({ microsoft: false, github: false });
+  const [forumName, setForumName] = useState('世外墙 WFLA Wall');
   const [boards, setBoards] = useState<Board[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -127,11 +129,20 @@ export default function App() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '', level: 'normal', ends_at: '' });
   const [newBoardForm, setNewBoardForm] = useState({ name: '', slug: '', description: '' });
+  const [settings, setSettings] = useState<RuntimeSettings | null>(null);
+  const [settingsForm, setSettingsForm] = useState({
+    forum_name: '', public_origin: '', session_ttl_seconds: 604800, cookie_secure: false,
+    cookie_samesite: 'Lax' as 'Lax' | 'Strict', trust_proxy_headers: false,
+    github_client_id: '', github_client_secret: '', github_redirect_uri: '', clear_github_client_secret: false,
+    microsoft_client_id: '', microsoft_client_secret: '', microsoft_redirect_uri: '', clear_microsoft_client_secret: false,
+    confirm_password: ''
+  });
 
   const activeBoard = view.name === 'board' ? view.board : null;
   const activeThread = view.name === 'thread' ? view.thread : null;
   const isStaff = me ? ['moderator', 'admin', 'owner'].includes(me.role) : false;
   const isAdmin = me ? ['admin', 'owner'].includes(me.role) : false;
+  const isOwner = me?.role === 'owner';
   const adminTab = view.name === 'admin' ? view.tab : null;
 
   useEffect(() => { void loadBase(); }, []);
@@ -140,7 +151,11 @@ export default function App() {
     try { const d = await api.get<{ user: User }>('/me'); setMe(d.user); } catch { setMe(null); }
     try { const d = await api.get<{ items: Board[] }>('/boards'); setBoards(d.items); } catch { setBoards([]); }
     try { const d = await api.get<{ items: Announcement[] }>('/announcements'); setAnnouncements(d.items); } catch { setAnnouncements([]); }
-    try { const d = await api.get<{ microsoft: boolean; github: boolean }>('/auth/providers'); setProviders(d); } catch { setProviders({ microsoft: false, github: false }); }
+    try {
+      const d = await api.get<{ forum_name?: string; microsoft: boolean; github: boolean }>('/auth/providers');
+      setProviders(d);
+      if (d.forum_name) setForumName(d.forum_name);
+    } catch { setProviders({ microsoft: false, github: false }); }
   }
 
   useEffect(() => {
@@ -222,7 +237,46 @@ export default function App() {
       if (tab === 'users') { const d = await api.get<{ items: User[] }>('/users'); setAdminUsers(d.items); }
       if (tab === 'reports') { const d = await api.get<{ items: Report[] }>('/reports'); setAdminReports(d.items); }
       if (tab === 'invitations') { const d = await api.get<{ items: Invitation[] }>('/invitations'); setAdminInvitations(d.items); }
+      if (tab === 'settings') {
+        const d = await api.get<{ settings: RuntimeSettings }>('/admin/settings');
+        setSettings(d.settings);
+        setSettingsForm(f => ({
+          ...f, forum_name: d.settings.forum_name, public_origin: d.settings.public_origin,
+          session_ttl_seconds: d.settings.session_ttl_seconds, cookie_secure: d.settings.cookie_secure,
+          cookie_samesite: d.settings.cookie_samesite, trust_proxy_headers: d.settings.trust_proxy_headers,
+          github_client_id: d.settings.github_client_id, github_client_secret: '', github_redirect_uri: d.settings.github_redirect_uri,
+          clear_github_client_secret: false, microsoft_client_id: d.settings.microsoft_client_id,
+          microsoft_client_secret: '', microsoft_redirect_uri: d.settings.microsoft_redirect_uri,
+          clear_microsoft_client_secret: false, confirm_password: ''
+        }));
+      }
     } catch (e) { setError((e as Error).message); }
+  }
+
+  async function saveSettings(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const body = {
+        ...settingsForm,
+        github_client_secret: settingsForm.github_client_secret || undefined,
+        microsoft_client_secret: settingsForm.microsoft_client_secret || undefined
+      };
+      const d = await api.patch<{ settings: RuntimeSettings; changed_fields: string[] }>('/admin/settings', body);
+      setSettings(d.settings);
+      setSettingsForm(f => ({ ...f, github_client_secret: '', microsoft_client_secret: '', confirm_password: '' }));
+      const prov = await api.get<{ forum_name?: string; microsoft: boolean; github: boolean }>('/auth/providers');
+
+      setProviders(prov);
+
+      if (prov.forum_name) setForumName(prov.forum_name);
+
+      setSuccess('高级设置已保存并立即生效'); setError('');
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  function resetSettingsPassword() {
+    setSettingsForm(f => ({ ...f, confirm_password: '', github_client_secret: '', microsoft_client_secret: '',
+      clear_github_client_secret: false, clear_microsoft_client_secret: false }));
   }
 
   async function loadNotifications() {
@@ -299,7 +353,7 @@ export default function App() {
         <button type="button" className="brand" onClick={() => { setView({ name: 'home' }); setError(''); setSuccess(''); }}
           style={{ background: 'none', border: 0, color: 'inherit', cursor: 'pointer', font: 'inherit' }}>
           <span className="seal">世</span>
-          WFLA WALL
+          {forumName}
         </button>
         <nav>
           <a href="#" aria-current={view.name === 'home' ? 'page' : undefined} onClick={go('home')}>
@@ -623,7 +677,7 @@ export default function App() {
             </div>
 
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-              {ADMIN_TABS.map(tab => (
+              {ADMIN_TABS.filter(tab => tab.key !== 'settings' || isOwner).map(tab => (
                 <button key={tab.key} type="button" className={`ef-chip${view.tab === tab.key ? ' is-active' : ''}`}
                   aria-pressed={view.tab === tab.key} onClick={() => goAdmin(tab.key)}>
                   {tab.zh}<span className="n">{tab.en}</span>
@@ -721,6 +775,55 @@ export default function App() {
               </section>
             )}
 
+            {view.tab === 'settings' && (
+              <section className="ef-panel" style={{ padding: '1.25rem 1.5rem' }}>
+                <h2>高级设置 <small>仅负责人可修改 · 保存后立即生效</small></h2>
+                {!isOwner ? <Notice flag="权限">只有论坛所有者可以修改高级设置。</Notice> : !settings ? (
+                  <p className="ef-empty">正在加载运行时配置…</p>
+                ) : (
+                  <form className="ef-form" onSubmit={saveSettings} style={{ display: 'grid', gap: '1.25rem' }}>
+                    <div>
+                      <h3>站点</h3>
+                      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(min(18rem, 100%), 1fr))' }}>
+                        <FormField label="论坛名称"><input value={settingsForm.forum_name} onChange={e => setSettingsForm({ ...settingsForm, forum_name: e.target.value })} required /></FormField>
+                        <FormField label="站点公开地址" hint="用于 CORS 和 Cookie，例如 https://wflawall.zh.kg"><input value={settingsForm.public_origin} onChange={e => setSettingsForm({ ...settingsForm, public_origin: e.target.value })} required /></FormField>
+                        <FormField label="会话有效时间（秒）" hint="300 到 2592000"><input type="number" min={300} max={2592000} value={settingsForm.session_ttl_seconds} onChange={e => setSettingsForm({ ...settingsForm, session_ttl_seconds: Number(e.target.value) })} required /></FormField>
+                        <FormField label="Cookie SameSite"><select value={settingsForm.cookie_samesite} onChange={e => setSettingsForm({ ...settingsForm, cookie_samesite: e.target.value as 'Lax' | 'Strict' })}><option value="Lax">Lax（推荐）</option><option value="Strict">Strict</option></select></FormField>
+                        <label className="field" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><input type="checkbox" checked={settingsForm.cookie_secure} onChange={e => setSettingsForm({ ...settingsForm, cookie_secure: e.target.checked })} /><span>Cookie 仅通过 HTTPS 发送</span></label>
+                        <label className="field" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><input type="checkbox" checked={settingsForm.trust_proxy_headers} onChange={e => setSettingsForm({ ...settingsForm, trust_proxy_headers: e.target.checked })} /><span>信任反向代理的 X-Forwarded-For</span></label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3>GitHub OAuth</h3>
+                      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(min(18rem, 100%), 1fr))' }}>
+                        <FormField label="Client ID"><input value={settingsForm.github_client_id} onChange={e => setSettingsForm({ ...settingsForm, github_client_id: e.target.value })} /></FormField>
+                        <FormField label="回调地址" hint="必须与 GitHub OAuth App 完全一致"><input value={settingsForm.github_redirect_uri} onChange={e => setSettingsForm({ ...settingsForm, github_redirect_uri: e.target.value })} placeholder="https://wflawall.zh.kg/api/v1/auth/github/callback" /></FormField>
+                        <FormField label={`Client Secret${settings.github_client_secret_configured ? '（已配置，留空保留）' : ''}`}><input type="password" autoComplete="new-password" value={settingsForm.github_client_secret} onChange={e => setSettingsForm({ ...settingsForm, github_client_secret: e.target.value })} /></FormField>
+                        {settings.github_client_secret_configured && <label className="field" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><input type="checkbox" checked={settingsForm.clear_github_client_secret} onChange={e => setSettingsForm({ ...settingsForm, clear_github_client_secret: e.target.checked })} /><span>清除已保存的 GitHub Secret</span></label>}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3>Microsoft OAuth</h3>
+                      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(min(18rem, 100%), 1fr))' }}>
+                        <FormField label="Application (client) ID"><input value={settingsForm.microsoft_client_id} onChange={e => setSettingsForm({ ...settingsForm, microsoft_client_id: e.target.value })} /></FormField>
+                        <FormField label="回调地址" hint="必须与 Entra 应用注册的重定向 URI 完全一致"><input value={settingsForm.microsoft_redirect_uri} onChange={e => setSettingsForm({ ...settingsForm, microsoft_redirect_uri: e.target.value })} placeholder="https://wflawall.zh.kg/api/v1/auth/microsoft/callback" /></FormField>
+                        <FormField label={`Client Secret${settings.microsoft_client_secret_configured ? '（已配置，留空保留）' : ''}`}><input type="password" autoComplete="new-password" value={settingsForm.microsoft_client_secret} onChange={e => setSettingsForm({ ...settingsForm, microsoft_client_secret: e.target.value })} /></FormField>
+                        {settings.microsoft_client_secret_configured && <label className="field" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><input type="checkbox" checked={settingsForm.clear_microsoft_client_secret} onChange={e => setSettingsForm({ ...settingsForm, clear_microsoft_client_secret: e.target.checked })} /><span>清除已保存的 Microsoft Secret</span></label>}
+                      </div>
+                    </div>
+
+                    <Notice flag="安全">Secret 会使用 AUTH_SESSION_SECRET 派生的 AES-GCM 密钥加密保存，不会回显。保存前需要验证当前账号密码。</Notice>
+                    <FormField label="当前管理员密码" hint="用于确认这次敏感配置修改"><input type="password" autoComplete="current-password" value={settingsForm.confirm_password} onChange={e => setSettingsForm({ ...settingsForm, confirm_password: e.target.value })} required /></FormField>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <Btn go type="submit">保存高级设置</Btn>
+                      <Btn onClick={resetSettingsPassword}>清空敏感字段</Btn>
+                    </div>
+                  </form>
+                )}
+              </section>
+            )}
             {view.tab === 'announcements' && (
               <div style={{ display: 'grid', gap: '2rem', gridTemplateColumns: 'repeat(auto-fit, minmax(min(26rem, 100%), 1fr))' }}>
                 <section className="ef-panel" style={{ padding: '1.25rem 1.5rem', position: 'relative' }}>

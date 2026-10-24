@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
   世外墙 WFLA Wall - 日常一键启动
   用法：直接运行本脚本，或在项目根目录执行
@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$script:Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$script:Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 $script:EnvPath = Join-Path $script:Root '.env'
 $script:Npm = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
 if (-not $script:Npm) { $script:Npm = (Get-Command npm -ErrorAction SilentlyContinue).Source }
@@ -59,6 +59,12 @@ function Build-Frontend {
     if (-not (Test-Path -LiteralPath $dist)) { throw '找不到 frontend/dist，前端构建异常。' }
     New-Item -ItemType Directory -Force -Path $public | Out-Null
     Get-ChildItem -LiteralPath $dist -Force | Copy-Item -Destination $public -Recurse -Force
+    # Re-copy referenced assets explicitly; this repairs older packages where assets were copied flat.
+    $indexHtml = [IO.File]::ReadAllText((Join-Path $dist 'index.html'))
+    $referencedAssets = [regex]::Matches($indexHtml, '/assets/([^"''\s>]+)') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
+    foreach ($assetName in $referencedAssets) {
+      Copy-Item -LiteralPath (Join-Path $dist (Join-Path 'assets' $assetName)) -Destination (Join-Path $public (Join-Path 'assets' $assetName)) -Force
+    }
   } else {
     Invoke-NativeStep '构建前端（自托管包）' { & $script:Npm --prefix $script:Root run selfhost:build }
   }
@@ -100,8 +106,16 @@ try {
 
   if ($CheckOnly) { Write-Host '自检通过。' -ForegroundColor Green; exit 0 }
 
+  # UNC shares cannot be used as a CMD working directory; bypass npm.cmd and start tsx directly.
+  $tsxCli = Join-Path $script:Root 'node_modules\tsx\dist\cli.mjs'
+  $serverEntry = Join-Path $script:Root 'src-backend\selfhost\server.ts'
+  if (-not (Test-Path -LiteralPath $tsxCli)) { throw "缺少 tsx：$tsxCli。请重新运行一键配置。" }
+  if (-not (Test-Path -LiteralPath $serverEntry)) {
+    $serverEntry = Join-Path $script:Root 'src\selfhost\server.ts'
+  }
+  if (-not (Test-Path -LiteralPath $serverEntry)) { throw "找不到后端入口 server.ts。" }
   Set-Location -LiteralPath $script:Root
-  & $script:Npm --prefix $script:Root run selfhost:start
+  & $script:Node $tsxCli $serverEntry
   if ($LASTEXITCODE -ne 0) { throw "服务退出，退出码：$LASTEXITCODE" }
 } catch {
   Write-Host ''

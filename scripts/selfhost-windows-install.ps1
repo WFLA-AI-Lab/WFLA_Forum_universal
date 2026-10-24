@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # WFLA Wall self-host install helper for Windows Server / Windows 10 / Windows 11.
 # Run once in an elevated PowerShell only if you want it to start at boot.
 param(
@@ -11,7 +11,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
   exit 1
 }
 
-$root = (Resolve-Path $InstallRoot).Path
+$root = (Resolve-Path $InstallRoot).ProviderPath
 if (-not (Test-Path (Join-Path $root 'package.json'))) { throw "package.json not found in $root" }
 
 # Copy production frontend output to the expected public directory.

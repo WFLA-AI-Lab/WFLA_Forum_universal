@@ -53,3 +53,18 @@ export interface Announcement {
   author_real_name: string;
   author_graduation_year: string;
 }
+export interface RuntimeSettings {
+  forum_name: string;
+  public_origin: string;
+  session_ttl_seconds: number;
+  cookie_secure: boolean;
+  cookie_samesite: 'Lax' | 'Strict';
+  trust_proxy_headers: boolean;
+  github_client_id: string;
+  github_client_secret_configured: boolean;
+  github_redirect_uri: string;
+  microsoft_client_id: string;
+  microsoft_client_secret_configured: boolean;
+  microsoft_redirect_uri: string;
+  updated_at: string | null;
+}

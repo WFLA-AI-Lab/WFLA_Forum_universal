@@ -6,7 +6,7 @@
 [CmdletBinding()]
 param([switch]$VerifyOnly)
 $ErrorActionPreference = 'Stop'
-$root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 $caddyDir = Join-Path $root 'tools\caddy'
 $caddyExe = Join-Path $caddyDir 'caddy.exe'
 $version = 'v2.11.7'
