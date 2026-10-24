@@ -38,7 +38,7 @@ export const SKIN_COMPONENTS: Record<string, SkinRegistration> = {
 };
 
 /** Fallback used when a configured skin id has no frontend implementation yet. */
-export const FALLBACK_SKIN_ID = 'endfield';
+export const FALLBACK_SKIN_ID = 'x';
 
 export function resolveSkin(id: string | undefined): SkinRegistration {
   return SKIN_COMPONENTS[id ?? ''] ?? SKIN_COMPONENTS[FALLBACK_SKIN_ID]!;

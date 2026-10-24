@@ -30,7 +30,7 @@
 - 运行时高级设置（仅 owner）：站点公开地址、会话参数、OAuth 凭据可视化配置，改密钥需二次确认密码。
 - 网络诊断（仅 owner）：主动探测 GitHub / Microsoft 端点连通性并给出排查提示。
 - 站点公开配置接口 `GET /api/v1/site/config`：品牌、版本、皮肤清单、游客 / 注册开关。
-- 健康检查 `GET /api/v1/health`：返回应用版本、API 版本、数据库结构版本。
+- 健康检查 `GET /api/v1/health`：返回应用版本、API 版本、数据库结构版本；实现收敛到可复用的 `healthRoutes` 模块。
 - 自托管支持：SQLite（better-sqlite3）、迁移脚本、备份脚本、一键配置 / 一键启动脚本、可选 Caddy HTTPS。
 
 ### Added — 前端
