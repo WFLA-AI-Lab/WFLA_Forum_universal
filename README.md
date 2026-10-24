@@ -1,6 +1,6 @@
 # WFLA Wall Backend
 
-世外墙 WFLA Wall 后端 API。注册采用邀请制（邀请码注册后必须由管理员手动激活）。登录方式为内部账号密码或 Microsoft OAuth（需先在论坛账号内绑定 Microsoft 身份）。游客可以浏览公开内容；发帖、举报和通知需要登录。所有用户公开显示真实中文姓名与届别。
+世外墙 WFLA Wall 后端 API。注册采用邀请制（邀请码注册后必须由管理员手动激活）。登录方式为内部账号密码、Microsoft OAuth 或 GitHub OAuth（第三方身份需先在论坛账号内完成绑定）。游客可以浏览公开内容；发帖、举报和通知需要登录。所有用户公开显示真实中文姓名与届别。
 
 ## 技术栈
 
@@ -36,8 +36,12 @@ npm run dev
    - `wrangler secret put MS_CLIENT_ID`
    - `wrangler secret put MS_CLIENT_SECRET`
    - 在 `wrangler.toml [vars]` 中设置 `MS_REDIRECT_URI = "https://你的域名/api/v1/auth/microsoft/callback"`，并在 Entra 应用注册中加入同一重定向 URI。
-5. `npm run migrate:remote`。
-6. `wrangler deploy`。
+5. GitHub 登录（可选）：
+   - `wrangler secret put GITHUB_CLIENT_ID`
+   - `wrangler secret put GITHUB_CLIENT_SECRET`
+   - 在 `wrangler.toml [vars]` 中设置 `GITHUB_REDIRECT_URI = "https://你的域名/api/v1/auth/github/callback"`，并在 GitHub OAuth App 中填写同一回调地址。
+6. `npm run migrate:remote`。
+7. `wrangler deploy`。
 
 ## 初始账号
 
@@ -52,7 +56,7 @@ node scripts/create-owner.mjs <username> <password> <真实中文姓名> <届别
 基础路径：`/api/v1`
 
 - 认证：`POST /login`、`POST /logout`、`GET /me`
-- Microsoft：`GET /auth/microsoft/login`、`GET /auth/microsoft/callback`、`POST /auth/microsoft/link`
+- 第三方登录：`GET /auth/providers`、`GET /auth/microsoft/login`、`GET /auth/microsoft/callback`、`POST /auth/microsoft/link`、`GET /auth/github/login`、`GET /auth/github/callback`、`POST /auth/github/link`
 - 邀请：`POST /register`、`POST /invitations`、`GET /invitations`、`POST /users/:id/activate`
 - 用户：`GET /users`（监管）、`GET /users/:id`、`PATCH /users/:id`、`POST /users`（管理员）、`POST /users/:id/password`、`POST /users/:id/status`、`POST /users/:id/role`
 - 板块/内容：`GET|POST /boards`、`GET|POST /boards/:slug/threads`、`GET /threads/:id`、`POST /threads/:id/posts`、`PATCH|DELETE /posts/:id`、`POST /threads/:id/view`
