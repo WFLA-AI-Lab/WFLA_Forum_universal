@@ -1,7 +1,7 @@
 // Bundle the Pages Function into dist/_worker.js so `wrangler pages deploy`
 // ships both the static assets and the /api/v1 proxy in one deploy.
 // WFLA_API_ORIGIN comes from the Pages environment (Production + Preview).
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -29,7 +29,5 @@ export default {
 `;
 writeFileSync(new URL('../dist/_worker.js', import.meta.url), out);
 
-// The HTML head loads this script before the bundled app; keep it at /src/variant.js in dist.
-mkdirSync(new URL('../dist/src', import.meta.url), { recursive: true });
-copyFileSync(new URL('../src/variant.js', import.meta.url), new URL('../dist/src/variant.js', import.meta.url));
+
 console.log('dist/_worker.js written');

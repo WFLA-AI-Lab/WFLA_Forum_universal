@@ -37,7 +37,7 @@ async function seedOwner(): Promise<void> {
   const now = nowIso();
   await env.DB.prepare(
     'INSERT INTO users (id, username, password_hash, real_name, graduation_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(OWNER_ID, 'owner', bcrypt.hashSync('OwnerPass1!', 4), '赵俊钦', '2029', 'owner' satisfies Role, 'active', now, now).run();
+  ).bind(OWNER_ID, 'owner', bcrypt.hashSync('OwnerPass1!', 4), '测试同学', '2029', 'owner' satisfies Role, 'active', now, now).run();
   await env.DB.prepare(
     'INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)'
   ).bind(await sha256(OWNER_TOKEN), OWNER_ID, addSeconds(new Date(), 3600).toISOString(), now).run();
@@ -93,7 +93,7 @@ function installGitHubMock(plan: GitHubMockPlan) {
       if (plan.emails instanceof Error) throw plan.emails;
       return jsonResponse(200, plan.emails ?? []);
     }
-    return jsonResponse(200, plan.profile ?? { id: 42, login: 'RulerCordelius', email: null });
+    return jsonResponse(200, plan.profile ?? { id: 42, login: 'fixture-user', email: null });
   });
 }
 
@@ -140,7 +140,7 @@ describe('github oauth callback resilience', () => {
   it('links the account when /user/emails answers with an object instead of an array', async () => {
     installGitHubMock({
       token: { access_token: 'gho_test' },
-      profile: { id: 4242, login: 'RulerCordelius', email: null },
+      profile: { id: 4242, login: 'fixture-user', email: null },
       emails: { message: 'Resource not accessible by integration' }
     });
     const state = await createLinkState();
@@ -158,7 +158,7 @@ describe('github oauth callback resilience', () => {
   it('links the account even when the optional email lookup fails at the network layer', async () => {
     installGitHubMock({
       token: { access_token: 'gho_test' },
-      profile: { id: 4243, login: 'RulerCordelius', email: null },
+      profile: { id: 4243, login: 'fixture-user', email: null },
       emails: new TypeError('fetch failed')
     });
     const state = await createLinkState();

@@ -1,0 +1,333 @@
+/* ==========================================================================
+   x.css — the X-style (three-column feed) skin for WFLA Wall.
+   Scoped under .xsk so it never leaks into other skins.
+   ========================================================================== */
+
+.xsk {
+  --x-bg: #ffffff;
+  --x-panel: #f7f9f9;
+  --x-line: #e4e8eb;
+  --x-ink: #0f1419;
+  --x-ink-2: #536471;
+  --x-accent: #1d9bf0;
+  --x-accent-soft: #e8f5fe;
+  --x-danger: #f4212e;
+  --x-like: #f91880;
+  --x-radius: 16px;
+  --x-max: 1265px;
+  --x-rail: 275px;
+  --x-side: 350px;
+
+  min-height: 100vh;
+  margin: 0;
+  background: var(--x-bg);
+  color: var(--x-ink);
+  font-family: "Noto Sans SC", -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.xsk * { box-sizing: border-box; }
+
+.xsk a { color: inherit; text-decoration: none; }
+
+.xsk-layout {
+  display: grid;
+  grid-template-columns: var(--x-rail) minmax(0, 1fr) var(--x-side);
+  gap: 0;
+  max-width: var(--x-max);
+  margin: 0 auto;
+  align-items: start;
+}
+
+/* ---------- left rail ---------- */
+
+.xsk-rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-right: 1px solid var(--x-line);
+}
+
+.xsk-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+}
+
+.xsk-logo .mark {
+  width: 2rem; height: 2rem;
+  display: grid; place-items: center;
+  background: var(--x-ink);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.xsk-rail nav { display: flex; flex-direction: column; gap: 2px; }
+
+.xsk-navitem {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  color: var(--x-ink);
+  background: none;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms ease;
+}
+.xsk-navitem:hover { background: var(--x-panel); }
+.xsk-navitem[aria-current="page"] { font-weight: 700; }
+.xsk-navitem .n {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--x-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.xsk-navitem .glyph { width: 1.4rem; text-align: center; font-size: 1.15rem; }
+
+.xsk-post-btn {
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--x-ink);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.xsk-post-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.xsk-railfoot { margin-top: auto; padding: 0.75rem; }
+
+/* ---------- centre column ---------- */
+
+.xsk-main {
+  min-height: 100vh;
+  border-right: 1px solid var(--x-line);
+}
+
+.xsk-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--x-bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--x-line);
+}
+.xsk-topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 800; }
+.xsk-topbar .sub { font-size: 0.8rem; color: var(--x-ink-2); }
+
+.xsk-section { padding: 1rem; border-bottom: 1px solid var(--x-line); }
+.xsk-section h2 { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 800; }
+
+.xsk-hero { padding: 1.25rem 1rem 1rem; border-bottom: 1px solid var(--x-line); }
+.xsk-hero h1 { margin: 0.25rem 0 0.5rem; font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 800; letter-spacing: -0.02em; }
+.xsk-hero p { margin: 0; color: var(--x-ink-2); max-width: 40rem; }
+
+.xsk-stats { display: flex; gap: 1.25rem; flex-wrap: wrap; padding: 0.9rem 1rem; border-bottom: 1px solid var(--x-line); }
+.xsk-stats div { display: flex; flex-direction: column; }
+.xsk-stats b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.xsk-stats span { font-size: 0.78rem; color: var(--x-ink-2); }
+
+/* ---------- posts / cards ---------- */
+
+.xsk-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--x-line);
+  background: var(--x-bg);
+  text-align: left;
+  width: 100%;
+  border-left: 0; border-right: 0; border-top: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.xsk-card:hover { background: var(--x-panel); }
+.xsk-card.flat { cursor: default; }
+.xsk-card.flat:hover { background: var(--x-bg); }
+
+.xsk-avatar {
+  width: 44px; height: 44px;
+  border-radius: 999px;
+  display: grid; place-items: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff;
+  background: linear-gradient(135deg, #1d9bf0, #7856ff);
+  flex: none;
+}
+.xsk-avatar.sm { width: 36px; height: 36px; font-size: 0.85rem; }
+
+.xsk-card-head { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+.xsk-card-head .name { font-weight: 700; }
+.xsk-card-head .meta { color: var(--x-ink-2); font-size: 0.85rem; }
+.xsk-card-head .badge {
+  font-size: 0.72rem; font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--x-accent-soft);
+  color: var(--x-accent);
+}
+.xsk-card-title { margin: 0.15rem 0 0.25rem; font-weight: 700; font-size: 1.02rem; }
+.xsk-card-body { margin: 0; color: var(--x-ink); overflow-wrap: anywhere; }
+.xsk-card-body p { margin: 0 0 0.5rem; }
+.xsk-card-body a { color: var(--x-accent); }
+
+.xsk-card-foot { display: flex; gap: 1.5rem; margin-top: 0.6rem; color: var(--x-ink-2); font-size: 0.82rem; }
+.xsk-card-foot span { font-variant-numeric: tabular-nums; }
+
+.xsk-prose { overflow-wrap: anywhere; }
+.xsk-prose p { margin: 0 0 0.6rem; }
+.xsk-prose a { color: var(--x-accent); }
+
+/* ---------- forms ---------- */
+
+.xsk-form { display: grid; gap: 0.75rem; }
+.xsk-field { display: grid; gap: 0.3rem; }
+.xsk-field > span { font-size: 0.8rem; color: var(--x-ink-2); font-weight: 600; }
+.xsk-field small { font-size: 0.75rem; color: var(--x-ink-2); }
+
+.xsk input, .xsk textarea, .xsk select {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--x-line);
+  border-radius: 10px;
+  background: var(--x-bg);
+  color: var(--x-ink);
+  font: inherit;
+}
+.xsk input:focus, .xsk textarea:focus, .xsk select:focus {
+  outline: 2px solid var(--x-accent);
+  outline-offset: -1px;
+  border-color: var(--x-accent);
+}
+.xsk textarea { resize: vertical; min-height: 5rem; }
+
+.xsk-btn {
+  padding: 0.6rem 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--x-ink);
+  color: #fff;
+  font-weight: 700;
+  font: inherit;
+  cursor: pointer;
+}
+.xsk-btn.accent { background: var(--x-accent); }
+.xsk-btn.ghost { background: transparent; color: var(--x-ink); border: 1px solid var(--x-line); }
+.xsk-btn.danger { background: var(--x-danger); }
+.xsk-btn.small { padding: 0.35rem 0.75rem; font-size: 0.82rem; }
+.xsk-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.xsk-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+/* ---------- right sidebar ---------- */
+
+.xsk-side { position: sticky; top: 0; padding: 0.75rem 1rem; }
+.xsk-side .panel {
+  background: var(--x-panel);
+  border-radius: var(--x-radius);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+.xsk-side .panel h3 { margin: 0 0 0.6rem; font-size: 1rem; font-weight: 800; }
+.xsk-side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.xsk-side li { display: grid; gap: 0.1rem; }
+.xsk-side li a { display: block; border-radius: 10px; padding: 0.35rem 0.4rem; margin: -0.35rem -0.4rem; }
+.xsk-side li a:hover { background: color-mix(in srgb, var(--x-ink) 6%, transparent); }
+.xsk-side .t { font-weight: 700; }
+.xsk-side .d { font-size: 0.82rem; color: var(--x-ink-2); }
+
+/* ---------- notices ---------- */
+
+.xsk-flash { margin: 0.75rem 1rem 0; padding: 0.7rem 0.9rem; border-radius: 12px; font-size: 0.9rem; }
+.xsk-flash.error { background: #fdecef; color: #8b1a24; }
+.xsk-flash.success { background: #e7f8ef; color: #0d5c33; }
+
+.xsk-empty { padding: 2rem 1rem; color: var(--x-ink-2); text-align: center; }
+
+.xsk-notice {
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  background: var(--x-panel);
+  color: var(--x-ink-2);
+  font-size: 0.88rem;
+}
+
+/* ---------- admin ---------- */
+
+.xsk-admin { padding: 1rem; }
+.xsk-admin h2 { font-size: 1.05rem; margin: 0 0 0.75rem; }
+.xsk-panel { border: 1px solid var(--x-line); border-radius: var(--x-radius); padding: 1rem; margin-bottom: 1rem; }
+.xsk-rows { list-style: none; margin: 0; padding: 0; }
+.xsk-rows li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; border-top: 1px solid var(--x-line); flex-wrap: wrap; }
+.xsk-rows li:first-child { border-top: 0; }
+.xsk-rows .meta { display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.82rem; color: var(--x-ink-2); }
+.xsk-tag { font-size: 0.72rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px; background: var(--x-panel); color: var(--x-ink-2); }
+.xsk-tag.warn { background: #fff4e5; color: #8a5300; }
+.xsk-tag.alarm { background: #fdecef; color: #8b1a24; }
+
+.xsk-tabs { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.xsk-tab { padding: 0.45rem 0.9rem; border-radius: 999px; border: 1px solid var(--x-line); background: var(--x-bg); font: inherit; cursor: pointer; }
+.xsk-tab[aria-pressed="true"] { background: var(--x-ink); color: #fff; border-color: var(--x-ink); font-weight: 700; }
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1100px) {
+  .xsk-layout { grid-template-columns: 88px minmax(0, 1fr) var(--x-side); }
+  .xsk-rail { align-items: center; padding: 0.5rem 0.35rem; }
+  .xsk-navitem span.label, .xsk-rail .railhide { display: none; }
+  .xsk-navitem { justify-content: center; padding: 0.7rem; }
+  .xsk-post-btn { font-size: 0; width: 52px; height: 52px; }
+  .xsk-post-btn::after { content: "+"; font-size: 1.5rem; }
+  .xsk-logo span.text { display: none; }
+}
+
+@media (max-width: 800px) {
+  .xsk-layout { grid-template-columns: 0 minmax(0, 1fr) 0; }
+  .xsk-rail, .xsk-side { display: none; }
+  .xsk-main { border-right: 0; }
+  .xsk-mobilebar {
+    position: sticky; bottom: 0; z-index: 10;
+    display: flex; justify-content: space-around;
+    border-top: 1px solid var(--x-line);
+    background: var(--x-bg);
+    padding: 0.4rem 0.25rem;
+  }
+  .xsk-mobilebar button { background: none; border: 0; font: inherit; color: var(--x-ink-2); cursor: pointer; padding: 0.4rem 0.7rem; }
+  .xsk-mobilebar button[aria-current="page"] { color: var(--x-accent); font-weight: 700; }
+}
+
+@media (min-width: 801px) {
+  .xsk-mobilebar { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xsk *, .xsk *::before, .xsk *::after { transition: none !important; animation: none !important; }
+}

@@ -1,0 +1,33 @@
+/* ==========================================================================
+   base.css — the document chrome shared by every skin.
+   Keep this tiny. Anything that only one skin needs belongs in that skin.
+   ========================================================================== */
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  background: #fff;
+  color: #0f1419;
+  font-family: "Noto Sans SC", -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+/* The active skin sets data-skin on <html> so page-level effects can hook on. */
+html[data-skin="endfield"] body { background: var(--ef-paper, #f4f4f2); }
+
+#root { min-height: 100vh; }
+
+img, svg { max-width: 100%; }
+
+/* Honour the OS-level motion preference everywhere by default. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
