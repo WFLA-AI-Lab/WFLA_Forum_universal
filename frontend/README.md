@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-后端默认地址是 `http://127.0.0.1:8787/api/v1`，可用 `.env.local` 覆盖：
+后端默认地址是 `http://127.0.0.1:8888/api/v1`，可用 `.env.local` 覆盖：
 
 ```bash
 VITE_API_BASE=https://your-backend.example.com/api/v1
