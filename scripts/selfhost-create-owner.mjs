@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
-import { loadDotEnv } from '../src/selfhost/dotenv.ts';
+import { loadDotEnv } from './load-dotenv.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(projectRoot);

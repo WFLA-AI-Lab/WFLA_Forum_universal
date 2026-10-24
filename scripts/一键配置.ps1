@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 <#
   世外墙 WFLA Wall - 第一次一键配置
   用法：
@@ -393,7 +393,13 @@ function Step-Write {
 
 try {
   Assert-Layout
-  if (-not $script:Npm -or -not $script:Node) { throw '没有找到 Node.js / npm，请先安装 Node.js 20 或更高版本。' }
+  if (-not $script:Npm -or -not $script:Node) { throw '没有找到 Node.js / npm，请先安装 Node.js 22.12 或更高版本。' }
+  $nodeVersionText = (& $script:Node -p "process.versions.node" 2>$null)
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($nodeVersionText)) { throw '无法读取 Node.js 版本，请重新安装 Node.js 22.12 或更高版本。' }
+  $nodeVersionParts = $nodeVersionText.Trim().Split('.')
+  if ($nodeVersionParts.Count -lt 3) { throw "无法识别 Node.js 版本：$nodeVersionText" }
+  $nodeVersion = [version]("{0}.{1}.{2}" -f $nodeVersionParts[0], $nodeVersionParts[1], $nodeVersionParts[2])
+  if ($nodeVersion -lt [version]'22.12.0') { throw "当前 Node.js 版本为 $nodeVersionText，项目至少需要 22.12.0。请升级 Node.js 后重试。" }
 
   Write-Section '世外墙 WFLA Wall 第一次一键配置'
   Write-Host "项目目录：$script:Root"
@@ -485,10 +491,13 @@ try {
 
   $adminUsername = $null
   if ($reuseEnv) {
-    & $script:Npm --prefix $script:Root run selfhost:create-owner -- --check *> $null
-    if ($LASTEXITCODE -eq 0) {
+    $ownerCheckOutput = & $script:Npm --prefix $script:Root run selfhost:create-owner -- --check 2>&1
+    $ownerCheckExit = $LASTEXITCODE
+    $ownerExists = $ownerCheckExit -eq 0 -and (($ownerCheckOutput -join "`n") -match 'owner exists:')
+    if ($ownerExists) {
       Write-Host '[跳过] 数据库中已经存在所有者账号，不会重复创建。' -ForegroundColor DarkGray
     } else {
+      Write-Host '数据库中还没有所有者账号，请现在创建。' -ForegroundColor Yellow
       $adminUsername = Read-TextValue '管理员用户名' '' '^[A-Za-z0-9_]{3,32}$' '用户名格式不正确。'
       $adminPassword = Read-PasswordValue '管理员密码'
       $adminRealName = Read-TextValue '真实中文姓名（会公开展示）' '' '^[\u4E00-\u9FA5]{2,10}$' '请输入 2-10 个中文汉字。'
@@ -512,6 +521,9 @@ try {
       Remove-Item Env:WFLA_OWNER_PASSWORD -ErrorAction SilentlyContinue
       Remove-Item Env:WFLA_OWNER_EXISTS -ErrorAction SilentlyContinue
     }
+    & $script:Npm --prefix $script:Root run selfhost:create-owner -- --check *> $null
+    if ($LASTEXITCODE -ne 0) { throw '管理员账号写入后复查失败，数据库中没有所有者。' }
+    Write-Host '[完成] 管理员账号已写入数据库并完成复查。' -ForegroundColor Green
   } else {
     Write-Host '[跳过] 所有者账号已存在。' -ForegroundColor DarkGray
   }

@@ -1,4 +1,4 @@
-import { loadDotEnv } from '../src/selfhost/dotenv.ts';
+import { loadDotEnv } from './load-dotenv.mjs';
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';

@@ -47,7 +47,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\一键启动.ps1 -
 ## 环境和网络
 
 - Windows 10/11 或 Windows Server
-- Node.js 20 或更高版本（推荐 Node.js 22 LTS）
+- Node.js 22.12 或更高版本（推荐 Node.js 22 LTS）
 - 内网测试：防火墙放行 `PORT`（默认 8888），浏览器使用 `PUBLIC_ORIGIN`
 - 公网访问：必须通过 HTTPS 反向代理或可信内网穿透，并把 `PUBLIC_ORIGIN` 改成实际 HTTPS 地址
 - 只有前面确实有可信反向代理时才设置 `TRUST_PROXY_HEADERS=true`

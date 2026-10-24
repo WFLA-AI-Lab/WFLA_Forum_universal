@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 <#
   世外墙 WFLA Wall - 日常一键启动
   用法：直接运行本脚本，或在项目根目录执行
@@ -65,7 +65,13 @@ function Build-Frontend {
 }
 
 try {
-  if (-not $script:Npm -or -not $script:Node) { throw '没有找到 Node.js / npm，请先安装 Node.js 20 或更高版本。' }
+  if (-not $script:Npm -or -not $script:Node) { throw '没有找到 Node.js / npm，请先安装 Node.js 22.12 或更高版本。' }
+  $nodeVersionText = (& $script:Node -p "process.versions.node" 2>$null)
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($nodeVersionText)) { throw '无法读取 Node.js 版本，请重新安装 Node.js 22.12 或更高版本。' }
+  $nodeVersionParts = $nodeVersionText.Trim().Split('.')
+  if ($nodeVersionParts.Count -lt 3) { throw "无法识别 Node.js 版本：$nodeVersionText" }
+  $nodeVersion = [version]("{0}.{1}.{2}" -f $nodeVersionParts[0], $nodeVersionParts[1], $nodeVersionParts[2])
+  if ($nodeVersion -lt [version]'22.12.0') { throw "当前 Node.js 版本为 $nodeVersionText，项目至少需要 22.12.0。请升级 Node.js 后重试。" }
   if (-not (Test-Path -LiteralPath (Join-Path $script:Root 'package.json'))) { throw '没有找到 package.json。' }
   if (-not (Test-Path -LiteralPath $script:EnvPath)) { throw '没有找到 .env。请先运行 scripts\一键配置.ps1 完成第一次配置。' }
   if ([string]::IsNullOrWhiteSpace((Get-DotEnvValue 'PUBLIC_ORIGIN'))) { throw '.env 中缺少 PUBLIC_ORIGIN。' }
