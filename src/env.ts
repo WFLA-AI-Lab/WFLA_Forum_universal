@@ -8,6 +8,9 @@ export interface Env {
   MS_CLIENT_ID?: string;
   MS_CLIENT_SECRET?: string;
   MS_REDIRECT_URI?: string;
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
+  GITHUB_REDIRECT_URI?: string;
   FRONTEND_ORIGIN?: string;
   COOKIE_SECURE?: boolean;
   COOKIE_SAMESITE?: 'Lax' | 'Strict';
@@ -40,5 +43,3 @@ export interface PaginationQuery {
   limit?: number;
   cursor?: string | null;
 }
-
-

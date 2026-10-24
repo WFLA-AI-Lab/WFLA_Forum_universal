@@ -17,6 +17,9 @@ export interface SelfHostConfig {
   msClientId: string | undefined;
   msClientSecret: string | undefined;
   msRedirectUri: string | undefined;
+  githubClientId: string | undefined;
+  githubClientSecret: string | undefined;
+  githubRedirectUri: string | undefined;
 }
 
 function envValue(name: string): string | undefined {
@@ -41,13 +44,13 @@ export function loadConfig(): SelfHostConfig {
   const environment = envValue('ENVIRONMENT') ?? 'production';
   const publicOrigin = (envValue('PUBLIC_ORIGIN') ?? envValue('FRONTEND_ORIGIN') ?? '').replace(/\/+$/, '');
   if (!/^https?:\/\/[^\s/]+(:\d+)?$/i.test(publicOrigin)) {
-    throw new Error('PUBLIC_ORIGIN 必须是完整地址，例如 http://192.168.1.10:8787 或 https://forum.example.com');
+    throw new Error('PUBLIC_ORIGIN 必须是完整地址，例如 http://192.168.1.10:8888 或 https://forum.example.com');
   }
   const url = new URL(publicOrigin);
   const cookieSecure = parseBoolean(envValue('COOKIE_SECURE'), url.protocol === 'https:');
   const cookieSameSite = envValue('COOKIE_SAMESITE') === 'Strict' ? 'Strict' : 'Lax';
   return {
-    port: Number(envValue('PORT') ?? 8787),
+    port: Number(envValue('PORT') ?? 8888),
     host: envValue('HOST') ?? '0.0.0.0',
     dbPath: envValue('WFLA_DB_PATH') ?? 'data/wfla-wall.sqlite',
     frontendDir: envValue('WFLA_FRONTEND_DIR') ?? 'public',
@@ -61,7 +64,10 @@ export function loadConfig(): SelfHostConfig {
     trustProxyHeaders: parseBoolean(envValue('TRUST_PROXY_HEADERS'), false),
     msClientId: envValue('MS_CLIENT_ID'),
     msClientSecret: envValue('MS_CLIENT_SECRET'),
-    msRedirectUri: envValue('MS_REDIRECT_URI')
+    msRedirectUri: envValue('MS_REDIRECT_URI'),
+    githubClientId: envValue('GITHUB_CLIENT_ID'),
+    githubClientSecret: envValue('GITHUB_CLIENT_SECRET'),
+    githubRedirectUri: envValue('GITHUB_REDIRECT_URI')
   };
 }
 
@@ -78,6 +84,9 @@ export function toEnv(config: SelfHostConfig, db: D1Database): Env {
     TRUST_PROXY_HEADERS: config.trustProxyHeaders,
     ...(config.msClientId ? { MS_CLIENT_ID: config.msClientId } : {}),
     ...(config.msClientSecret ? { MS_CLIENT_SECRET: config.msClientSecret } : {}),
-    ...(config.msRedirectUri ? { MS_REDIRECT_URI: config.msRedirectUri } : {})
+    ...(config.msRedirectUri ? { MS_REDIRECT_URI: config.msRedirectUri } : {}),
+    ...(config.githubClientId ? { GITHUB_CLIENT_ID: config.githubClientId } : {}),
+    ...(config.githubClientSecret ? { GITHUB_CLIENT_SECRET: config.githubClientSecret } : {}),
+    ...(config.githubRedirectUri ? { GITHUB_REDIRECT_URI: config.githubRedirectUri } : {})
   };
 }

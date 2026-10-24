@@ -9,16 +9,19 @@ import { moderationRoutes } from './modules/moderation/routes';
 import { notificationRoutes } from './modules/notification/routes';
 import { invitationRoutes } from './routes/invitation.routes';
 import { microsoftAuthRoutes } from './routes/microsoft-auth.routes';
+import { githubAuthRoutes } from './routes/github-auth.routes';
+import { oauthProviderRoutes } from './routes/oauth-provider.routes';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api/v1');
 
 app.use('*', secureHeaders());
 app.use('*', cors({
   origin: (origin, c) => {
+    const fallback = c.env?.FRONTEND_ORIGIN ?? 'https://forum.example.com';
     const allowed = (c.env?.ENVIRONMENT === 'local')
       ? ['http://localhost:5173', 'http://127.0.0.1:5173']
-      : [c.env?.FRONTEND_ORIGIN ?? 'https://wfla-wall.pages.dev'];
-    return allowed.includes(origin ?? '') ? origin : (c.env?.FRONTEND_ORIGIN ?? 'https://wfla-wall.pages.dev');
+      : [fallback];
+    return allowed.includes(origin ?? '') ? origin : fallback;
   },
   credentials: true,
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -34,6 +37,8 @@ app.route('/', moderationRoutes);
 app.route('/', notificationRoutes);
 app.route('/', invitationRoutes);
 app.route('/', microsoftAuthRoutes);
+app.route('/', githubAuthRoutes);
+app.route('/', oauthProviderRoutes);
 
 app.notFound(c => c.json({ error: { code: 'NOT_FOUND', message: '接口不存在' } }, 404));
 app.onError((error, c) => {
@@ -48,4 +53,3 @@ app.onError((error, c) => {
 });
 
 export default app;
-

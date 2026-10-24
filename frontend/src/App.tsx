@@ -106,6 +106,7 @@ function Notice({ flag, children }: { flag: string; children: React.ReactNode })
 export default function App() {
   const [view, setView] = useState<View>({ name: 'home' });
   const [me, setMe] = useState<User | null>(null);
+  const [providers, setProviders] = useState({ microsoft: false, github: false });
   const [boards, setBoards] = useState<Board[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -139,6 +140,7 @@ export default function App() {
     try { const d = await api.get<{ user: User }>('/me'); setMe(d.user); } catch { setMe(null); }
     try { const d = await api.get<{ items: Board[] }>('/boards'); setBoards(d.items); } catch { setBoards([]); }
     try { const d = await api.get<{ items: Announcement[] }>('/announcements'); setAnnouncements(d.items); } catch { setAnnouncements([]); }
+    try { const d = await api.get<{ microsoft: boolean; github: boolean }>('/auth/providers'); setProviders(d); } catch { setProviders({ microsoft: false, github: false }); }
   }
 
   useEffect(() => {
@@ -325,6 +327,12 @@ export default function App() {
           {me ? (
             <>
               <span>{me.real_name} │ {me.graduation_year} 届 │ {ROLE_LABEL[me.role] ?? me.role}</span>
+              {providers.microsoft && (
+                <Btn small onClick={() => { window.location.href = `${API_ORIGIN}/api/v1/auth/microsoft/link?return_to=/`; }}>绑定 Microsoft</Btn>
+              )}
+              {providers.github && (
+                <Btn small onClick={() => { window.location.href = `${API_ORIGIN}/api/v1/auth/github/link?return_to=/`; }}>绑定 GitHub</Btn>
+              )}
               <Btn small onClick={logout}>退出</Btn>
             </>
           ) : (
@@ -531,9 +539,17 @@ export default function App() {
               <FormField label="密码"><input type="password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" /></FormField>
               <div><Btn go type="submit">登录</Btn></div>
             </form>
-            <p className="ef-field" style={{ marginTop: '1.5rem' }}>
-              也可以使用 <a href={`${API_ORIGIN}/api/v1/auth/microsoft/login`}>Microsoft 账号登录</a>（需先绑定论坛账号）
-            </p>
+            {(providers.microsoft || providers.github) && (
+              <div className="ef-field" style={{ marginTop: '1.5rem', display: 'grid', gap: '0.5rem' }}>
+                <span>第三方登录（需先绑定论坛账号）：</span>
+                {providers.microsoft && (
+                  <a href={`${API_ORIGIN}/api/v1/auth/microsoft/login`}>使用 Microsoft 账号登录</a>
+                )}
+                {providers.github && (
+                  <a href={`${API_ORIGIN}/api/v1/auth/github/login`}>使用 GitHub 账号登录</a>
+                )}
+              </div>
+            )}
           </main>
         )}
 
