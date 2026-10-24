@@ -3,7 +3,6 @@ import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import type { Env } from './env';
 import { AppError } from './core/errors';
-import { APP_VERSION, API_VERSION, SCHEMA_VERSION } from './version';
 import { identityRoutes } from './modules/identity/routes';
 import { contentRoutes } from './modules/content/routes';
 import { moderationRoutes } from './modules/moderation/routes';
@@ -15,6 +14,7 @@ import { oauthProviderRoutes } from './routes/oauth-provider.routes';
 import { settingsRoutes } from './modules/settings/routes';
 import { diagnosticsRoutes } from './modules/settings/diagnostics';
 import { siteRoutes } from './modules/site/routes';
+import { healthRoutes } from './routes/health.routes';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api/v1');
 
@@ -33,13 +33,8 @@ app.use('*', cors({
   maxAge: 600
 }));
 
-app.get('/health', async c => c.json({
-  status: 'ok',
-  time: new Date().toISOString(),
-  version: APP_VERSION,
-  api_version: API_VERSION,
-  schema_version: SCHEMA_VERSION
-}));
+// Health first: monitors hit it before auth/CORS matter.
+app.route('/', healthRoutes);
 
 app.route('/', identityRoutes);
 app.route('/', contentRoutes);
