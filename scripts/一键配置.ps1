@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
   世外墙 WFLA Wall - 第一次一键配置
   用法：
@@ -7,15 +7,15 @@
 #>
 [CmdletBinding()]
 param(
-  [switch]$ForceReconfigure
+  [switch]$ForceReconfigure,
+  [switch]$ReuseExisting,
+  [switch]$BuildFrontend
 )
 
 $ErrorActionPreference = 'Stop'
-$script:Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
+$script:Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath; if (-not (Test-Path -LiteralPath (Join-Path $script:Root 'package.json')) -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'package.json'))) { $script:Root = (Resolve-Path $PSScriptRoot).ProviderPath }
 $script:EnvPath = Join-Path $script:Root '.env'
 $script:BACK = '__WFLA_BACK__'
-$script:Npm = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
-if (-not $script:Npm) { $script:Npm = (Get-Command npm -ErrorAction SilentlyContinue).Source }
 $script:Node = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
 if (-not $script:Node) { $script:Node = (Get-Command node -ErrorAction SilentlyContinue).Source }
 
@@ -152,39 +152,61 @@ function Get-DotEnvValue {
   return $null
 }
 
-function Invoke-NativeStep {
-  param(
-    [Parameter(Mandatory = $true)][string]$Label,
-    [Parameter(Mandatory = $true)][scriptblock]$Action
-  )
-  Write-Host "[执行] $Label" -ForegroundColor Green
-  & $Action
-  if ($LASTEXITCODE -ne 0) { throw "$Label 失败，退出码：$LASTEXITCODE" }
-}
 
 function Test-BackendDependencies {
   if (-not (Test-Path -LiteralPath (Join-Path $script:Root 'node_modules\better-sqlite3'))) { return $false }
   & $script:Node -e "require(process.argv[1]); process.exit(0)" (Join-Path $script:Root 'node_modules\better-sqlite3') 2>$null
   return ($LASTEXITCODE -eq 0)
 }
-
-function Build-Frontend {
-  $frontendPackage = Join-Path $script:Root 'frontend\package.json'
-  if (Test-Path -LiteralPath $frontendPackage) {
-    if (-not (Test-Path -LiteralPath (Join-Path $script:Root 'frontend\node_modules'))) {
-      Invoke-NativeStep '安装前端依赖（frontend）' { & $script:Npm --prefix (Join-Path $script:Root 'frontend') ci --ignore-scripts }
-    }
-    Invoke-NativeStep '构建前端（仓库版）' { & $script:Npm --prefix (Join-Path $script:Root 'frontend') run build }
-    $dist = Join-Path $script:Root 'frontend\dist'
-    $public = Join-Path $script:Root 'public'
-    if (-not (Test-Path -LiteralPath $dist)) { throw '前端构建完成但没有找到 frontend/dist。' }
-    New-Item -ItemType Directory -Force -Path $public | Out-Null
-    Get-ChildItem -LiteralPath $dist -Force | Copy-Item -Destination $public -Recurse -Force
-  } else {
-    Invoke-NativeStep '构建前端（自托管包）' { & $script:Npm --prefix $script:Root run selfhost:build }
-  }
+function Invoke-NodeCli {
+  param(
+    [Parameter(Mandatory = $true)][string]$Label,
+    [Parameter(Mandatory = $true)][string]$ScriptPath,
+    [string[]]$Arguments = @()
+  )
+  Write-Host "[执行] $Label" -ForegroundColor Green
+  & $script:Node $ScriptPath @Arguments
+  if ($LASTEXITCODE -ne 0) { throw "$Label 失败，退出码：$LASTEXITCODE" }
 }
 
+function Invoke-FrontendBuild {
+  $frontendDir = Join-Path $script:Root 'frontend'
+  if (-not (Test-Path -LiteralPath (Join-Path $frontendDir 'package.json'))) { throw '缺少 frontend\package.json。' }
+  if (-not (Test-Path -LiteralPath (Join-Path $frontendDir 'node_modules'))) { throw '缺少 frontend\node_modules，请先在项目目录执行 npm --prefix frontend ci。' }
+  $tscCli = Join-Path $frontendDir 'node_modules\typescript\bin\tsc'
+  $viteCli = Join-Path $frontendDir 'node_modules\vite\bin\vite.js'
+  if (-not (Test-Path -LiteralPath $tscCli)) { throw "缺少 TypeScript CLI：$tscCli" }
+  if (-not (Test-Path -LiteralPath $viteCli)) { throw "缺少 Vite CLI：$viteCli" }
+  Invoke-NodeCli '前端类型检查' $tscCli @('-b')
+  Invoke-NodeCli '构建前端' $viteCli @('build', '--config', (Join-Path $frontendDir 'vite.config.ts'), '--root', $frontendDir)
+  $workerBuilder = Join-Path $frontendDir 'scripts\build-worker.mjs'
+  if (Test-Path -LiteralPath $workerBuilder) { Invoke-NodeCli '生成兼容 Worker 产物' $workerBuilder }
+  $dist = Join-Path $frontendDir 'dist'
+  $public = Join-Path $script:Root 'public'
+  if (-not (Test-Path -LiteralPath $dist)) { throw '前端构建完成但没有找到 frontend/dist。' }
+  New-Item -ItemType Directory -Force -Path $public | Out-Null
+  Get-ChildItem -LiteralPath $dist -Force | Copy-Item -Destination $public -Recurse -Force
+}
+function Test-FrontendArtifact {
+  $publicIndex = Join-Path $script:Root 'public\index.html'
+  $distIndex = Join-Path $script:Root 'frontend\dist\index.html'
+  return (Test-Path -LiteralPath $publicIndex) -and (Test-Path -LiteralPath $distIndex)
+}
+
+function Ensure-FrontendArtifact {
+  if ($BuildFrontend) {
+    Invoke-FrontendBuild
+    if (-not (Test-FrontendArtifact)) { throw '前端构建完成但没有找到可用产物。' }
+    return
+  }
+  if (Test-FrontendArtifact) {
+    Write-Host '[跳过] 已检测到前端构建产物；如需重编译请使用 -BuildFrontend。' -ForegroundColor DarkGray
+    return
+  }
+  Write-Host '没有找到完整的前端产物，将尝试现场构建……' -ForegroundColor Yellow
+  Invoke-FrontendBuild
+  if (-not (Test-FrontendArtifact)) { throw '前端未能生成可用构建产物。' }
+}
 function Assert-Layout {
   $repoConfig = Join-Path $script:Root 'src\selfhost\config.ts'
   $packageConfig = Join-Path $script:Root 'src-backend\selfhost\config.ts'
@@ -393,7 +415,7 @@ function Step-Write {
 
 try {
   Assert-Layout
-  if (-not $script:Npm -or -not $script:Node) { throw '没有找到 Node.js / npm，请先安装 Node.js 22.12 或更高版本。' }
+  if (-not $script:Node) { throw '没有找到 Node.js，请先安装 Node.js 22.12 或更高版本。' }
   $nodeVersionText = (& $script:Node -p "process.versions.node" 2>$null)
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($nodeVersionText)) { throw '无法读取 Node.js 版本，请重新安装 Node.js 22.12 或更高版本。' }
   $nodeVersionParts = $nodeVersionText.Trim().Split('.')
@@ -406,10 +428,15 @@ try {
   Write-Host '说明：脚本只会生成本机配置和运行数据，不会把密钥上传到网络。' -ForegroundColor DarkGray
 
   $reuseEnv = $false
-  if (Test-Path -LiteralPath $script:EnvPath) {
+
+  $hasExistingEnv = Test-Path -LiteralPath $script:EnvPath
+  if ($hasExistingEnv -and -not $ForceReconfigure) {
     Write-Host ''
     Write-Host "检测到已有配置文件：$($script:EnvPath)" -ForegroundColor Yellow
-    if (-not $ForceReconfigure) {
+    if ($ReuseExisting) {
+      Write-Host '已指定 -ReuseExisting，将保留现有配置。' -ForegroundColor Cyan
+      $reuseEnv = $true
+    } else {
       $overwrite = Read-YesNo '是否重新配置并覆盖 .env？' $false
       if (-not $overwrite) { $reuseEnv = $true }
     }
@@ -478,20 +505,17 @@ try {
 
   Write-Section '安装与初始化'
   if (-not (Test-BackendDependencies)) {
-    Invoke-NativeStep '安装后端依赖（可能较慢）' { & $script:Npm --prefix $script:Root ci --ignore-scripts }
-    if (-not (Test-BackendDependencies)) {
-      Invoke-NativeStep '尝试重建 better-sqlite3' { & $script:Npm --prefix $script:Root rebuild better-sqlite3 }
-    }
+    throw '缺少可用的 better-sqlite3。请先运行 npm ci 或 npm rebuild better-sqlite3 后重试。'
   } else {
     Write-Host '[跳过] better-sqlite3 已可用。' -ForegroundColor DarkGray
   }
 
-  Invoke-NativeStep '应用数据库迁移' { & $script:Npm --prefix $script:Root run selfhost:migrate }
-  Build-Frontend
+  Invoke-NodeCli '应用数据库迁移' (Join-Path $script:Root 'scripts\selfhost-migrate.mjs')
+  Ensure-FrontendArtifact
 
   $adminUsername = $null
   if ($reuseEnv) {
-    $ownerCheckOutput = & $script:Npm --prefix $script:Root run selfhost:create-owner -- --check 2>&1
+    $ownerCheckOutput = & $script:Node (Join-Path $script:Root 'scripts\selfhost-create-owner.mjs') '--check' 2>&1
     $ownerCheckExit = $LASTEXITCODE
     $ownerExists = $ownerCheckExit -eq 0 -and (($ownerCheckOutput -join "`n") -match 'owner exists:')
     if ($ownerExists) {
@@ -515,13 +539,13 @@ try {
     $env:WFLA_OWNER_PASSWORD = $adminPassword
     $env:WFLA_OWNER_EXISTS = 'skip'
     try {
-      & $script:Npm --prefix $script:Root run selfhost:create-owner -- $adminUsername $adminRealName $adminYear
+      & $script:Node (Join-Path $script:Root 'scripts\selfhost-create-owner.mjs') $adminUsername $adminRealName $adminYear
       if ($LASTEXITCODE -ne 0) { throw "管理员初始化失败，退出码：$LASTEXITCODE" }
     } finally {
       Remove-Item Env:WFLA_OWNER_PASSWORD -ErrorAction SilentlyContinue
       Remove-Item Env:WFLA_OWNER_EXISTS -ErrorAction SilentlyContinue
     }
-    & $script:Npm --prefix $script:Root run selfhost:create-owner -- --check *> $null
+    & $script:Node (Join-Path $script:Root 'scripts\selfhost-create-owner.mjs') '--check' *> $null
     if ($LASTEXITCODE -ne 0) { throw '管理员账号写入后复查失败，数据库中没有所有者。' }
     Write-Host '[完成] 管理员账号已写入数据库并完成复查。' -ForegroundColor Green
   } else {

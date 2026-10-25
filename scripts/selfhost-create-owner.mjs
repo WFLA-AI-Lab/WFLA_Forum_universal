@@ -1,17 +1,13 @@
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
-import { loadDotEnv } from './load-dotenv.mjs';
+import { loadDotEnv, projectPath } from './load-dotenv.mjs';
 
-const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-process.chdir(projectRoot);
 loadDotEnv();
 
 function checkOwner() {
-  const dbPath = resolve(process.env.WFLA_DB_PATH ?? 'data/wfla-wall.sqlite');
+  const dbPath = projectPath(process.env.WFLA_DB_PATH ?? 'data/wfla-wall.sqlite');
   if (!existsSync(dbPath)) {
     console.log('owner missing');
     process.exitCode = 1;
@@ -72,7 +68,7 @@ function createOwner() {
     return;
   }
 
-  const dbPath = resolve(process.env.WFLA_DB_PATH ?? 'data/wfla-wall.sqlite');
+  const dbPath = projectPath(process.env.WFLA_DB_PATH ?? 'data/wfla-wall.sqlite');
   const db = new Database(dbPath);
   db.pragma('foreign_keys = ON');
 

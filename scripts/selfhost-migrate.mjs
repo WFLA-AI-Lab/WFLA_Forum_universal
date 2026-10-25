@@ -1,12 +1,12 @@
-import { loadDotEnv } from './load-dotenv.mjs';
+import { loadDotEnv, projectPath } from './load-dotenv.mjs';
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 
 loadDotEnv();
 
-const dbPath = resolve(process.env.WFLA_DB_PATH ?? 'data/wfla-wall.sqlite');
-const migrationsDir = resolve(process.env.WFLA_MIGRATIONS_DIR ?? 'src/migrations');
+const dbPath = projectPath(process.env.WFLA_DB_PATH ?? 'data/wfla-wall.sqlite');
+const migrationsDir = projectPath(process.env.WFLA_MIGRATIONS_DIR ?? 'src/migrations');
 mkdirSync(dirname(dbPath), { recursive: true });
 if (!existsSync(migrationsDir)) throw new Error(`migrations dir not found: ${migrationsDir}`);
 

@@ -19,7 +19,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\一键配置.ps1
 5. 管理员用户名、密码、真实中文姓名、届别
 6. 第三方登录方式（Microsoft、GitHub，或暂时都不启用）
 
-脚本会生成 `.env` 和会话密钥，检查依赖，执行迁移，构建前端并创建管理员。脚本使用相对路径，不受当前终端目录影响。已有 `.env` 时会询问是否覆盖；选择保留时不会修改密钥，也不会重复创建 owner。
+脚本会生成 `.env` 和会话密钥，检查依赖，执行迁移，构建前端并创建管理员。脚本以自身位置定位项目根目录，不受当前终端目录影响，也支持直接从 UNC 共享盘路径运行。已有 `.env` 时会询问是否覆盖；选择保留时不会修改密钥，也不会重复创建 owner。检测到完整前端产物时默认直接复用，只有加 `-BuildFrontend` 或产物缺失时才重新构建。无人值守复用现有配置可运行：`powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\一键配置.ps1 -ReuseExisting`。
 
 第三方登录支持在配置过程中选择：
 
