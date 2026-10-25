@@ -136,6 +136,25 @@
 @media(max-width:1180px){.adm-stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.adm-dashboard-grid,.adm-two-column{grid-template-columns:1fr}.adm-provider-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.adm-sidebar{width:min(290px,86vw);transform:translateX(-104%);transition:transform 240ms cubic-bezier(.22,.8,.25,1);box-shadow:20px 0 60px rgba(0,0,0,.13)}.adm-sidebar.open{transform:translateX(0)}.adm-side-close{display:block}.adm-scrim.show{display:block;position:fixed;z-index:25;inset:0;border:0;background:rgba(0,0,0,.2);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}.adm-main{margin-left:0}.adm-menu{display:grid}.adm-topbar{min-height:66px;padding:0 14px}.adm-heading small{display:none}.adm-heading h1{font-size:18px}.adm-live{display:none}.adm-content{padding:18px 13px 44px}.adm-hero{align-items:flex-start;flex-direction:column;padding:24px}.adm-hero h2{font-size:26px}.adm-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.adm-stat{min-height:106px;padding:14px}.adm-stat>b{font-size:24px}.adm-dashboard-grid.lower{grid-template-columns:1fr}.adm-toolbar{flex-wrap:wrap}.adm-toolbar .adm-search{flex-basis:100%}.adm-toolbar>select{flex:1}.adm-primary.push{margin-left:0}.adm-form-grid,.adm-provider-grid{grid-template-columns:1fr}.adm-detail-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.adm-content-row{flex-direction:column;gap:10px}.adm-content-actions{width:100%;justify-content:flex-start}.adm-content-actions input{flex:1 1 100%}.adm-sheet{padding:19px 17px 30px}.adm-sheet>header h2{font-size:21px}.confirm-card{align-items:stretch;flex-direction:column}.confirm-card>input{width:100%}.adm-report-grid{padding:0 12px 14px}.adm-invite-hero{align-items:flex-start;flex-direction:column;padding:22px}.adm-invite-stats{text-align:left}.system-info dl{grid-template-columns:repeat(2,minmax(0,1fr))}.adm-card>header{align-items:flex-start;flex-direction:column;gap:7px}.adm-card>header .adm-toolbar.compact{width:100%}.adm-table{min-width:780px}}
 @media(max-width:430px){.adm-stat-grid{gap:8px}.adm-stat{min-height:98px;padding:12px}.adm-stat>b{margin-top:6px;font-size:22px}.adm-alert{align-items:flex-start;flex-wrap:wrap}.adm-alert button{margin-left:0}.adm-detail-grid{grid-template-columns:1fr}.adm-password-field{align-items:stretch;flex-direction:column}.adm-password-field button{width:100%}}
+/* Automation console */
+.adm-automation{display:grid;gap:14px}
+.adm-rule-list{padding:0 20px 20px}
+.adm-rule-list>article{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;min-height:74px;padding:14px 0;border-bottom:1px solid var(--adm-line)}
+.adm-rule-list>article:last-child{border-bottom:0}
+.adm-rule-list>article>div:first-child{min-width:0;flex:1}
+.adm-rule-list b{display:block;color:var(--adm-ink);font-size:12px;font-weight:590}
+.adm-rule-list p{margin:5px 0 0;color:var(--adm-muted);font-size:10px;line-height:1.55}
+.adm-rule-actions{display:flex;flex:0 0 auto;align-items:center;gap:9px}
+.adm-rule-actions label{display:flex;align-items:center;gap:6px;color:var(--adm-faint);font-size:9px}
+.adm-rule-actions input{width:68px;min-height:31px;padding:0 9px;border:1px solid var(--adm-line-strong);border-radius:8px;background:var(--adm-surface-solid);color:var(--adm-ink);font-size:10px}
+.adm-risk-list{padding:0 20px 20px}
+.adm-risk-list>article{display:grid;gap:7px;padding:13px 0;border-bottom:1px solid var(--adm-line)}
+.adm-risk-list>article:last-child{border-bottom:0}
+.adm-risk-list>article>div:first-child{display:flex;align-items:center;gap:8px;color:var(--adm-muted);font-size:10px}
+.adm-risk-list p{margin:0;color:var(--adm-ink-2);font-size:10px;line-height:1.55}
+.adm-risk-list small{color:var(--adm-faint);font-size:9px}
+.adm-risk-list button{justify-self:start}
+@media(max-width:760px){.adm-rule-list>article{align-items:stretch;flex-direction:column;gap:12px}.adm-rule-actions{justify-content:space-between}.adm-risk-list button{justify-self:stretch}}
 /* Accessibility and appearance */
 @media(prefers-reduced-motion:reduce){.adm-shell *,.adm-shell *::before,.adm-shell *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 @media(prefers-reduced-transparency:reduce){.adm-sidebar,.adm-topbar,.adm-card,.adm-toolbar,.adm-sheet,.adm-toast{background:var(--adm-surface-solid);-webkit-backdrop-filter:none;backdrop-filter:none}}
