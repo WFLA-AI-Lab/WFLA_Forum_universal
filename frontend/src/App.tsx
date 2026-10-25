@@ -12,6 +12,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { api } from './api';
 import { resolveSkin } from './skins/registry';
+import './splash.css';
 import type {
   AdminSiteConfig,
   AdminTab,
@@ -26,6 +27,7 @@ import type {
   Provider,
   RegisterFormState,
   ReportItem,
+  SearchResults,
   RuntimeSettings,
   SettingsFormState,
   SiteConfig,
@@ -83,6 +85,8 @@ function readSavedSkin(): string | null {
 
 export default function App() {
   const [view, setView] = useState<View>({ name: 'home' });
+  const [showSplash, setShowSplash] = useState(true);
+  const viewKey = view.name === 'board' ? `board:${view.board.slug}` : view.name === 'thread' ? `thread:${view.thread.id}` : view.name === 'admin' ? `admin:${view.tab}` : view.name;
   const [me, setMe] = useState<User | null>(null);
   const [providers, setProviders] = useState<Provider>({ microsoft: false, github: false });
   const [site, setSite] = useState<SiteConfig>(FALLBACK_SITE);
@@ -90,6 +94,11 @@ export default function App() {
   const [skinPreferenceStatus, setSkinPreferenceStatus] = useState<SkinPreferenceStatus>('idle');
   const [boards, setBoards] = useState<Board[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
+  const [feed, setFeed] = useState<Thread[]>([]);
+  const [feedCursor, setFeedCursor] = useState<string | null>(null);
+  const [feedBusy, setFeedBusy] = useState(false);
+  const [bookmarks, setBookmarks] = useState<Thread[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -102,6 +111,8 @@ export default function App() {
   const [reply, setReply] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
+  const [composeBoard, setComposeBoard] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [adminUsers, setAdminUsers] = useState<User[]>([]);
   const [adminReports, setAdminReports] = useState<ReportItem[]>([]);
@@ -144,6 +155,18 @@ export default function App() {
       window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : ''));
     }
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowSplash(false), 3300);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => { window.scrollTo(0, 0); }, [viewKey]);
+
+  useEffect(() => {
+    if (me) void loadBookmarks();
+    else setBookmarks([]);
+  }, [me?.id]);
 
   /**
    * Publishes the active skin to the document. Page-level styling (body
@@ -195,6 +218,9 @@ export default function App() {
    */
   function applySkinChoice(id: string) {
     setActiveSkin(id);
+    if (id !== 'x' && (view.name === 'announcements' || view.name === 'bookmarks' || view.name === 'search')) {
+      setView({ name: 'home' });
+    }
     try {
       window.localStorage.setItem(SKIN_STORAGE_KEY, id);
     } catch {
@@ -264,11 +290,56 @@ export default function App() {
         .catch(() => setSkinPreferenceStatus('error'));
     }
     try { const d = await api.get<{ items: Board[] }>('/boards'); setBoards(d.items); } catch { setBoards([]); }
+    try {
+      const d = await api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20');
+      setFeed(d.items); setFeedCursor(d.next_cursor);
+    } catch (e) { setError((e as Error).message); }
     try { const d = await api.get<{ items: Announcement[] }>('/announcements'); setAnnouncements(d.items); } catch { setAnnouncements([]); }
     try {
       const d = await api.get<Provider>('/auth/providers');
       setProviders(d);
     } catch { setProviders({ microsoft: false, github: false }); }
+  }
+
+  async function loadMoreFeed() {
+    if (!feedCursor || feedBusy) return;
+    setFeedBusy(true);
+    try {
+      const d = await api.get<{ items: Thread[]; next_cursor: string | null }>(`/feed?limit=20&cursor=${encodeURIComponent(feedCursor)}`);
+      setFeed(current => [...current, ...d.items]); setFeedCursor(d.next_cursor);
+    } catch (e) { setError((e as Error).message); }
+    finally { setFeedBusy(false); }
+  }
+
+  async function loadBookmarks() {
+    try { const d = await api.get<{ items: Thread[] }>('/bookmarks'); setBookmarks(d.items); }
+    catch (e) { setError((e as Error).message); }
+  }
+
+  async function searchForum(query: string) {
+    setSearchQuery(query);
+    if (!query.trim()) { setSearchResults(null); setView({ name: 'home' }); return; }
+    setView({ name: 'search' });
+    try {
+      setSearchResults(await api.get<SearchResults>(`/search?q=${encodeURIComponent(query.trim())}`));
+      setError('');
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function toggleBookmark(threadId: string, bookmarked: boolean) {
+    if (!me) { setView({ name: 'login' }); return; }
+    try {
+      if (bookmarked) await api.del(`/threads/${threadId}/bookmark`);
+      else await api.put(`/threads/${threadId}/bookmark`);
+      await loadBookmarks();
+      setSuccess(bookmarked ? '已取消收藏' : '已加入书签');
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function likeThread(threadId: string) {
+    if (!me) { setView({ name: 'login' }); return; }
+    try { await api.put('/reactions', { target_type: 'thread', target_id: threadId, reaction: 'like' }); setSuccess('已点赞'); }
+    catch (e) { setError((e as Error).message); }
   }
 
   const activeBoard = view.name === 'board' ? view.board : null;
@@ -322,11 +393,17 @@ export default function App() {
 
   async function createThread(event: React.FormEvent) {
     event.preventDefault();
-    if (!activeBoard) return;
+    const slug = activeBoard?.slug ?? composeBoard;
+    if (!slug) { setError('请先选择社区空间'); return; }
     try {
-      await api.post(`/boards/${activeBoard.slug}/threads`, { title: newTitle, content: newContent });
-      const d = await api.get<{ items: Thread[] }>(`/boards/${activeBoard.slug}/threads?limit=50`);
-      setThreads(d.items); setNewTitle(''); setNewContent(''); setSuccess('话题已发布'); setError('');
+      await api.post(`/boards/${slug}/threads`, { title: newTitle, content: newContent });
+      if (activeBoard) {
+        const d = await api.get<{ items: Thread[] }>(`/boards/${slug}/threads?limit=50`);
+        setThreads(d.items);
+      }
+      const page = await api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20');
+      setFeed(page.items); setFeedCursor(page.next_cursor);
+      setNewTitle(''); setNewContent(''); setSuccess('话题已发布'); setError('');
     } catch (e) { setError((e as Error).message); }
   }
 
@@ -337,6 +414,8 @@ export default function App() {
       await api.post(`/threads/${activeThread.id}/posts`, { content: reply });
       const d = await api.get<{ item: Thread; posts: Post[] }>(`/threads/${activeThread.id}`);
       setPosts(d.posts); setView({ name: 'thread', thread: d.item }); setReply(''); setSuccess('回复已发送'); setError('');
+      const page = await api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20');
+      setFeed(page.items); setFeedCursor(page.next_cursor);
     } catch (e) { setError((e as Error).message); }
   }
 
@@ -502,13 +581,15 @@ export default function App() {
     },
     session: { me, providers, isStaff, isAdmin, isOwner },
     data: {
-      boards, threads, posts, announcements, notifications, totalReplies,
+      boards, threads, feed, feedCursor, feedBusy, bookmarks, searchResults,
+      posts, announcements, notifications, totalReplies,
       adminUsers, adminReports, adminInvitations, pendingCount, openReports, unusedInvitations,
       announcementAnchorId: ANNOUNCEMENT_ANCHOR
     },
     forms: {
       username, setUsername, password, setPassword, regForm, setRegForm,
       reply, setReply, newTitle, setNewTitle, newContent, setNewContent,
+      composeBoard, setComposeBoard, searchQuery, setSearchQuery,
       announcementForm, setAnnouncementForm, newBoardForm, setNewBoardForm,
       settings, settingsForm, setSettingsForm, siteConfig, setSiteConfig,
       diagnostics, diagnosticsBusy
@@ -518,7 +599,8 @@ export default function App() {
       clearMessages: () => { setError(''); setSuccess(''); }
     },
     actions: {
-      reloadBase: loadBase, openThread, loadNotifications, login, logout, register,
+      reloadBase: loadBase, loadMoreFeed, loadBookmarks, searchForum, toggleBookmark, likeThread,
+      openThread, loadNotifications, login, logout, register,
       createThread, createReply, submitReport, loadAdmin, saveSettings, saveSiteConfig,
       runDiagnostics, resetSettingsPassword, activateUser, setUserStatus,
       resolveReport, rejectReport, createInvitation, createAnnouncement, createBoard,
@@ -533,6 +615,12 @@ export default function App() {
 
   const skin = resolveSkin(activeSkin);
   const Skin = skin.component;
+
+  if (showSplash) return <div className="wfla-splash" aria-label="World Foreign Language Academy">
+    <div className="wfla-splash-content"><span>WELCOME TO THE COMMUNITY</span>
+      <h1>World Foreign Language Academy</h1><strong>WFLA</strong><p>连接每一个 WFLAer</p>
+    </div>
+  </div>;
 
   return (
     <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>正在加载界面…</div>}>

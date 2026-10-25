@@ -294,6 +294,10 @@
 
 ## 5. 板块与内容
 
+### `GET /feed`
+
+跨板块公开时间线。`?limit=1..50`（默认 20）和可选 `?cursor=<上一页 next_cursor>`；只返回活跃板块的已发布话题，按创建时间倒序。响应含 `items` 与 `next_cursor`，每个话题附带 `board: { slug, name }` 和首帖净化后的 `preview_html`。
+
 ### `GET /boards`
 
 无需认证。列出所有启用板块（按 `position`、`name` 排序）。

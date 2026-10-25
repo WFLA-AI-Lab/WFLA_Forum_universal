@@ -36,6 +36,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
 
   const activeBoard = view.name === 'board' ? view.board : null;
   const activeThread = view.name === 'thread' ? view.thread : null;
+  const bookmarkedIds = new Set(data.bookmarks.map(item => item.id));
 
   function navigate(next: typeof view) {
     setView(next);
@@ -61,68 +62,63 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   }
   /* ------------------------------------------------------------- page body */
 
+  function renderFeedThread(thread: typeof data.feed[number]): ReactNode {
+    return <article key={thread.id} className="xsk-card flat xsk-feed-item">
+      <Avatar name={thread.author?.real_name} />
+      <div>
+        <div className="xsk-card-head">
+          <span className="name">{thread.author?.real_name ?? 'WFLAer'}</span>
+          <span className="meta">{thread.author?.graduation_year ?? '—'} 届 · {helpers.formatDate(thread.created_at)}</span>
+          {thread.board && <span className="xsk-board-label">{thread.board.name}</span>}
+        </div>
+        <button type="button" className="xsk-feed-open" onClick={() => void actions.openThread(thread.id)}>
+          <h3 className="xsk-card-title">{thread.is_pinned && <span className="badge">置顶</span>}{thread.title}</h3>
+          {thread.preview_html && <div className="xsk-prose xsk-preview" dangerouslySetInnerHTML={{ __html: thread.preview_html }} />}
+        </button>
+        <div className="xsk-card-foot xsk-feed-actions">
+          <button type="button" onClick={() => void actions.openThread(thread.id)}>{thread.reply_count} 回复</button>
+          <button type="button" onClick={() => void actions.likeThread(thread.id)}>赞</button>
+          <button type="button" onClick={() => void actions.toggleBookmark(thread.id, bookmarkedIds.has(thread.id))}>{bookmarkedIds.has(thread.id) ? '已收藏' : '收藏'}</button>
+        </div>
+      </div>
+    </article>;
+  }
+
   function renderHome(): ReactNode {
     return (
       <>
-        <div className="xsk-hero">
-          <div className="xsk-card-head">
-            <span className="name">{site.forum_name}</span>
-            <span className="meta">v{site.version} · 实名社区 · 游客可读</span>
+        <div className="xsk-hero xsk-feed-hero"><span>THE CONVERSATION</span><h1>校园动态<span>.</span></h1><p>校园里的每一种声音</p></div>
+        {me?.status === 'active' && data.boards.length > 0 ? <form className="xsk-home-compose" onSubmit={actions.createThread}>
+          <Avatar name={me.real_name} />
+          <div className="xsk-home-compose-body">
+            <strong>你的声音，值得被听见。</strong>
+            <select aria-label="选择社区空间" value={forms.composeBoard} onChange={event => forms.setComposeBoard(event.target.value)} required>
+              <option value="">选择社区空间</option>{data.boards.map(board => <option key={board.id} value={board.slug}>{board.name}</option>)}
+            </select>
+            <input aria-label="话题标题" placeholder="话题标题" value={forms.newTitle} onChange={event => forms.setNewTitle(event.target.value)} required />
+            <textarea aria-label="动态内容" placeholder="写下你想分享的事…" rows={3} value={forms.newContent} onChange={event => forms.setNewContent(event.target.value)} required />
+            <div className="xsk-row"><small>实名发言 · {me.real_name}</small><button className="xsk-btn accent" type="submit">发布动态</button></div>
           </div>
-          <h1>{site.tagline}</h1>
-          <p>实名发帖，届别公开。公告、板块讨论和通知都在这里。</p>
-        </div>
-
-        <div className="xsk-stats">
-          <Stat value={data.boards.length} label="板块" />
-          <Stat value={data.announcements.length} label="公告" />
-          <Stat value={data.totalReplies} label="回复" />
-          <Stat value={data.notifications.length} label="通知" />
-        </div>
-
-        {data.announcements.length > 0 && (
-          <section className="xsk-section" id={data.announcementAnchorId}>
-            <h2>公告</h2>
-            {data.announcements.map(announcement => (
-              <article key={announcement.id} className="xsk-card flat">
-                <Avatar name={announcement.author_real_name} />
-                <div>
-                  <div className="xsk-card-head">
-                    <span className="name">{announcement.author_real_name}</span>
-                    <span className="meta">{announcement.author_graduation_year} 届 · {helpers.formatDate(announcement.starts_at)}</span>
-                    {announcement.level !== 'normal' && (
-                      <span className="badge">{ui.levelLabel[announcement.level] ?? announcement.level}</span>
-                    )}
-                  </div>
-                  <h3 className="xsk-card-title">{announcement.title}</h3>
-                  <div className="xsk-prose" dangerouslySetInnerHTML={{ __html: announcement.content_html }} />
-                </div>
-              </article>
-            ))}
-          </section>
-        )}
-
-        <section className="xsk-section">
-          <h2>板块</h2>
-          {data.boards.length === 0 ? (
-            <p className="xsk-empty">板块正在准备中。</p>
-          ) : (
-            data.boards.map(board => (
-              <button key={board.id} type="button" className="xsk-card" onClick={() => navigate({ name: 'board', board })}>
-                <Avatar name={board.name} />
-                <div>
-                  <div className="xsk-card-head">
-                    <span className="name">{board.name}</span>
-                    <span className="meta">/{board.slug}</span>
-                  </div>
-                  <p className="xsk-card-body">{board.description}</p>
-                </div>
-              </button>
-            ))
-          )}
-        </section>
+        </form> : <div className="xsk-compose-gate">{!me ? '登录后即可发布动态。' : data.boards.length === 0 ? '社区空间建立后即可发布动态。' : '当前账号暂不能发布。'}{!me && <button type="button" onClick={() => navigate({ name: 'login' })}>去登录 →</button>}</div>}
+        {data.feed.length ? data.feed.map(renderFeedThread) : <div className="xsk-feed-empty"><div className="xsk-feed-illustration" aria-hidden="true">✎</div><span>WFLA COMMUNITY</span><h2>第一条动态，等你开启。</h2><p>真实的校园故事，从这里开始。</p></div>}
+        {data.feedCursor && <div className="xsk-load-more"><button type="button" disabled={data.feedBusy} onClick={() => void actions.loadMoreFeed()}>{data.feedBusy ? '加载中…' : '加载更多'}</button></div>}
       </>
     );
+  }
+
+  function renderAnnouncements(): ReactNode {
+    return <section className="xsk-section"><h2>校园公告</h2>{data.announcements.length ? data.announcements.map(announcement =>
+      <article key={announcement.id} className="xsk-card flat"><Avatar name={announcement.author_real_name} /><div><div className="xsk-card-head"><span className="name">{announcement.author_real_name}</span><span className="meta">{helpers.formatDate(announcement.starts_at)}</span></div><h3 className="xsk-card-title">{announcement.title}</h3><div className="xsk-prose" dangerouslySetInnerHTML={{ __html: announcement.content_html }} /></div></article>
+    ) : <p className="xsk-empty">暂无校园公告。</p>}</section>;
+  }
+
+  function renderBookmarks(): ReactNode {
+    return <section className="xsk-section"><h2>书签</h2>{!me ? <p className="xsk-empty">登录后查看收藏。</p> : data.bookmarks.length ? data.bookmarks.map(renderFeedThread) : <p className="xsk-empty">还没有收藏的话题。</p>}</section>;
+  }
+
+  function renderSearch(): ReactNode {
+    const results = data.searchResults;
+    return <section className="xsk-section"><h2>搜索结果 · {forms.searchQuery}</h2>{results && <><h3>话题</h3>{results.threads.length ? results.threads.map(renderFeedThread) : <p className="xsk-empty">没有匹配的话题</p>}<h3>回复</h3>{results.posts.length ? results.posts.map(post => <button key={post.id} type="button" className="xsk-search-hit" onClick={() => void actions.openThread(post.thread_id)}>{post.thread_title} · 查看回复 →</button>) : <p className="xsk-empty">没有匹配的回复</p>}<h3>成员</h3>{results.users.length ? results.users.map(user => <p key={user.id} className="xsk-search-hit">{user.real_name} · {user.graduation_year} 届</p>) : <p className="xsk-empty">没有匹配的成员</p>}</>}</section>;
   }
 
   function renderBoard(): ReactNode {
@@ -772,6 +768,9 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
 
   function renderBody(): ReactNode {
     if (view.name === 'home') return renderHome();
+    if (view.name === 'announcements') return renderAnnouncements();
+    if (view.name === 'bookmarks') return renderBookmarks();
+    if (view.name === 'search') return renderSearch();
     if (view.name === 'board' && activeBoard) return renderBoard();
     if (view.name === 'thread' && activeThread) return renderThread();
     if (view.name === 'login') return renderLogin();
@@ -782,7 +781,10 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     return <p className="xsk-empty">页面不存在。</p>;
   }
 
-  const title = view.name === 'home' ? site.forum_name
+  const title = view.name === 'home' ? '校园动态'
+    : view.name === 'announcements' ? '校园公告'
+    : view.name === 'bookmarks' ? '书签'
+    : view.name === 'search' ? '搜索结果'
     : view.name === 'board' ? activeBoard?.name ?? '板块'
     : view.name === 'thread' ? activeThread?.title ?? '话题'
     : view.name === 'login' ? '登录'
@@ -795,13 +797,18 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
       <div className="xsk-layout">
         <aside className="xsk-rail">
           <a href="#" className="xsk-logo" onClick={linkHandler({ name: 'home' })}>
-            <span className="mark">世</span>
-            <span className="text railhide">{site.forum_name}</span>
+            <img src="/wfla-logo-transparent.png" alt="" />
+            <span className="text railhide">WFLA <small>校园社区</small></span>
           </a>
+          <span className="xsk-rail-label railhide">发现校园</span>
           <nav>
             <a href="#" className="xsk-navitem" aria-current={view.name === 'home' ? 'page' : undefined} onClick={linkHandler({ name: 'home' })}>
               <span className="glyph">⌂</span><span className="label">首页</span>
             </a>
+            <a href="#" className="xsk-navitem" aria-current={view.name === 'search' ? 'page' : undefined} onClick={linkHandler({ name: 'search' })}><span className="glyph">⌕</span><span className="label">探索</span></a>
+            {me && <a href="#" className="xsk-navitem" aria-current={view.name === 'bookmarks' ? 'page' : undefined} onClick={event => { event.preventDefault(); void actions.loadBookmarks(); navigate({ name: 'bookmarks' }); }}><span className="glyph">♧</span><span className="label">书签</span></a>}
+            <span className="xsk-rail-label railhide">社区空间</span>
+            <a href="#" className="xsk-navitem" aria-current={view.name === 'announcements' ? 'page' : undefined} onClick={linkHandler({ name: 'announcements' })}><span className="glyph">♧</span><span className="label railhide">校园公告</span></a>
             {data.boards.map(board => (
               <a key={board.id} href="#" className="xsk-navitem" aria-current={activeBoard?.id === board.id ? 'page' : undefined}
                 onClick={linkHandler({ name: 'board', board })}>
@@ -866,7 +873,9 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
         <main className="xsk-main">
           <div className="xsk-topbar">
             <h1>{title}</h1>
-            <span className="sub" style={{ marginLeft: 'auto' }}>{site.tagline}</span>
+            <form className="xsk-top-search" onSubmit={event => { event.preventDefault(); void actions.searchForum(forms.searchQuery); }} role="search">
+              <input aria-label="搜索校园内容" placeholder="搜索校园内容" value={forms.searchQuery} onChange={event => forms.setSearchQuery(event.target.value)} />
+            </form>
           </div>
           {messages.error && <div className="xsk-flash error">{messages.error}</div>}
           {messages.success && <div className="xsk-flash success">{messages.success}</div>}
@@ -921,10 +930,10 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
 
       <nav className="xsk-mobilebar">
         <button type="button" aria-current={view.name === 'home' ? 'page' : undefined} onClick={() => navigate({ name: 'home' })}>首页</button>
-        {data.boards[0] && (
-          <button type="button" aria-current={activeBoard ? 'page' : undefined} onClick={() => navigate({ name: 'board', board: data.boards[0]! })}>板块</button>
-        )}
+        <button type="button" aria-current={view.name === 'search' ? 'page' : undefined} onClick={() => navigate({ name: 'search' })}>探索</button>
         {me && <button type="button" aria-current={view.name === 'notifications' ? 'page' : undefined} onClick={openNotifications}>通知</button>}
+        {me && <button type="button" aria-current={view.name === 'bookmarks' ? 'page' : undefined} onClick={() => { void actions.loadBookmarks(); navigate({ name: 'bookmarks' }); }}>书签</button>}
+        <button type="button" aria-current={view.name === 'announcements' ? 'page' : undefined} onClick={() => navigate({ name: 'announcements' })}>公告</button>
         <button type="button" aria-current={view.name === 'settings' ? 'page' : undefined} onClick={() => navigate({ name: 'settings' })}>设置</button>
         {isStaff && <button type="button" aria-current={view.name === 'admin' ? 'page' : undefined} onClick={() => goAdmin('users')}>管理</button>}
         {!me && <button type="button" onClick={() => navigate({ name: 'login' })}>登录</button>}

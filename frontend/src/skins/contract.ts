@@ -63,6 +63,14 @@ export interface Thread {
   created_at: string;
   author_id: string;
   author?: { username: string; real_name: string; graduation_year: string; role: string };
+  board?: { slug: string; name: string };
+  preview_html?: string | null;
+}
+
+export interface SearchResults {
+  threads: Thread[];
+  posts: { id: string; thread_id: string; thread_title: string }[];
+  users: Pick<User, 'id' | 'real_name' | 'graduation_year' | 'role'>[];
 }
 
 export interface Post {
@@ -193,6 +201,9 @@ export type AdminTab = 'users' | 'reports' | 'invitations' | 'announcements' | '
 
 export type View =
   | { name: 'home' }
+  | { name: 'announcements' }
+  | { name: 'bookmarks' }
+  | { name: 'search' }
   | { name: 'board'; board: Board }
   | { name: 'thread'; thread: Thread }
   | { name: 'login' }
@@ -235,6 +246,11 @@ export interface SkinSession {
 
 export interface SkinData {
   boards: Board[];
+  feed: Thread[];
+  feedCursor: string | null;
+  feedBusy: boolean;
+  bookmarks: Thread[];
+  searchResults: SearchResults | null;
   threads: Thread[];
   posts: Post[];
   announcements: Announcement[];
@@ -298,6 +314,10 @@ export interface SkinForms {
   setNewTitle: Setter<string>;
   newContent: string;
   setNewContent: Setter<string>;
+  composeBoard: string;
+  setComposeBoard: Setter<string>;
+  searchQuery: string;
+  setSearchQuery: Setter<string>;
   /* announcements + boards (admin) */
   announcementForm: AnnouncementFormState;
   setAnnouncementForm: Setter<AnnouncementFormState>;
@@ -325,6 +345,11 @@ export interface SkinMessages {
 
 export interface SkinActions {
   reloadBase: () => Promise<void>;
+  loadMoreFeed: () => Promise<void>;
+  loadBookmarks: () => Promise<void>;
+  searchForum: (query: string) => Promise<void>;
+  toggleBookmark: (threadId: string, bookmarked: boolean) => Promise<void>;
+  likeThread: (threadId: string) => Promise<void>;
   openThread: (id: string) => Promise<void>;
   loadNotifications: () => Promise<void>;
   login: (event: React.FormEvent) => Promise<void>;
