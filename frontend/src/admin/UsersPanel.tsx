@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import type { User } from '../skins/contract';
 import { Badge, formatDate } from './shared';
+import { copyText } from './clipboard';
+import { ManualCopyDialog } from './ManualCopyDialog';
 
 const ROLE_LABEL: Record<string, string> = { owner: '负责人', admin: '管理员', moderator: '监管者', member: '成员' };
 const ROLE_RANK: Record<string, number> = { owner: 4, admin: 3, moderator: 2, member: 1 };
@@ -26,6 +28,7 @@ export function UsersPanel({ me, notify }: { me: User; notify: Notify }) {
   const [tempPassword, setTempPassword] = useState('');
   const [creating, setCreating] = useState(false);
   const [newUser, setNewUser] = useState({ username: '', real_name: '', enrollment_year: '2026', password: randomPassword(), role: 'member' });
+  const [manualCopy, setManualCopy] = useState<{ text: string; label: string } | null>(null);
   const params = useMemo(() => {
     const value = new URLSearchParams({ limit: '150' });
     if (query.trim()) value.set('query', query.trim());
@@ -57,6 +60,11 @@ export function UsersPanel({ me, notify }: { me: User; notify: Notify }) {
     if (!selected) return;
     setDetail(await api.get<UserDetail>(`/admin/users/${selected}`));
     await load();
+  }
+  async function copySecret(text: string, label: string) {
+    const result = await copyText(text);
+    if (result === 'copied') notify('success', `${label}已复制`);
+    else setManualCopy({ text, label });
   }
   async function createUser() {
     if (await run(() => api.post('/users', { ...newUser, enrollment_year: Number(newUser.enrollment_year) }), '账号已创建并立即生效')) {
@@ -101,7 +109,7 @@ export function UsersPanel({ me, notify }: { me: User; notify: Notify }) {
             <label className="adm-field"><span>真实中文姓名</span><input value={newUser.real_name} onChange={e => setNewUser({ ...newUser, real_name: e.target.value })} autoComplete="off" /></label>
             <label className="adm-field"><span>入学年份（届别）</span><input value={newUser.enrollment_year} onChange={e => setNewUser({ ...newUser, enrollment_year: e.target.value })} inputMode="numeric" /></label>
             <label className="adm-field"><span>角色</span><select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>{(['member', 'moderator', 'admin'] as const).filter(value => ROLE_RANK[value] < ROLE_RANK[me.role]).map(value => <option key={value} value={value}>{ROLE_LABEL[value]}</option>)}</select></label>
-            <label className="adm-field full"><span>初始密码</span><div className="adm-password-field"><input value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} autoComplete="new-password" /><button type="button" onClick={() => setNewUser({ ...newUser, password: randomPassword() })}>重新生成</button><button type="button" onClick={() => void navigator.clipboard?.writeText(newUser.password)}>复制</button></div></label>
+            <label className="adm-field full"><span>初始密码</span><div className="adm-password-field"><input value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} autoComplete="new-password" /><button type="button" onClick={() => setNewUser({ ...newUser, password: randomPassword() })}>重新生成</button><button type="button" onClick={() => void copySecret(newUser.password, '初始密码')}>复制</button></div></label>
           </div>
           <footer><button type="button" className="adm-secondary" onClick={() => setCreating(false)}>取消</button><button type="button" className="adm-primary" disabled={newUser.username.length < 3 || newUser.real_name.length < 2 || newUser.password.length < 10} onClick={() => void createUser()}>创建并启用</button></footer>
         </section>
@@ -124,10 +132,11 @@ export function UsersPanel({ me, notify }: { me: User; notify: Notify }) {
             </div>}
           </section>
           <section className="adm-sheet-section"><header><h3>第三方登录</h3></header><div className="adm-provider-list">{detail.oauth_accounts.length === 0 ? <div className="adm-empty"><span>○</span><p>尚未绑定第三方账号</p></div> : detail.oauth_accounts.map(account => <div key={account.provider}><i>{account.provider === 'github' ? 'GH' : 'MS'}</i><div><b>{account.provider === 'github' ? 'GitHub' : 'Microsoft'}</b><small>{account.email ?? '未提供邮箱'}</small></div><span>{formatDate(account.linked_at)}</span></div>)}</div></section>
-          {manageable && <section className="adm-sheet-section"><header><h3>重置登录密码</h3></header><div className="adm-password-field"><input value={tempPassword} onChange={e => setTempPassword(e.target.value)} placeholder="输入临时密码" autoComplete="new-password" /><button type="button" onClick={() => setTempPassword(randomPassword())}>生成</button><button type="button" onClick={() => tempPassword.length >= 10 && void run(() => api.post(`/users/${detail.user.id}/password`, { password: tempPassword }), '密码已重置').then(ok => { if (ok) setTempPassword(''); })}>应用</button></div></section>}
+          {manageable && <section className="adm-sheet-section"><header><h3>重置登录密码</h3></header><div className="adm-password-field"><input value={tempPassword} onChange={e => setTempPassword(e.target.value)} placeholder="输入临时密码" autoComplete="new-password" /><button type="button" onClick={() => setTempPassword(randomPassword())}>生成</button><button type="button" onClick={() => tempPassword && void copySecret(tempPassword, '临时密码')}>复制</button><button type="button" onClick={() => tempPassword.length >= 10 && void run(() => api.post(`/users/${detail.user.id}/password`, { password: tempPassword }), '密码已重置').then(ok => { if (ok) setTempPassword(''); })}>应用</button></div></section>}
           <section className="adm-sheet-section"><header><h3>管理备注</h3></header>{manageable && <div className="adm-note-compose"><textarea rows={3} value={note} onChange={e => setNote(e.target.value)} placeholder="记录沟通情况、风险观察或处置上下文" /><button type="button" className="adm-primary" onClick={() => note.trim().length > 1 && void run(() => api.post(`/admin/users/${detail.user.id}/notes`, { body: note }), '备注已保存').then(ok => { if (ok) { setNote(''); void refreshDetail(); } })}>保存备注</button></div>}<div className="adm-note-list">{detail.notes.length === 0 ? <div className="adm-empty"><span>○</span><p>暂无管理备注</p></div> : detail.notes.map(item => <div key={item.id}><p>{item.body}</p><small>{item.author_real_name ?? '管理员'} · {formatDate(item.created_at)}</small></div>)}</div></section>
         </section>}
       </div>}
+      {manualCopy && <ManualCopyDialog text={manualCopy.text} label={manualCopy.label} onClose={() => setManualCopy(null)} />}
     </>
   );
 }

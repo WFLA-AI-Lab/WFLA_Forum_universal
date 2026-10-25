@@ -10,7 +10,7 @@
 所有版本号集中在 **`src/version.ts`**，不要在别处硬编码：
 
 ```ts
-export const APP_VERSION = '0.4.0';          // 应用（产品）版本
+export const APP_VERSION = '0.4.1';          // 应用（产品）版本
 export const API_VERSION = 'v1';             // HTTP 契约版本
 export const SCHEMA_VERSION = 12;             // 数据库结构版本（= 最高迁移序号）
 export const SKIN_CONTRACT_VERSION = 2;      // 前端皮肤契约版本

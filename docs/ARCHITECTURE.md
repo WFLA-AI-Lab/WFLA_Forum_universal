@@ -1,8 +1,8 @@
 # WFLA Wall 架构 / WFLA Wall Architecture
 
-> 本文档面向协作者（后端、前端、运维），描述现行 **v0.4.0** 的真实架构——
+> 本文档面向协作者（后端、前端、运维），描述现行 **v0.4.1** 的真实架构——
 > 不是早期设想，而是仓库里实际运行的东西。
-> This document describes the architecture as it actually ships in v0.4.0 —
+> This document describes the architecture as it actually ships in v0.4.1 —
 > not the early design sketch, but what the repository runs today.
 
 ---
@@ -65,7 +65,7 @@
 `atLeast(role, required)`。默认拒绝；`admin` 以上才能改别人数据；`owner`
 才能改站点级配置。所有敏感操作写 `audit_logs`。
 
-**数据模型 / Data model**: 单一 SQLite 文件。核心表（v0.4.0，`SCHEMA_VERSION=12`）：
+**数据模型 / Data model**: 单一 SQLite 文件。核心表（v0.4.1，`SCHEMA_VERSION=12`）：
 
 - `users` — 用户与身份（真实姓名、入学届别、角色、状态）
 - `sessions` — 会话（仅存哈希）
@@ -135,7 +135,7 @@ DOM
 
 | 字段 | 含义 | 当前 |
 | --- | --- | --- |
-| `APP_VERSION` | 应用整体版本 | 0.4.0 |
+| `APP_VERSION` | 应用整体版本 | 0.4.1 |
 | `API_VERSION` | HTTP 契约版本（破坏性变更才 bump） | v1 |
 | `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 12 |
 | `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 2 |
