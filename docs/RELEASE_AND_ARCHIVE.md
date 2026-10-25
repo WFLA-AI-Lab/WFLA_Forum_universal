@@ -10,9 +10,9 @@
 所有版本号集中在 **`src/version.ts`**，不要在别处硬编码：
 
 ```ts
-export const APP_VERSION = '0.3.1';          // 应用（产品）版本
+export const APP_VERSION = '0.4.0';          // 应用（产品）版本
 export const API_VERSION = 'v1';             // HTTP 契约版本
-export const SCHEMA_VERSION = 11;             // 数据库结构版本（= 最高迁移序号）
+export const SCHEMA_VERSION = 12;             // 数据库结构版本（= 最高迁移序号）
 export const SKIN_CONTRACT_VERSION = 2;      // 前端皮肤契约版本
 ```
 
@@ -58,11 +58,12 @@ export const SKIN_CONTRACT_VERSION = 2;      // 前端皮肤契约版本
 | `0009_user_profiles.sql` | **9** | 用户昵称与头像 |
 | `0010_admin_console.sql` | **10** | 管理备注、处置历史、邀请码吊销字段与管理查询索引 |
 | `0011_enrollment_year.sql` | **11** | 将 `users.graduation_year` 重命名为 `enrollment_year`，保留全部用户数据 |
+| `0012_invitation_roles.sql` | **12** | 邀请码增加目标角色：成员 / 监管者 / 管理员；旧邀请码默认为成员 |
 
 ### 迁移铁律
 
 1. 迁移文件**只增不改**。已发布过的迁移文件一旦被线上执行过，就不再编辑它。
-2. 新迁移的文件名必须是下一个序号：`0012_xxx.sql`。
+2. 新迁移的文件名必须是下一个序号：`0013_xxx.sql`。
 3. 新增迁移后，把 `src/version.ts` 的 `SCHEMA_VERSION` 同步 +1，并更新上面的表格。
 4. 迁移应当**幂等**（用 `IF NOT EXISTS` / `ON CONFLICT DO NOTHING`），以便重复执行安全。
 5. 自托管部署的迁移命令：

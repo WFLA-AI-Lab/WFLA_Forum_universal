@@ -9,7 +9,7 @@
 上海市世外中学校园论坛 —— 一个**可扩展、可监管、可交接**的校园社区平台，
 自托管（Node.js + SQLite），通过内网穿透提供公网访问。
 
-Current version: **v0.3.1** ｜ API: **v1** ｜ DB schema: **11** ｜ Skin contract: **2**
+Current version: **v0.4.0** ｜ API: **v1** ｜ DB schema: **12** ｜ Skin contract: **2**
 
 ---
 
@@ -17,7 +17,8 @@ Current version: **v0.3.1** ｜ API: **v1** ｜ DB schema: **11** ｜ Skin contr
 
 ### 核心特性
 
-- **邀请制注册**：邀请码一次性、可设有效期；注册后账号为 `pending`，必须由管理员在后台**手动激活**。
+- **邀请制注册**：邀请码一次性、可设有效期，并可指定注册后的目标角色（成员 / 监管者 / 管理员）；注册后账号为 `pending`，必须由有权限的管理员在后台**手动激活**。
+- **分级邀请权限**：owner 可发管理员邀请码，admin/owner 可发监管者或成员邀请码；不能发放同级或更高权限。
 - **多种登录方式**：内部账号密码、GitHub OAuth、Microsoft OAuth（第三方身份需先绑定到论坛账号）。
 - **游客可浏览**公开内容；发帖、举报、通知等需要登录。
 - **皮肤偏好跨设备同步**：登录用户在「设置」页选择整套布局皮肤并同步到账号；游客仅保存在本浏览器。
@@ -121,9 +122,9 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 版本号唯一来源是 `src/version.ts`：
 
 ```ts
-APP_VERSION        = '0.3.1'   // 应用版本
+APP_VERSION        = '0.4.0'   // 应用版本
 API_VERSION        = 'v1'      // HTTP 契约版本
-SCHEMA_VERSION     = 11        // 数据库结构版本（= 最高迁移序号）
+SCHEMA_VERSION     = 12        // 数据库结构版本（= 最高迁移序号）
 SKIN_CONTRACT_VERSION = 2      // 前端皮肤契约版本
 ```
 
@@ -169,8 +170,10 @@ self-hosted (Node.js + SQLite) with tunnel-based public access, built around
 
 ### Highlights
 
-- **Invite-only registration** — one-time codes with optional expiry; every new
-  account is `pending` and must be **manually activated by an admin**.
+- **Invite-only registration** — one-time codes with optional expiry and a target role
+  (`member`, `moderator`, or `admin`); every new account is `pending` and must be
+  **manually activated by an eligible admin**. Owner issues admin invites; admins
+  may issue moderator/member invites, never peer-or-higher roles.
 - **Multiple sign-in methods** — internal username/password, GitHub OAuth and
   Microsoft OAuth (third-party identities must be linked to a forum account first).
 - **Guests can browse** public content; posting, reporting and notifications need an account.
@@ -290,9 +293,9 @@ See [`docs/FRONTEND_SKIN_GUIDE.md`](docs/FRONTEND_SKIN_GUIDE.md) (Chinese).
 Single source of truth is `src/version.ts`:
 
 ```ts
-APP_VERSION           = '0.3.1'
+APP_VERSION           = '0.4.0'
 API_VERSION           = 'v1'
-SCHEMA_VERSION        = 11
+SCHEMA_VERSION        = 12
 SKIN_CONTRACT_VERSION = 2
 ```
 

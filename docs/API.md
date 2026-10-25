@@ -1,6 +1,6 @@
 # WFLA Wall API 接口文档
 
-> 适用版本：**v0.3.1** ｜ API 版本：**v1** ｜ 皮肤契约：**2** ｜ 数据库结构：**11**
+> 适用版本：**v0.4.0** ｜ API 版本：**v1** ｜ 皮肤契约：**2** ｜ 数据库结构：**12**
 
 本文件是给前端 / 移动端 / 第三方集成开发者看的接口契约。所有接口都挂在基础路径
 `/api/v1` 之下；若站点公开地址是 `https://wflawall.zh.kg`，则完整地址是
@@ -72,9 +72,9 @@
 {
   "status": "ok",
   "time": "2026-10-25T04:00:00.000Z",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "api_version": "v1",
-  "schema_version": 11
+  "schema_version": 12
 }
 ```
 
@@ -86,7 +86,7 @@
 {
   "forum_name": "世外墙 WFLA Wall",
   "tagline": "世外中学校园论坛",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "api_version": "v1",
   "skin_contract_version": 2,
   "default_skin": "x",
@@ -262,7 +262,7 @@
 ```
 ---
 
-## 4. 管理后台（v0.3.1）
+## 4. 管理后台（v0.4.0）
 
 以下接口均要求 `admin` 或 `owner`；`/admin/settings`、`/admin/site-config` 与 `/admin/diagnostics` 仅 `owner` 可访问。
 
@@ -312,8 +312,11 @@
 生成邀请码。请求（可选）：
 
 ```json
-{ "ttl_hours": 168 }
+{ "ttl_hours": 168, "role": "moderator" }
 ```
+
+`role` ∈ `member | moderator | admin`，默认 `member`。owner 可发放管理员邀请码；admin/owner 可发放监管者或成员邀请码；不能发放同级或更高权限邀请码。
+
 
 `ttl_hours` 取值 1–720（最长 30 天），默认 168 小时（7 天）。
 

@@ -126,7 +126,10 @@ export interface ReportItem {
   updated_at: string;
 }
 
+export type InvitationRole = 'member' | 'moderator' | 'admin';
+
 export interface InvitationItem {
+  role: InvitationRole;
   id: string;
   code: string;
   created_by: string | null;
@@ -383,7 +386,7 @@ export interface SkinActions {
   setUserStatus: (id: string, status: string) => Promise<void>;
   resolveReport: (id: string) => Promise<void>;
   rejectReport: (id: string) => Promise<void>;
-  createInvitation: () => Promise<void>;
+  createInvitation: (role?: InvitationRole) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   createAnnouncement: (event: React.FormEvent) => Promise<void>;

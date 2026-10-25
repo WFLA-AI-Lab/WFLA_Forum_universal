@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import type { Announcement, InvitationItem, User } from '../skins/contract';
+import type { Announcement, InvitationItem, InvitationRole, User } from '../skins/contract';
 import { Badge, formatDate } from './shared';
 
 type Notify = (tone: 'success' | 'error', message: string) => void;
@@ -12,15 +12,18 @@ interface BoardItem { id: string; name: string; slug: string; description: strin
 const ACTION_LABEL: Record<string, string> = {
   'user.create': '创建账号', 'user.activate': '激活账号', 'user.role_change': '变更角色', 'user.status_change': '变更状态',
   'user.password_reset': '重置密码', 'user.sessions_revoke': '撤销会话', 'user.note_create': '添加备注',
-  'invitation.create': '生成邀请码', 'invitation.revoke': '吊销邀请码', 'report.resolve': '处理举报', 'report.reject': '驳回举报',
+  'invitation.create': '生成邀请码', 'invitation.register': '使用邀请码注册', 'invitation.revoke': '吊销邀请码', 'report.resolve': '处理举报', 'report.reject': '驳回举报',
   'report.assign': '分配举报', 'thread.status_change': '变更话题状态', 'post.status_change': '变更回复状态',
   'announcement.create': '发布公告', 'announcement.delete': '删除公告', 'board.create': '创建板块',
   'settings.update': '更新高级设置', 'site.config_update': '更新站点配置'
 };
 
-export function OperationsPanel({ mode, notify }: { mode: Mode; me: User; notify: Notify }) {
+export function OperationsPanel({ mode, me, notify }: { mode: Mode; me: User; notify: Notify }) {
   const [invitations, setInvitations] = useState<InvitationItem[]>([]);
   const [ttl, setTtl] = useState(168);
+  const [invitationRole, setInvitationRole] = useState<InvitationRole>('member');
+  const invitationRoles: InvitationRole[] = me.role === 'owner' ? ['member', 'moderator', 'admin'] : ['member', 'moderator'];
+  const invitationRoleLabel: Record<InvitationRole, string> = { member: '成员邀请码', moderator: '监管者邀请码', admin: '管理员邀请码' };
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [boards, setBoards] = useState<BoardItem[]>([]);
   const [announcement, setAnnouncement] = useState({ title: '', content: '', level: 'normal', ends_at: '' });
@@ -57,9 +60,9 @@ export function OperationsPanel({ mode, notify }: { mode: Mode; me: User; notify
     const unused = invitations.filter(item => !item.used_by && !item.revoked_at && (!item.expires_at || new Date(item.expires_at).getTime() > Date.now())).length;
     return (
       <>
-        <section className="adm-invite-hero"><div><small>INVITE-ONLY ACCESS</small><h2>邀请码是进入 WFLA Wall 的唯一入口。</h2><p>使用后仍需管理员手动激活，所有发放与吊销行为都会进入审计日志。</p></div><div className="adm-invite-stats"><b>{unused}</b><span>当前可用</span></div></section>
-        <section className="adm-toolbar"><label className="adm-inline-field">有效期<select value={ttl} onChange={e => setTtl(Number(e.target.value))}><option value={24}>1 天</option><option value={168}>7 天</option><option value={720}>30 天</option></select></label><button type="button" className="adm-primary push" onClick={() => void run(() => api.post('/invitations', { ttl_hours: ttl }), '邀请码已生成').then(async ok => { if (ok) await loadInvitations(); })}>＋ 生成邀请码</button></section>
-        <section className="adm-card"><header><div><small>{invitations.length} CODES</small><h3>邀请码记录</h3></div></header><div className="adm-table-wrap"><table className="adm-table"><thead><tr><th>邀请码</th><th>状态</th><th>有效期</th><th>创建时间</th><th>使用者</th><th /></tr></thead><tbody>{invitations.length === 0 ? <tr><td colSpan={6}><div className="adm-empty"><span>○</span><p>还没有邀请码</p></div></td></tr> : invitations.map(item => { const expired = item.expires_at && new Date(item.expires_at).getTime() <= Date.now(); const status = item.used_by ? '已使用' : item.revoked_at ? '已吊销' : expired ? '已过期' : '可用'; return <tr key={item.id}><td><code className="adm-code">{item.code.slice(0, 8)}••••{item.code.slice(-6)}</code><button type="button" className="adm-copy" onClick={() => void navigator.clipboard?.writeText(item.code)}>复制</button></td><td><Badge tone={status === '可用' ? 'green' : status === '已使用' ? 'blue' : 'neutral'}>{status}</Badge></td><td>{formatDate(item.expires_at)}</td><td>{formatDate(item.created_at)}</td><td>{item.used_by ? item.used_by.slice(0, 10) : '—'}</td><td>{status === '可用' && <button type="button" className="adm-danger-ghost" onClick={() => void run(() => api.post(`/invitations/${item.id}/revoke`), '邀请码已吊销').then(async ok => { if (ok) await loadInvitations(); })}>吊销</button>}</td></tr>; })}</tbody></table></div></section>
+        <section className="adm-invite-hero"><div><small>INVITE-ONLY ACCESS</small><h2>邀请码是进入 WFLA Wall 的唯一入口。</h2><p>使用邀请码注册后会得到所选角色，但账号仍需有权限的管理员手动激活；所有发放、注册与吊销行为都会进入审计日志。</p></div><div className="adm-invite-stats"><b>{unused}</b><span>当前可用</span></div></section>
+<section className="adm-toolbar"><label className="adm-inline-field">类型<select value={invitationRole} onChange={e => setInvitationRole(e.target.value as InvitationRole)}>{invitationRoles.map(role => <option key={role} value={role}>{invitationRoleLabel[role]}</option>)}</select></label><label className="adm-inline-field">有效期<select value={ttl} onChange={e => setTtl(Number(e.target.value))}><option value={24}>1 天</option><option value={168}>7 天</option><option value={720}>30 天</option></select></label><button type="button" className="adm-primary push" onClick={() => void run(() => api.post('/invitations', { ttl_hours: ttl, role: invitationRole }), '邀请码已生成').then(async ok => { if (ok) await loadInvitations(); })}>＋ 生成{invitationRoleLabel[invitationRole]}</button></section>
+<section className="adm-card"><header><div><small>{invitations.length} CODES</small><h3>邀请码记录</h3></div></header><div className="adm-table-wrap"><table className="adm-table"><thead><tr><th>邀请码</th><th>注册后角色</th><th>状态</th><th>有效期</th><th>创建时间</th><th>使用者</th><th /></tr></thead><tbody>{invitations.length === 0 ? <tr><td colSpan={7}><div className="adm-empty"><span>○</span><p>还没有邀请码</p></div></td></tr> : invitations.map(item => { const expired = item.expires_at && new Date(item.expires_at).getTime() <= Date.now(); const status = item.used_by ? '已使用' : item.revoked_at ? '已吊销' : expired ? '已过期' : '可用'; return <tr key={item.id}><td><code className="adm-code">{item.code.slice(0, 8)}••••{item.code.slice(-6)}</code><button type="button" className="adm-copy" onClick={() => void navigator.clipboard?.writeText(item.code)}>复制</button></td><td><Badge tone={item.role === 'admin' ? 'orange' : item.role === 'moderator' ? 'blue' : 'neutral'}>{invitationRoleLabel[item.role]}</Badge></td><td><Badge tone={status === '可用' ? 'green' : status === '已使用' ? 'blue' : 'neutral'}>{status}</Badge></td><td>{formatDate(item.expires_at)}</td><td>{formatDate(item.created_at)}</td><td>{item.used_by ? item.used_by.slice(0, 10) : '—'}</td><td>{status === '可用' && <button type="button" className="adm-danger-ghost" onClick={() => void run(() => api.post(`/invitations/${item.id}/revoke`), '邀请码已吊销').then(async ok => { if (ok) await loadInvitations(); })}>吊销</button>}</td></tr>; })}</tbody></table></div></section>
       </>
     );
   }
@@ -81,5 +84,3 @@ export function OperationsPanel({ mode, notify }: { mode: Mode; me: User; notify
     </section>
   );
 }
-
-

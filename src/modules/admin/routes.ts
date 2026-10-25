@@ -10,7 +10,7 @@ const RANK = ROLE_RANK;
 const AUDIT_ACTIONS = new Set([
   'user.create', 'user.activate', 'user.role_change', 'user.status_change',
   'user.password_reset', 'user.sessions_revoke', 'user.note_create',
-  'invitation.create', 'invitation.revoke', 'report.resolve', 'report.reject',
+  'invitation.create', 'invitation.register', 'invitation.revoke', 'report.resolve', 'report.reject',
   'report.assign', 'thread.status_change', 'post.status_change',
   'announcement.create', 'announcement.delete', 'board.create', 'board.update',
   'settings.update', 'site.config_update'

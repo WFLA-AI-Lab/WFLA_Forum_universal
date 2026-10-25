@@ -22,6 +22,7 @@ import type {
   Board,
   Diagnostics,
   InvitationItem,
+  InvitationRole,
   NewBoardFormState,
   NotificationItem,
   Post,
@@ -596,8 +597,8 @@ export default function App() {
     try { await api.post(`/reports/${id}/reject`, { reason }); await loadAdmin('reports'); setSuccess('举报已驳回'); } catch (e) { setError((e as Error).message); }
   }
 
-  async function createInvitation() {
-    try { const d = await api.post<{ item: InvitationItem }>('/invitations', { ttl_hours: 168 }); await loadAdmin('invitations'); setSuccess(`邀请码已创建：${d.item.code}`); } catch (e) { setError((e as Error).message); }
+  async function createInvitation(role: InvitationRole = 'member') {
+    try { const d = await api.post<{ item: InvitationItem }>('/invitations', { ttl_hours: 168, role }); await loadAdmin('invitations'); setSuccess(`邀请码已创建：${d.item.code}`); } catch (e) { setError((e as Error).message); }
   }
 
   async function createAnnouncement(event: React.FormEvent) {
