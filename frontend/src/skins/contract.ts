@@ -42,6 +42,14 @@ export interface User {
   updated_at: string;
 }
 
+export interface UserProfile {
+  nickname: string;
+  avatar_data_url: string | null;
+  updated_at: string;
+}
+
+export type ProfileFormState = Pick<UserProfile, 'nickname' | 'avatar_data_url'>;
+
 export interface Board {
   id: string;
   slug: string;
@@ -310,6 +318,9 @@ export interface SkinForms {
   setPassword: Setter<string>;
   regForm: RegisterFormState;
   setRegForm: Setter<RegisterFormState>;
+  profile: UserProfile | null;
+  profileForm: ProfileFormState;
+  setProfileForm: Setter<ProfileFormState>;
   /* content */
   reply: string;
   setReply: Setter<string>;
@@ -358,6 +369,7 @@ export interface SkinActions {
   login: (event: React.FormEvent) => Promise<void>;
   logout: () => Promise<void>;
   register: (event: React.FormEvent) => Promise<void>;
+  saveProfile: (event: React.FormEvent) => Promise<void>;
   createThread: (event: React.FormEvent) => Promise<void>;
   createReply: (event: React.FormEvent) => Promise<void>;
   submitReport: (targetType: 'thread' | 'post' | 'user', targetId: string) => Promise<void>;

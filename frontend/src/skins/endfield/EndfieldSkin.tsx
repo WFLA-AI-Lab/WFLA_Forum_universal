@@ -67,12 +67,10 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
               <small>NOTICES</small>通知
             </a>
           )}
-          {session.me && (
-            <a href="#" aria-current={view.name === 'settings' ? 'page' : undefined}
-              onClick={e => { e.preventDefault(); setView({ name: 'settings' }); messages.clearMessages(); }}>
-              <small>SETTINGS</small>设置
-            </a>
-          )}
+          <a href="#" aria-current={view.name === 'settings' ? 'page' : undefined}
+            onClick={e => { e.preventDefault(); setView({ name: 'settings' }); messages.clearMessages(); }}>
+            <small>SETTINGS</small>设置
+          </a>
           {session.isStaff && (
             <a href="#" aria-current={view.name === 'admin' ? 'page' : undefined}
               onClick={e => { e.preventDefault(); goAdmin('users'); }}>
@@ -96,7 +94,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
           ) : (
             <>
               <span>访客模式 │ 可浏览公开内容</span>
-              <Btn small onClick={() => { setView({ name: 'login' }); messages.setError(''); messages.setSuccess(''); }}>登录</Btn>
+              <Btn small onClick={() => { setView({ name: 'settings' }); messages.setError(''); messages.setSuccess(''); }}>设置 / 登录</Btn>
               <Btn small go onClick={() => { setView({ name: 'register' }); messages.setError(''); messages.setSuccess(''); }}>注册</Btn>
             </>
           )}
@@ -390,6 +388,26 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
               <Pair en="PREFERENCES" zh="设置" />
               <Field>个人偏好只作用于你自己的账号和浏览器。</Field>
             </div>
+
+            {session.me && <section style={{ marginTop: '1.25rem' }}>
+              <Pair en="PROFILE" zh="个人资料" />
+              <form className="ef-form" onSubmit={actions.saveProfile} style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
+                {forms.profileForm.avatar_data_url && <img src={forms.profileForm.avatar_data_url} alt="头像预览" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8 }} />}
+                <FormField label="昵称" hint={`账号 @${session.me.username} · 实名 ${session.me.real_name}`}><input maxLength={24} value={forms.profileForm.nickname} onChange={e => forms.setProfileForm(current => ({ ...current, nickname: e.target.value }))} required /></FormField>
+                <FormField label="头像" hint="PNG、JPEG 或 WebP，最大 256KB"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 256 * 1024) { messages.setError('头像文件不能超过 256KB'); event.target.value = ''; return; }
+                  const reader = new FileReader();
+                  reader.onload = () => forms.setProfileForm(current => ({ ...current, avatar_data_url: String(reader.result) }));
+                  reader.readAsDataURL(file);
+                }} /></FormField>
+                <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
+                  <Btn go type="submit">保存资料</Btn>
+                  {forms.profileForm.avatar_data_url && <Btn type="button" onClick={() => forms.setProfileForm(current => ({ ...current, avatar_data_url: null }))}>移除头像</Btn>}
+                </div>
+              </form>
+            </section>}
 
             <section style={{ marginTop: '1.25rem' }}>
               <Pair en="LAYOUT SKIN" zh="界面皮肤" />

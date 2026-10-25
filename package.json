@@ -25,6 +25,7 @@
     "selfhost:start": "tsx src/selfhost/server.ts",
     "selfhost:migrate": "node scripts/selfhost-migrate.mjs",
     "selfhost:create-owner": "node scripts/selfhost-create-owner.mjs",
+    "selfhost:create-test-user": "node scripts/selfhost-create-test-user.mjs",
     "selfhost:backup": "node scripts/selfhost-backup.mjs",
     "selfhost:build": "npm --prefix frontend run build"
   },

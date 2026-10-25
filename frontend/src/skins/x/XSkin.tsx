@@ -22,12 +22,29 @@ function initials(name: string | undefined): string {
   return value.length <= 2 ? value : value.slice(-2);
 }
 
-function Avatar({ name, small = false }: { name: string | undefined; small?: boolean }) {
-  return <span className={small ? 'xsk-avatar sm' : 'xsk-avatar'} aria-hidden="true">{initials(name)}</span>;
+function Avatar({ name, src, small = false }: { name: string | undefined; src?: string | null; small?: boolean }) {
+  return <span className={small ? 'xsk-avatar sm' : 'xsk-avatar'} aria-hidden="true">
+    {src ? <img src={src} alt="" /> : initials(name)}
+  </span>;
 }
 
 function Stat({ value, label }: { value: number; label: string }) {
   return <div><b>{value}</b><span>{label}</span></div>;
+}
+
+type MobileIconName = 'home' | 'search' | 'announcement' | 'bell' | 'bookmark' | 'settings' | 'login';
+
+function MobileIcon({ name }: { name: MobileIconName }) {
+  const paths: Record<MobileIconName, ReactNode> = {
+    home: <><path d="M3 10.8 12 3l9 7.8" /><path d="M5.5 9.7V21h13V9.7M9 21v-6h6v6" /></>,
+    search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
+    announcement: <><path d="M4 13V9l13-5v14L4 13Z" /><path d="M7 14.2 8.5 20h3L10 13" /><path d="M20 8v6" /></>,
+    bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
+    bookmark: <path d="M6 3h12v18l-6-4-6 4V3Z" />,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.55V21h-4v-.08A1.7 1.7 0 0 0 8.95 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.58 15 1.7 1.7 0 0 0 3.03 14H3v-4h.03A1.7 1.7 0 0 0 4.6 8.95a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8.97 4.6 1.7 1.7 0 0 0 10 3.03V3h4v.03a1.7 1.7 0 0 0 1.05 1.57 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.97 10H21v4h-.03A1.7 1.7 0 0 0 19.4 15Z" /></>,
+    login: <><path d="M14 4h6v16h-6" /><path d="M10 8l4 4-4 4M14 12H3" /></>
+  };
+  return <svg className="xsk-mobile-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
 
 export default function XSkin({ forum }: { forum: SkinContext }) {
@@ -99,7 +116,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
             <textarea aria-label="动态内容" placeholder="写下你想分享的事…" rows={3} value={forms.newContent} onChange={event => forms.setNewContent(event.target.value)} required />
             <div className="xsk-row"><small>实名发言 · {me.real_name}</small><button className="xsk-btn accent" type="submit">发布动态</button></div>
           </div>
-        </form> : <div className="xsk-compose-gate">{!me ? '登录后即可发布动态。' : data.boards.length === 0 ? '社区空间建立后即可发布动态。' : '当前账号暂不能发布。'}{!me && <button type="button" onClick={() => navigate({ name: 'login' })}>去登录 →</button>}</div>}
+        </form> : <div className="xsk-compose-gate">{!me ? '登录后即可发布动态。' : data.boards.length === 0 ? '社区空间建立后即可发布动态。' : '当前账号暂不能发布。'}{!me && <button type="button" onClick={() => navigate({ name: 'settings' })}>去登录 →</button>}</div>}
         {data.feed.length ? data.feed.map(renderFeedThread) : <div className="xsk-feed-empty"><div className="xsk-feed-illustration" aria-hidden="true">✎</div><span>WFLA COMMUNITY</span><h2>第一条动态，等你开启。</h2><p>真实的校园故事，从这里开始。</p></div>}
         {data.feedCursor && <div className="xsk-load-more"><button type="button" disabled={data.feedBusy} onClick={() => void actions.loadMoreFeed()}>{data.feedBusy ? '加载中…' : '加载更多'}</button></div>}
       </>
@@ -236,29 +253,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     );
   }
   function renderLogin(): ReactNode {
-    return (
-      <section className="xsk-section" style={{ maxWidth: '26rem' }}>
-        <h2>登录</h2>
-        <form className="xsk-form" onSubmit={actions.login}>
-          <label className="xsk-field">
-            <span>用户名</span>
-            <input value={forms.username} onChange={event => forms.setUsername(event.target.value)} autoComplete="username" required />
-          </label>
-          <label className="xsk-field">
-            <span>密码</span>
-            <input type="password" value={forms.password} onChange={event => forms.setPassword(event.target.value)} autoComplete="current-password" required />
-          </label>
-          <div className="xsk-row"><button type="submit" className="xsk-btn accent">登录</button></div>
-        </form>
-        {(providers.microsoft || providers.github) && (
-          <div style={{ marginTop: '1.25rem', display: 'grid', gap: '0.4rem' }}>
-            <span className="xsk-field"><span>第三方登录（需先绑定论坛账号）</span></span>
-            {providers.microsoft && <a href={`${site.api_origin}/api/v1/auth/microsoft/login`}>使用 Microsoft 账号登录</a>}
-            {providers.github && <a href={`${site.api_origin}/api/v1/auth/github/login`}>使用 GitHub 账号登录</a>}
-          </div>
-        )}
-      </section>
-    );
+    return renderSettings();
   }
 
   function renderRegister(): ReactNode {
@@ -310,11 +305,6 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     error: '同步失败 · 已保存在本浏览器'
   };
 
-  /**
-   * User-facing settings. Currently the layout (skin) picker, which is the one
-   * personal preference the forum has; it is deliberately reachable by every
-   * member from the rail, not only by admins.
-   */
   function renderSettings(): ReactNode {
     const status = site.skin_preference_status;
     const preview = [
@@ -322,22 +312,55 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
       { id: 'endfield', hint: '档案式布局：几何切割、等宽数字、跑马灯公告。' }
     ].filter(item => site.skins.some(skin => skin.id === item.id));
 
+    if (!me) return (
+      <div className="xsk-settings-shell guest">
+        <section className="xsk-login-card">
+          <div className="xsk-login-mark" aria-hidden="true">W</div>
+          <span className="xsk-kicker">MEMBER SETTINGS</span>
+          <h2>登录后进入设置</h2>
+          <p>使用校园论坛账号继续。访客状态下默认使用 X 界面。</p>
+          <form className="xsk-form" onSubmit={actions.login}>
+            <label className="xsk-field"><span>用户名</span><input value={forms.username} onChange={event => forms.setUsername(event.target.value)} autoComplete="username" required /></label>
+            <label className="xsk-field"><span>密码</span><input type="password" value={forms.password} onChange={event => forms.setPassword(event.target.value)} autoComplete="current-password" required /></label>
+            <button type="submit" className="xsk-btn accent">登录</button>
+          </form>
+          {(providers.microsoft || providers.github) && <div className="xsk-oauth-links">
+            {providers.microsoft && <a href={`${site.api_origin}/api/v1/auth/microsoft/login`}>Microsoft 登录</a>}
+            {providers.github && <a href={`${site.api_origin}/api/v1/auth/github/login`}>GitHub 登录</a>}
+          </div>}
+        </section>
+      </div>
+    );
+
     return (
       <>
-        <div className="xsk-topbar">
-          <div>
-            <h1>设置</h1>
-            <span className="sub">个人偏好只作用于你自己的账号和浏览器。</span>
+        <section className="xsk-panel xsk-profile-panel">
+          <div className="xsk-profile-heading">
+            <Avatar name={forms.profileForm.nickname || me.real_name} src={forms.profileForm.avatar_data_url} />
+            <div><h2>个人资料</h2><p>@{me.username} · {me.real_name} · {me.graduation_year} 届</p></div>
           </div>
-        </div>
+          <form className="xsk-form" onSubmit={actions.saveProfile}>
+            <label className="xsk-field"><span>昵称</span><input maxLength={24} value={forms.profileForm.nickname} onChange={event => forms.setProfileForm(current => ({ ...current, nickname: event.target.value }))} required /></label>
+            <label className="xsk-field"><span>头像</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              if (file.size > 256 * 1024) { messages.setError('头像文件不能超过 256KB'); event.target.value = ''; return; }
+              const reader = new FileReader();
+              reader.onload = () => forms.setProfileForm(current => ({ ...current, avatar_data_url: String(reader.result) }));
+              reader.readAsDataURL(file);
+            }} /></label>
+            <div className="xsk-row">
+              <button type="submit" className="xsk-btn accent">保存资料</button>
+              {forms.profileForm.avatar_data_url && <button type="button" className="xsk-btn ghost" onClick={() => forms.setProfileForm(current => ({ ...current, avatar_data_url: null }))}>移除头像</button>}
+            </div>
+          </form>
+        </section>
 
         <section className="xsk-panel">
           <h2>界面皮肤</h2>
           <p className="xsk-notice" style={{ marginTop: 0 }}>
             皮肤切换的是<b>整套布局</b>，不只是颜色。切换后立即生效。
-            {site.skin_sync_available
-              ? ' 你已登录，选择会同步到账号，换设备登录后自动沿用。'
-              : ' 当前是游客模式，选择只保存在本浏览器；登录后可同步到账号。'}
+            选择会同步到账号，换设备登录后自动沿用。Endfield 仅对登录用户开放。
           </p>
           <div className="xsk-skin-grid">
             {preview.map(item => {
@@ -366,17 +389,11 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
 
         <section className="xsk-panel">
           <h2>账号</h2>
-          {me ? (
-            <div className="xsk-row" style={{ alignItems: 'baseline' }}>
-              <span><b>{me.real_name}</b> · {me.graduation_year} 届</span>
-              <span className="xsk-tag">{ui.roleLabel[me.role] ?? me.role}</span>
-              <span className="xsk-field-desc" style={{ marginLeft: 'auto' }}>
-                论坛不作匿名发帖，个人主页公开真实姓名与届别。
-              </span>
-            </div>
-          ) : (
-            <p className="xsk-field-desc">你还未登录。登录后可在此查看账号信息与同步偏好。</p>
-          )}
+          <div className="xsk-row" style={{ alignItems: 'baseline' }}>
+            <span><b>{forms.profile?.nickname || me.real_name}</b> · {me.real_name} · {me.graduation_year} 届</span>
+            <span className="xsk-tag">{ui.roleLabel[me.role] ?? me.role}</span>
+            <button type="button" className="xsk-btn ghost small" style={{ marginLeft: 'auto' }} onClick={() => void actions.logout()}>退出登录</button>
+          </div>
         </section>
       </>
     );
@@ -791,7 +808,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     : view.name === 'search' ? '探索'
     : view.name === 'board' ? activeBoard?.name ?? '板块'
     : view.name === 'thread' ? activeThread?.title ?? '话题'
-    : view.name === 'login' ? '登录'
+    : view.name === 'login' ? '设置'
     : view.name === 'register' ? '注册'
     : view.name === 'notifications' ? '通知'
     : view.name === 'settings' ? '设置'
@@ -807,26 +824,26 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
           <span className="xsk-rail-label railhide">发现校园</span>
           <nav>
             <a href="#" className="xsk-navitem" aria-current={view.name === 'home' ? 'page' : undefined} onClick={linkHandler({ name: 'home' })}>
-              <span className="glyph">⌂</span><span className="label">首页</span>
+              <span className="glyph"><MobileIcon name="home" /></span><span className="label">首页</span>
             </a>
-            <a href="#" className="xsk-navitem" aria-current={view.name === 'search' ? 'page' : undefined} onClick={linkHandler({ name: 'search' })}><span className="glyph">⌕</span><span className="label">探索</span></a>
-            {me && <a href="#" className="xsk-navitem" aria-current={view.name === 'bookmarks' ? 'page' : undefined} onClick={event => { event.preventDefault(); void actions.loadBookmarks(); navigate({ name: 'bookmarks' }); }}><span className="glyph">♧</span><span className="label">书签</span></a>}
+            <a href="#" className="xsk-navitem" aria-current={view.name === 'search' ? 'page' : undefined} onClick={linkHandler({ name: 'search' })}><span className="glyph"><MobileIcon name="search" /></span><span className="label">探索</span></a>
+            {me && <a href="#" className="xsk-navitem" aria-current={view.name === 'bookmarks' ? 'page' : undefined} onClick={event => { event.preventDefault(); void actions.loadBookmarks(); navigate({ name: 'bookmarks' }); }}><span className="glyph"><MobileIcon name="bookmark" /></span><span className="label">书签</span></a>}
             <span className="xsk-rail-label railhide">社区空间</span>
-            <a href="#" className="xsk-navitem" aria-current={view.name === 'announcements' ? 'page' : undefined} onClick={linkHandler({ name: 'announcements' })}><span className="glyph">♧</span><span className="label railhide">校园公告</span></a>
+            <a href="#" className="xsk-navitem" aria-current={view.name === 'announcements' ? 'page' : undefined} onClick={linkHandler({ name: 'announcements' })}><span className="glyph"><MobileIcon name="announcement" /></span><span className="label railhide">校园公告</span></a>
             {data.boards.map(board => (
               <a key={board.id} href="#" className="xsk-navitem" aria-current={activeBoard?.id === board.id ? 'page' : undefined}
                 onClick={linkHandler({ name: 'board', board })}>
-                <span className="glyph">#</span><span className="label railhide">{board.name}</span>
+                <span className="glyph xsk-board-glyph">#</span><span className="label railhide">{board.name}</span>
               </a>
             ))}
             {me && (
               <a href="#" className="xsk-navitem" aria-current={view.name === 'notifications' ? 'page' : undefined} onClick={openNotifications}>
-                <span className="glyph">◔</span><span className="label">通知</span>
+                <span className="glyph"><MobileIcon name="bell" /></span><span className="label">通知</span>
                 {data.notifications.some(item => !item.is_read) && <span className="n">{data.notifications.filter(item => !item.is_read).length}</span>}
               </a>
             )}
             <a href="#" className="xsk-navitem" aria-current={view.name === 'settings' ? 'page' : undefined} onClick={linkHandler({ name: 'settings' })}>
-              <span className="glyph">☰</span><span className="label railhide">设置</span>
+              <span className="glyph"><MobileIcon name="settings" /></span><span className="label railhide">设置</span>
             </a>
             {isStaff && (
               <a href="#" className="xsk-navitem" aria-current={view.name === 'admin' ? 'page' : undefined} onClick={linkHandler({ name: 'admin', tab: 'users' })}>
@@ -845,9 +862,9 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
             {me ? (
               <div style={{ background: 'var(--x-panel)', borderRadius: '16px', padding: '0.75rem', display: 'grid', gap: '0.5rem' }}>
                 <div className="xsk-card-head">
-                  <Avatar name={me.real_name} small />
+                  <Avatar name={forms.profile?.nickname || me.real_name} src={forms.profile?.avatar_data_url} small />
                   <div>
-                    <div className="name">{me.real_name}</div>
+                    <div className="name">{forms.profile?.nickname || me.real_name}</div>
                     <div className="meta">{me.graduation_year} 届 · {ui.roleLabel[me.role] ?? me.role}</div>
                   </div>
                 </div>
@@ -866,7 +883,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
               <>
                 <p className="xsk-notice">访客模式 · 可浏览公开内容</p>
                 <div className="xsk-row">
-                  <button type="button" className="xsk-btn ghost small" onClick={() => navigate({ name: 'login' })}>登录</button>
+                  <button type="button" className="xsk-btn ghost small" onClick={() => navigate({ name: 'settings' })}>设置 / 登录</button>
                   {site.registration_enabled && <button type="button" className="xsk-btn small" onClick={() => navigate({ name: 'register' })}>注册</button>}
                 </div>
               </>
@@ -933,14 +950,12 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
       </div>
 
       <nav className="xsk-mobilebar">
-        <button type="button" aria-current={view.name === 'home' ? 'page' : undefined} onClick={() => navigate({ name: 'home' })}>首页</button>
-        <button type="button" aria-current={view.name === 'search' ? 'page' : undefined} onClick={() => navigate({ name: 'search' })}>探索</button>
-        {me && <button type="button" aria-current={view.name === 'notifications' ? 'page' : undefined} onClick={openNotifications}>通知</button>}
-        {me && <button type="button" aria-current={view.name === 'bookmarks' ? 'page' : undefined} onClick={() => { void actions.loadBookmarks(); navigate({ name: 'bookmarks' }); }}>书签</button>}
-        <button type="button" aria-current={view.name === 'announcements' ? 'page' : undefined} onClick={() => navigate({ name: 'announcements' })}>公告</button>
-        <button type="button" aria-current={view.name === 'settings' ? 'page' : undefined} onClick={() => navigate({ name: 'settings' })}>设置</button>
-        {isStaff && <button type="button" aria-current={view.name === 'admin' ? 'page' : undefined} onClick={() => goAdmin('users')}>管理</button>}
-        {!me && <button type="button" onClick={() => navigate({ name: 'login' })}>登录</button>}
+        <button type="button" aria-label="首页" title="首页" aria-current={view.name === 'home' ? 'page' : undefined} onClick={() => navigate({ name: 'home' })}><MobileIcon name="home" /><span>首页</span></button>
+        <button type="button" aria-label="探索" title="探索" aria-current={view.name === 'search' ? 'page' : undefined} onClick={() => navigate({ name: 'search' })}><MobileIcon name="search" /><span>探索</span></button>
+        <button type="button" aria-label="校园公告" title="校园公告" aria-current={view.name === 'announcements' ? 'page' : undefined} onClick={() => navigate({ name: 'announcements' })}><MobileIcon name="announcement" /><span>公告</span></button>
+        {me && <button type="button" aria-label="通知" title="通知" aria-current={view.name === 'notifications' ? 'page' : undefined} onClick={openNotifications}><MobileIcon name="bell" />{data.notifications.some(item => !item.is_read) && <i className="xsk-mobile-dot" />}<span>通知</span></button>}
+        {me && <button type="button" aria-label="书签" title="书签" aria-current={view.name === 'bookmarks' ? 'page' : undefined} onClick={() => { void actions.loadBookmarks(); navigate({ name: 'bookmarks' }); }}><MobileIcon name="bookmark" /><span>书签</span></button>}
+        <button type="button" aria-label="设置" title="设置" aria-current={view.name === 'settings' ? 'page' : undefined} onClick={() => navigate({ name: 'settings' })}><MobileIcon name="settings" /><span>设置</span></button>
       </nav>
     </div>
   );

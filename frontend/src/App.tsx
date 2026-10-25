@@ -11,7 +11,7 @@
  */
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
-import { resolveSkin } from './skins/registry';
+import { FALLBACK_SKIN_ID, resolveSkin } from './skins/registry';
 import './splash.css';
 import type {
   AdminSiteConfig,
@@ -24,6 +24,7 @@ import type {
   NewBoardFormState,
   NotificationItem,
   Post,
+  ProfileFormState,
   Provider,
   RegisterFormState,
   ReportItem,
@@ -37,6 +38,7 @@ import type {
   UserPreferences,
   Thread,
   User,
+  UserProfile,
   View
 } from './skins/contract';
 
@@ -97,7 +99,9 @@ export default function App() {
   const [me, setMe] = useState<User | null>(null);
   const [providers, setProviders] = useState<Provider>({ microsoft: false, github: false });
   const [site, setSite] = useState<SiteConfig>(FALLBACK_SITE);
-  const [activeSkin, setActiveSkin] = useState<string>(() => readSavedSkin() ?? FALLBACK_SITE.default_skin);
+  // The public entry point is always the X skin. A saved account preference is
+  // applied only after /me confirms that this browser has an active session.
+  const [activeSkin, setActiveSkin] = useState<string>(FALLBACK_SKIN_ID);
   const [skinPreferenceStatus, setSkinPreferenceStatus] = useState<SkinPreferenceStatus>('idle');
   const [boards, setBoards] = useState<Board[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -118,6 +122,8 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [regForm, setRegForm] = useState<RegisterFormState>({ invitation_code: '', username: '', password: '', real_name: '', graduation_year: '' });
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileForm, setProfileForm] = useState<ProfileFormState>({ nickname: '', avatar_data_url: null });
   const [reply, setReply] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
@@ -229,15 +235,16 @@ export default function App() {
    * them to another browser; that call is best-effort and never blocks the UI.
    */
   function applySkinChoice(id: string) {
+    if (!me) {
+      setActiveSkin(FALLBACK_SKIN_ID);
+      setSkinPreferenceStatus('guest');
+      return;
+    }
     setActiveSkin(id);
     try {
       window.localStorage.setItem(SKIN_STORAGE_KEY, id);
     } catch {
       // Private-mode browsers can refuse storage; the in-memory choice still applies.
-    }
-    if (!me) {
-      setSkinPreferenceStatus('guest');
-      return;
     }
     setSkinPreferenceStatus('saving');
     void api.put<{ preference: { skin_id: string } }>('/me/preferences/skin', { skin_id: id })
@@ -289,7 +296,8 @@ export default function App() {
     } else {
       setSkinPreferenceStatus('guest');
     }
-    chooseSkin(accountChoice ?? browserChoice);
+    if (user) chooseSkin(accountChoice ?? browserChoice);
+    else setActiveSkin(FALLBACK_SKIN_ID);
 
     // Mirror a browser-only choice into the account the first time a member
     // signs in on a device, so the two do not silently disagree.
@@ -297,6 +305,11 @@ export default function App() {
       void api.put('/me/preferences/skin', { skin_id: browserChoice })
         .then(() => setSkinPreferenceStatus('saved'))
         .catch(() => setSkinPreferenceStatus('error'));
+    }
+    if (user) await loadProfile(user);
+    else {
+      setProfile(null);
+      setProfileForm({ nickname: '', avatar_data_url: null });
     }
     try { const d = await api.get<{ items: Board[] }>('/boards'); setBoards(d.items); } catch { setBoards([]); }
     try {
@@ -347,7 +360,7 @@ export default function App() {
   }
 
   async function toggleBookmark(threadId: string, bookmarked: boolean) {
-    if (!me) { setView({ name: 'login' }); return; }
+    if (!me) { setView({ name: 'settings' }); return; }
     try {
       if (bookmarked) await api.del(`/threads/${threadId}/bookmark`);
       else await api.put(`/threads/${threadId}/bookmark`);
@@ -357,7 +370,7 @@ export default function App() {
   }
 
   async function likeThread(threadId: string) {
-    if (!me) { setView({ name: 'login' }); return; }
+    if (!me) { setView({ name: 'settings' }); return; }
     try { await api.put('/reactions', { target_type: 'thread', target_id: threadId, reaction: 'like' }); setSuccess('已点赞'); }
     catch (e) { setError((e as Error).message); }
   }
@@ -392,6 +405,7 @@ export default function App() {
       const d = await api.post<{ user: User }>('/login', { username, password });
       setMe(d.user); setView({ name: 'home' }); setError(''); setSuccess('登录成功');
       setUsername(''); setPassword('');
+      await loadProfile(d.user);
       await adoptAccountSkin();
     } catch (e) { setError((e as Error).message); }
   }
@@ -399,7 +413,32 @@ export default function App() {
   async function logout() {
     await api.post('/logout').catch(() => undefined);
     setMe(null); setView({ name: 'home' }); setSuccess(''); setError('');
+    setProfile(null); setProfileForm({ nickname: '', avatar_data_url: null });
+    setActiveSkin(FALLBACK_SKIN_ID);
+    try { window.localStorage.removeItem(SKIN_STORAGE_KEY); } catch { /* storage may be unavailable */ }
     setSkinPreferenceStatus('guest');
+  }
+
+  async function loadProfile(user: User) {
+    try {
+      const d = await api.get<{ profile: UserProfile }>('/me/profile');
+      setProfile(d.profile);
+      setProfileForm({ nickname: d.profile.nickname, avatar_data_url: d.profile.avatar_data_url });
+    } catch {
+      const fallback = { nickname: user.real_name, avatar_data_url: null, updated_at: user.updated_at };
+      setProfile(fallback);
+      setProfileForm({ nickname: fallback.nickname, avatar_data_url: null });
+    }
+  }
+
+  async function saveProfile(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const d = await api.patch<{ profile: UserProfile }>('/me/profile', profileForm);
+      setProfile(d.profile);
+      setProfileForm({ nickname: d.profile.nickname, avatar_data_url: d.profile.avatar_data_url });
+      setSuccess('个人资料已保存'); setError('');
+    } catch (e) { setError((e as Error).message); }
   }
 
   async function register(event: React.FormEvent) {
@@ -407,7 +446,7 @@ export default function App() {
     try {
       await api.post('/register', { ...regForm, graduation_year: Number(regForm.graduation_year) });
       setSuccess('注册申请已提交，请等待管理员激活后再登录');
-      setView({ name: 'login' }); setError('');
+      setView({ name: 'settings' }); setError('');
     } catch (e) { setError((e as Error).message); }
   }
 
@@ -608,6 +647,7 @@ export default function App() {
     },
     forms: {
       username, setUsername, password, setPassword, regForm, setRegForm,
+      profile, profileForm, setProfileForm,
       reply, setReply, newTitle, setNewTitle, newContent, setNewContent,
       composeBoard, setComposeBoard, searchQuery, setSearchQuery,
       announcementForm, setAnnouncementForm, newBoardForm, setNewBoardForm,
@@ -620,7 +660,7 @@ export default function App() {
     },
     actions: {
       reloadBase: loadBase, loadMoreFeed, loadBookmarks, searchForum, toggleBookmark, likeThread,
-      openThread, loadNotifications, login, logout, register,
+      openThread, loadNotifications, login, logout, register, saveProfile,
       createThread, createReply, submitReport, loadAdmin, saveSettings, saveSiteConfig,
       runDiagnostics, resetSettingsPassword, activateUser, setUserStatus,
       resolveReport, rejectReport, createInvitation, createAnnouncement, createBoard,
@@ -637,8 +677,14 @@ export default function App() {
   const Skin = skin.component;
 
   if (showSplash) return <div className="wfla-splash" aria-label="World Foreign Language Academy">
-    <div className="wfla-splash-content"><span>WELCOME TO THE COMMUNITY</span>
-      <h1>World Foreign Language Academy</h1><strong>WFLA</strong><p>连接每一个 WFLAer</p>
+    <div className="wfla-splash-content">
+      <div className="wfla-name" aria-hidden="true">
+        <span className="wfla-word" style={{ '--rest': '4.25em' } as React.CSSProperties}><b>W</b><span>orld</span></span>
+        <span className="wfla-word" style={{ '--rest': '4.85em' } as React.CSSProperties}><b>F</b><span>oreign</span></span>
+        <span className="wfla-word" style={{ '--rest': '6.6em' } as React.CSSProperties}><b>L</b><span>anguage</span></span>
+        <span className="wfla-word" style={{ '--rest': '5.9em' } as React.CSSProperties}><b>A</b><span>cademy</span></span>
+      </div>
+      <p>WFLA COMMUNITY</p>
     </div>
   </div>;
 

@@ -108,7 +108,8 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 
 - 默认主 UI 是**仿 X 风格的三段式信息流布局**（`x`）。
 - 备选 `endfield` 皮肤为档案式布局。
-- 每个登录用户可在「设置」页选择皮肤并**同步到账号**（跨设备沿用）；游客仅保存在本浏览器。
+- 每个登录用户可在「设置」页编辑昵称、头像并选择皮肤，偏好会**同步到账号**（跨设备沿用）。
+- 游客固定使用 X 皮肤；Endfield 登录后才可切换。「设置」同时承担访客登录入口。
 - 管理后台「外观」标签可选择默认皮肤与允许的皮肤白名单，**保存后立即生效**。
 - 新增皮肤三步：写组件 → 注册到 `frontend/src/skins/registry.ts` → 注册到 `src/modules/site/skins.ts`。
 
@@ -121,7 +122,7 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 ```ts
 APP_VERSION        = '0.2.0'   // 应用版本
 API_VERSION        = 'v1'      // HTTP 契约版本
-SCHEMA_VERSION     = 8         // 数据库结构版本（= 最高迁移序号）
+SCHEMA_VERSION     = 9         // 数据库结构版本（= 最高迁移序号）
 SKIN_CONTRACT_VERSION = 2      // 前端皮肤契约版本
 ```
 
@@ -172,9 +173,9 @@ self-hosted (Node.js + SQLite) with tunnel-based public access, built around
 - **Multiple sign-in methods** — internal username/password, GitHub OAuth and
   Microsoft OAuth (third-party identities must be linked to a forum account first).
 - **Guests can browse** public content; posting, reporting and notifications need an account.
-- **Cross-device skin preference** — signed-in members pick a whole-layout skin
-  on the Settings page and it is stored on their account; guests keep a
-  browser-local choice only.
+- **Cross-device profile and skin preference** — signed-in members edit their
+  avatar/nickname and pick a whole-layout skin on the Settings page; guests
+  always use the X skin until they sign in.
 - **No anonymous posting** — every user's real Chinese name and graduation year
   are shown on their profile and on every post; admins can trace any action.
 - Moderation is jointly responsible to teachers, AI Lab and the Computerization
@@ -271,8 +272,8 @@ that receive one `SkinContext` and may rearrange the whole page.
 
 - The default main UI is the **X-style three-column feed** (`x`).
 - `endfield` is the alternative archive-style layout.
-- Every signed-in member picks a skin on the Settings page and it is **stored
-  on the account** (cross-device); guests keep a browser-local choice.
+- Every signed-in member edits their profile and picks a skin on the Settings
+  page; both follow the account across devices. Guests always use the X skin.
 - Admins pick the site default skin and allow-list in the admin console
   (`Appearance` tab); changes apply immediately.
 - Adding a skin is three steps: write the component -> register in

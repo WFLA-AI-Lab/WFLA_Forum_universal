@@ -221,6 +221,21 @@
 { "skin_id": "endfield" }
 ```
 
+### `GET /me/profile` / `PATCH /me/profile`
+
+需要登录。读取或更新当前账号自己的展示资料；真实姓名和届别仍来自实名信息，不能通过此接口覆盖。
+
+```json
+{
+  "nickname": "Campus Tester",
+  "avatar_data_url": "data:image/png;base64,..."
+}
+```
+
+- 昵称为 1–24 个中英文字符、数字或常用符号。
+- 头像支持 PNG / JPEG / WebP，经前端限制在 256KB 内；传 `null` 可移除头像。
+- 首次读取且尚未设置资料时，昵称默认使用真实姓名。
+
 响应 200：
 
 ```json
@@ -232,9 +247,8 @@
 - 400 BAD_REQUEST：皮肤不存在、未被本站启用，或请求体格式无效。
 - 401 UNAUTHORIZED：未登录。
 
-> 前端策略：布局切换立即生效并写入浏览器 localStorage；
-> 已登录用户额外调用本接口同步到账号。游客只有浏览器本地保存，
-> 登录后首次访问会把浏览器中的选择镜像进账号。
+> 前端策略：游客固定使用 X 皮肤；登录后读取账号偏好。登录用户切换布局时
+> 立即生效并写入浏览器 localStorage，同时调用本接口同步到账号。
 
 ### `GET /me/preferences/effective-skin`
 
