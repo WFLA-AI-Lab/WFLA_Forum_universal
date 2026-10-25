@@ -28,7 +28,7 @@ export interface SessionUser {
   id: string;
   username: string;
   realName: string;
-  graduationYear: string;
+  enrollmentYear: string;
   role: Role;
   status: UserStatus;
   createdAt: string;

@@ -20,7 +20,8 @@ async function migrate() {
     '0003_microsoft_oauth.sql',
     '0004_engagement.sql',
     '0005_oauth_providers.sql',
-    '0006_app_settings.sql'
+    '0006_app_settings.sql',
+    '0011_enrollment_year.sql'
   ];
   for (const file of files) {
     const sql = readFileSync(`src/migrations/${file}`, 'utf8');
@@ -36,8 +37,8 @@ async function migrate() {
 async function seedOwner(): Promise<void> {
   const now = nowIso();
   await env.DB.prepare(
-    'INSERT INTO users (id, username, password_hash, real_name, graduation_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(OWNER_ID, 'owner', bcrypt.hashSync('OwnerPass1!', 4), '测试同学', '2029', 'owner' satisfies Role, 'active', now, now).run();
+    'INSERT INTO users (id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(OWNER_ID, 'owner', bcrypt.hashSync('OwnerPass1!', 4), '测试同学', '2026', 'owner' satisfies Role, 'active', now, now).run();
   await env.DB.prepare(
     'INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)'
   ).bind(await sha256(OWNER_TOKEN), OWNER_ID, addSeconds(new Date(), 3600).toISOString(), now).run();

@@ -12,7 +12,7 @@ if (!existsSync(migrationsDir)) throw new Error(`migrations dir not found: ${mig
 
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+db.pragma('foreign_keys = OFF');
 db.exec(`CREATE TABLE IF NOT EXISTS _selfhost_migrations (
   name TEXT PRIMARY KEY,
   applied_at TEXT NOT NULL
@@ -37,4 +37,5 @@ for (const file of readdirSync(migrationsDir).filter(name => name.endsWith('.sql
 }
 
 console.log(`database ready: ${dbPath}`);
+db.pragma('foreign_keys = ON');
 db.close();

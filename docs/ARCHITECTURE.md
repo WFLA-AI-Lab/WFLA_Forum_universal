@@ -1,8 +1,8 @@
 # WFLA Wall 架构 / WFLA Wall Architecture
 
-> 本文档面向协作者（后端、前端、运维），描述现行 **v0.2.0** 的真实架构——
+> 本文档面向协作者（后端、前端、运维），描述现行 **v0.3.1** 的真实架构——
 > 不是早期设想，而是仓库里实际运行的东西。
-> This document describes the architecture as it actually ships in v0.2.0 —
+> This document describes the architecture as it actually ships in v0.3.1 —
 > not the early design sketch, but what the repository runs today.
 
 ---
@@ -56,6 +56,7 @@
 | `settings` | 运行时高级设置（加密存储）、网络诊断 | `modules/settings/*` |
 | `site` | 站点公开配置、**皮肤注册表**（服务端） | `modules/site/*` |
 | `preferences` | **用户偏好（v0.2 新增）**：跨设备皮肤选择 | `modules/preferences/*` |
+| `admin` | **v0.3 新增**：管理概览、账号详情、内容审核、审计查询与公告管理 | `modules/admin/routes.ts` |
 | `access` | 角色等级判定（member→moderator→admin→owner） | `modules/access/service.ts` |
 | `routes/*.auth` | GitHub / Microsoft OAuth（登录 + 绑定） | `routes/*-auth.routes.ts` |
 | `selfhost` | Node HTTP 服务器、.env 加载、SQLite→D1 兼容层 | `selfhost/*` |
@@ -64,9 +65,9 @@
 `atLeast(role, required)`。默认拒绝；`admin` 以上才能改别人数据；`owner`
 才能改站点级配置。所有敏感操作写 `audit_logs`。
 
-**数据模型 / Data model**: 单一 SQLite 文件。核心表（v0.2.0，`SCHEMA_VERSION=8`）：
+**数据模型 / Data model**: 单一 SQLite 文件。核心表（v0.3.1，`SCHEMA_VERSION=11`）：
 
-- `users` — 用户与身份（真实姓名、届别、角色、状态）
+- `users` — 用户与身份（真实姓名、入学届别、角色、状态）
 - `sessions` — 会话（仅存哈希）
 - `boards` / `threads` / `posts` — 内容
 - `reports` — 举报
@@ -76,6 +77,7 @@
 - `invitations` / `oauth_providers` / `oauth_states` — 邀请与第三方登录
 - `app_settings` — 运行时配置（含加密的 OAuth Secret）
 - `user_preferences` — **v0.2 新增**：每用户偏好（当前 `skin_id`）
+- `user_notes` / `sanctions` — **v0.3 新增**：账号管理备注与禁言 / 封禁 / 恢复历史
 
 迁移规则：`src/migrations/` 只增不改；新迁移文件 = 下一序号；
 `src/version.ts` 的 `SCHEMA_VERSION` 同步 +1。
@@ -84,7 +86,7 @@
 
 ## 3. 前端 / Frontend
 
-### 3.1 容器 / 皮肤分层（Skin Contract v1）
+### 3.1 容器 / 皮肤分层（Skin Contract v2）
 
 ```
 App.tsx (容器 / container)
@@ -114,8 +116,17 @@ DOM
 
 - 整布局预览式皮肤选择器（X 用缩略网格，Endfield 用档案记录行）；
 - 同步状态（`site.skin_preference_status`: `idle / saving / saved / guest / error`）；
-- 账号信息（真实姓名、届别、角色——论坛无匿名发帖）；
+- 账号信息（真实姓名、入学届别、角色——论坛无匿名发帖）；
 - 入口：左侧导航栏 + 移动端底部导航，所有登录用户可达。
+
+---
+
+### 3.3 独立管理后台 / Standalone admin console（v0.3 新增）
+
+`view.name === "admin"` 时，容器直接挂载 `frontend/src/admin/AdminConsole.tsx`，不经过任何皮肤组件。
+后台拥有独立的 `admin.css` 设计系统（Apple 风格、响应式、深色模式、减少动态 / 透明度偏好），因此换皮肤不会影响后台。
+`admin` / `owner` 可使用概览、账号、内容、举报、邀请码、公告与板块、审计日志；
+`owner` 额外拥有外观、高级设置与系统诊断。所有数据仍由后端权限与审计日志约束，前端隐藏入口不能替代服务端授权。
 
 ---
 
@@ -123,9 +134,9 @@ DOM
 
 | 字段 | 含义 | 当前 |
 | --- | --- | --- |
-| `APP_VERSION` | 应用整体版本 | 0.2.0 |
+| `APP_VERSION` | 应用整体版本 | 0.3.1 |
 | `API_VERSION` | HTTP 契约版本（破坏性变更才 bump） | v1 |
-| `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 8 |
+| `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 11 |
 | `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 2 |
 
 规则：契约只增不改 → 不 bump；重命名/删除/改语义 → bump。

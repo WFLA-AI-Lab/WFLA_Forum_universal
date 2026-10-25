@@ -12,6 +12,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 import { FALLBACK_SKIN_ID, resolveSkin } from './skins/registry';
+import AdminConsole, { type AdminSection } from './admin/AdminConsole';
 import './splash.css';
 import type {
   AdminSiteConfig,
@@ -121,7 +122,7 @@ export default function App() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [regForm, setRegForm] = useState<RegisterFormState>({ invitation_code: '', username: '', password: '', real_name: '', graduation_year: '' });
+  const [regForm, setRegForm] = useState<RegisterFormState>({ invitation_code: '', username: '', password: '', real_name: '', enrollment_year: '' });
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileForm, setProfileForm] = useState<ProfileFormState>({ nickname: '', avatar_data_url: null });
   const [reply, setReply] = useState('');
@@ -444,7 +445,7 @@ export default function App() {
   async function register(event: React.FormEvent) {
     event.preventDefault();
     try {
-      await api.post('/register', { ...regForm, graduation_year: Number(regForm.graduation_year) });
+      await api.post('/register', { ...regForm, enrollment_year: Number(regForm.enrollment_year) });
       setSuccess('注册申请已提交，请等待管理员激活后再登录');
       setView({ name: 'settings' }); setError('');
     } catch (e) { setError((e as Error).message); }
@@ -675,6 +676,10 @@ export default function App() {
 
   const skin = resolveSkin(activeSkin);
   const Skin = skin.component;
+
+  if (view.name === 'admin' && isAdmin && me) {
+    return <AdminConsole me={me} site={site} initialTab={view.tab as AdminSection} onExit={() => setView({ name: 'home' })} onSettingsChanged={loadBase} />;
+  }
 
   if (showSplash) return <div className="wfla-splash" aria-label="World Foreign Language Academy">
     <div className="wfla-splash-content">

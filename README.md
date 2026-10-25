@@ -9,7 +9,7 @@
 上海市世外中学校园论坛 —— 一个**可扩展、可监管、可交接**的校园社区平台，
 自托管（Node.js + SQLite），通过内网穿透提供公网访问。
 
-Current version: **v0.2.0** ｜ API: **v1** ｜ DB schema: **8** ｜ Skin contract: **1**
+Current version: **v0.3.1** ｜ API: **v1** ｜ DB schema: **11** ｜ Skin contract: **2**
 
 ---
 
@@ -21,7 +21,8 @@ Current version: **v0.2.0** ｜ API: **v1** ｜ DB schema: **8** ｜ Skin contra
 - **多种登录方式**：内部账号密码、GitHub OAuth、Microsoft OAuth（第三方身份需先绑定到论坛账号）。
 - **游客可浏览**公开内容；发帖、举报、通知等需要登录。
 - **皮肤偏好跨设备同步**：登录用户在「设置」页选择整套布局皮肤并同步到账号；游客仅保存在本浏览器。
-- **不允许匿名发帖**：每位用户在其个人主页与所有帖子中都公开显示**真实中文姓名与届别**，管理员可随时查看完整身份。
+- **不允许匿名发帖**：每位用户在其个人主页与所有帖子中都公开显示**真实中文姓名与入学届别**，管理员可随时查看完整身份。
+- **独立管理后台**：管理员可查看可视化概览、管理账号与内容、处理举报、发放邀请码、发布公告并审计敏感操作；owner 可在线配置皮肤、注册策略与 OAuth。
 - 监管由教师、AI Lab 与 Computerization 信息化社负责人共同负责（最终名单待定）。
 - 所有敏感操作均记录**审计日志**；权限模型默认拒绝。
 
@@ -36,8 +37,8 @@ Current version: **v0.2.0** ｜ API: **v1** ｜ DB schema: **8** ｜ Skin contra
 | 密码 | bcryptjs（cost 12） | 密码散列，绝不明文存储 |
 | HTML 净化 | sanitize-html | Markdown 渲染后再做白名单净化 |
 | 测试 | Vitest + Miniflare | 单元 / 集成测试 |
-| 前端 | React 19 + TypeScript + Vite | 单页应用 |
-| 前端架构 | 容器 / 皮肤分离（Skin Contract v1） | 换皮肤 = 换整套布局，状态与请求完全复用 |
+| 前端 | React 19 + TypeScript + Vite | 单页应用；论坛皮肤 + 独立管理后台 |
+| 前端架构 | 容器 / 皮肤分离（Skin Contract v2） | 换皮肤 = 换整套布局，状态与请求完全复用；管理后台独立于皮肤 |
 | 反向代理（可选） | Caddy | 自动 HTTPS 证书 |
 
 > 早期曾评估 Cloudflare Workers / Pages / D1，现行发布形态为**自托管 Node + SQLite**
@@ -120,9 +121,9 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 版本号唯一来源是 `src/version.ts`：
 
 ```ts
-APP_VERSION        = '0.2.0'   // 应用版本
+APP_VERSION        = '0.3.1'   // 应用版本
 API_VERSION        = 'v1'      // HTTP 契约版本
-SCHEMA_VERSION     = 9         // 数据库结构版本（= 最高迁移序号）
+SCHEMA_VERSION     = 11        // 数据库结构版本（= 最高迁移序号）
 SKIN_CONTRACT_VERSION = 2      // 前端皮肤契约版本
 ```
 
@@ -148,7 +149,7 @@ npm --prefix frontend run build
 - 所有输入经 Zod 校验；正文 HTML 服务端白名单净化后再存储。
 - 敏感操作全部写审计日志；权限模型默认拒绝。
 - OAuth Secret 与 owner 密码**永不回显**；密钥、数据库、证书、私有部署教程均被排除在版本控制之外。
-- **真实姓名与届别公开，无匿名发帖**，管理员可追溯任何一次发布行为。
+- **真实姓名与入学届别公开，无匿名发帖**，管理员可追溯任何一次发布行为。
 
 ### 部署要点
 
@@ -176,7 +177,9 @@ self-hosted (Node.js + SQLite) with tunnel-based public access, built around
 - **Cross-device profile and skin preference** — signed-in members edit their
   avatar/nickname and pick a whole-layout skin on the Settings page; guests
   always use the X skin until they sign in.
-- **No anonymous posting** — every user's real Chinese name and graduation year
+- **Standalone admin console** — visual overview, account/content moderation,
+  reports, invitations, announcements, audit trail, and owner-only runtime settings.
+- **No anonymous posting** — every user's real Chinese name and enrolment year
   are shown on their profile and on every post; admins can trace any action.
 - Moderation is jointly responsible to teachers, AI Lab and the Computerization
   society leads (final roster TBD).
@@ -195,7 +198,7 @@ self-hosted (Node.js + SQLite) with tunnel-based public access, built around
 | HTML sanitising | sanitize-html | Whitelist after Markdown rendering |
 | Tests | Vitest + Miniflare | Unit / integration |
 | Frontend | React 19 + TypeScript + Vite | Single-page app |
-| Frontend architecture | Container / skin split (Skin Contract v1) | A skin replaces the whole layout; state and requests are shared |
+| Frontend architecture | Container / skin split (Skin Contract v2) | A skin replaces the whole layout; state and requests are shared |
 | Reverse proxy (optional) | Caddy | Automatic HTTPS certificates |
 
 > The very first design evaluated Cloudflare Workers / Pages / D1. The current
@@ -287,9 +290,9 @@ See [`docs/FRONTEND_SKIN_GUIDE.md`](docs/FRONTEND_SKIN_GUIDE.md) (Chinese).
 Single source of truth is `src/version.ts`:
 
 ```ts
-APP_VERSION           = '0.2.0'
+APP_VERSION           = '0.3.1'
 API_VERSION           = 'v1'
-SCHEMA_VERSION        = 8
+SCHEMA_VERSION        = 11
 SKIN_CONTRACT_VERSION = 2
 ```
 
@@ -320,7 +323,7 @@ npm --prefix frontend run build
 - OAuth secrets and the owner password are never echoed back; `.env`, SQLite
   files, certificates and private deployment guides are excluded from version
   control.
-- **Real names and graduation years are public; no anonymous posting** — any
+- **Real names and enrolment years are public; no anonymous posting** — any
   published item can be traced to its author.
 
 ### Deployment notes

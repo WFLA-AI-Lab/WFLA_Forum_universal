@@ -35,7 +35,7 @@ export interface User {
   id: string;
   username: string;
   real_name: string;
-  graduation_year: string;
+  enrollment_year: string;
   role: 'owner' | 'admin' | 'moderator' | 'member';
   status: 'pending' | 'active' | 'muted' | 'banned' | 'deleted';
   created_at: string;
@@ -70,7 +70,7 @@ export interface Thread {
   last_activity_at: string;
   created_at: string;
   author_id: string;
-  author?: { username: string; real_name: string; graduation_year: string; role: string };
+  author?: { username: string; real_name: string; enrollment_year: string; role: string };
   board?: { slug: string; name: string };
   preview_html?: string | null;
 }
@@ -78,7 +78,7 @@ export interface Thread {
 export interface SearchResults {
   threads: Thread[];
   posts: { id: string; thread_id: string; thread_title: string }[];
-  users: Pick<User, 'id' | 'real_name' | 'graduation_year' | 'role'>[];
+  users: Pick<User, 'id' | 'real_name' | 'enrollment_year' | 'role'>[];
 }
 
 export interface Post {
@@ -89,7 +89,7 @@ export interface Post {
   content_html: string;
   created_at: string;
   author_id: string;
-  author?: { username: string; real_name: string; graduation_year: string; role: string };
+  author?: { username: string; real_name: string; enrollment_year: string; role: string };
 }
 
 export interface Announcement {
@@ -100,7 +100,7 @@ export interface Announcement {
   starts_at: string;
   ends_at: string | null;
   author_real_name: string;
-  author_graduation_year: string;
+  author_enrollment_year: string;
 }
 
 export interface NotificationItem {
@@ -132,6 +132,7 @@ export interface InvitationItem {
   created_by: string | null;
   used_by: string | null;
   expires_at: string | null;
+  revoked_at?: string | null;
   created_at: string;
 }
 
@@ -307,7 +308,7 @@ export type RegisterFormState = {
   username: string;
   password: string;
   real_name: string;
-  graduation_year: string;
+  enrollment_year: string;
 };
 
 export interface SkinForms {

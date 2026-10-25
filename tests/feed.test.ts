@@ -10,12 +10,13 @@ let mf: Awaited<ReturnType<typeof createTestEnv>>['mf'];
 beforeEach(async () => {
   ({ env, mf } = await createTestEnv());
   const schema = readFileSync('src/migrations/0001_init.sql', 'utf8');
-  for (const statement of schema.split(';').map(value => value.replace(/^\s*--.*$/gm, '').trim()).filter(value => value && !/^PRAGMA\b/i.test(value))) {
+  const enrollment = readFileSync('src/migrations/0011_enrollment_year.sql', 'utf8');
+  for (const statement of (schema + ';' + enrollment).split(';').map(value => value.replace(/^\s*--.*$/gm, '').trim()).filter(value => value && !/^PRAGMA\b/i.test(value))) {
     await env.DB.prepare(statement).run();
   }
   const time = '2026-10-25T00:00:00.000Z';
-  await env.DB.prepare('INSERT INTO users (id, username, password_hash, real_name, graduation_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind('author', 'author', 'hash', '测试同学', '2029', 'member', 'active', time, time).run();
+  await env.DB.prepare('INSERT INTO users (id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind('author', 'author', 'hash', '测试同学', '2026', 'member', 'active', time, time).run();
   for (const [id, active] of [['board-a', 1], ['board-b', 0]] as const) {
     await env.DB.prepare('INSERT INTO boards (id, slug, name, description, position, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(id, id, id, '', 0, active, time, time).run();

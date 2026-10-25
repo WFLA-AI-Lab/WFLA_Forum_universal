@@ -16,6 +16,7 @@ import { diagnosticsRoutes } from './modules/settings/diagnostics';
 import { siteRoutes } from './modules/site/routes';
 import { preferenceRoutes } from './modules/preferences/routes';
 import { healthRoutes } from './routes/health.routes';
+import { adminRoutes } from './modules/admin/routes';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api/v1');
 
@@ -36,6 +37,7 @@ app.use('*', cors({
 
 // Health first: monitors hit it before auth/CORS matter.
 app.route('/', healthRoutes);
+app.route('/', adminRoutes);
 
 app.route('/', identityRoutes);
 app.route('/', contentRoutes);

@@ -2,7 +2,7 @@ export interface User {
   id: string;
   username: string;
   real_name: string;
-  graduation_year: string;
+  enrollment_year: string;
   role: 'owner' | 'admin' | 'moderator' | 'member';
   status: 'pending' | 'active' | 'muted' | 'banned' | 'deleted';
   created_at: string;
@@ -35,7 +35,7 @@ export interface Thread {
   last_activity_at: string;
   created_at: string;
   author_id: string;
-  author?: { username: string; real_name: string; graduation_year: string; role: string };
+  author?: { username: string; real_name: string; enrollment_year: string; role: string };
 }
 
 export interface Post {
@@ -46,7 +46,7 @@ export interface Post {
   content_html: string;
   created_at: string;
   author_id: string;
-  author?: { username: string; real_name: string; graduation_year: string; role: string };
+  author?: { username: string; real_name: string; enrollment_year: string; role: string };
 }
 
 export interface Announcement {
@@ -57,7 +57,7 @@ export interface Announcement {
   starts_at: string;
   ends_at: string | null;
   author_real_name: string;
-  author_graduation_year: string;
+  author_enrollment_year: string;
 }
 export interface RuntimeSettings {
   forum_name: string;

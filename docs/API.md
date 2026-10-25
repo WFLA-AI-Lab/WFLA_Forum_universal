@@ -1,6 +1,6 @@
 # WFLA Wall API 接口文档
 
-> 适用版本：**v0.2.0** ｜ API 版本：**v1** ｜ 皮肤契约：**1** ｜ 数据库结构：**8**
+> 适用版本：**v0.3.1** ｜ API 版本：**v1** ｜ 皮肤契约：**2** ｜ 数据库结构：**11**
 
 本文件是给前端 / 移动端 / 第三方集成开发者看的接口契约。所有接口都挂在基础路径
 `/api/v1` 之下；若站点公开地址是 `https://wflawall.zh.kg`，则完整地址是
@@ -9,7 +9,7 @@
 - 认证方式：**HttpOnly Cookie 会话**（同源请求自动带上，无需手动传 token）。
 - 所有请求/响应体都是 JSON（`Content-Type: application/json`）。
 - 时间统一使用 ISO-8601 UTC 字符串，例如 `2026-10-25T04:00:00.000Z`。
-- 中文姓名与届别对所有人公开；本论坛**没有匿名发帖**。
+- 中文姓名与入学届别对所有人公开；本论坛**没有匿名发帖**。
 
 ---
 
@@ -72,9 +72,9 @@
 {
   "status": "ok",
   "time": "2026-10-25T04:00:00.000Z",
-  "version": "0.1.0",
+  "version": "0.3.1",
   "api_version": "v1",
-  "schema_version": 7
+  "schema_version": 11
 }
 ```
 
@@ -86,7 +86,7 @@
 {
   "forum_name": "世外墙 WFLA Wall",
   "tagline": "世外中学校园论坛",
-  "version": "0.1.0",
+  "version": "0.3.1",
   "api_version": "v1",
   "skin_contract_version": 2,
   "default_skin": "x",
@@ -129,7 +129,7 @@
 {
   "user": {
     "id": "…", "username": "student01", "real_name": "张三",
-    "graduation_year": "2029", "role": "owner", "status": "active",
+    "enrollment_year": "2026", "role": "owner", "status": "active",
     "created_at": "…", "updated_at": "…"
   }
 }
@@ -150,7 +150,7 @@
 需要登录。返回当前登录用户。
 
 ```json
-{ "user": { "id": "…", "username": "…", "real_name": "…", "graduation_year": "2029", "role": "member", "status": "active" } }
+{ "user": { "id": "…", "username": "…", "real_name": "…", "enrollment_year": "2026", "role": "member", "status": "active" } }
 ```
 
 ### `PATCH /users/:id`
@@ -160,11 +160,11 @@
 请求（两个字段至少填一个）：
 
 ```json
-{ "real_name": "张三", "graduation_year": "2029" }
+{ "real_name": "张三", "enrollment_year": "2026" }
 ```
 
 - `real_name`：2–10 个中文字符。
-- `graduation_year`：`20xx`，本论坛约定为**毕业年份**（2029 届 = 2029 年毕业）。
+- `enrollment_year`：`20xx`，本论坛约定为**入学年份**（2026 届 = 2026 年入学）。
 
 ### `POST /users/:id/password`
 
@@ -262,7 +262,28 @@
 ```
 ---
 
-## 4. 邀请制注册
+## 4. 管理后台（v0.3.1）
+
+以下接口均要求 `admin` 或 `owner`；`/admin/settings`、`/admin/site-config` 与 `/admin/diagnostics` 仅 `owner` 可访问。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/admin/overview` | 账号、内容、举报、邀请统计、14 天趋势、提醒与热门话题 |
+| GET | `/admin/users` | 账号列表，支持 `query`、`role`、`status`、`limit`、`offset` |
+| GET | `/admin/users/:id` | 账号详情、第三方绑定、备注、处置历史与内容计数 |
+| POST | `/admin/users/:id/notes` | 添加管理备注；body `{ "body": "..." }` |
+| POST | `/admin/users/:id/sessions/revoke` | 撤销该账号全部会话 |
+| GET | `/admin/content` | 内容审核列表，支持 `type=threads|posts`、`status`、`query` |
+| GET | `/admin/audit` | 审计日志，支持 `action`、`query`、`limit`、`offset` |
+| GET | `/admin/announcements` | 管理端公告列表（含已结束公告） |
+| DELETE | `/admin/announcements/:id` | 删除公告并写审计日志 |
+
+管理员只能创建、管理、授权或激活权限严格低于自己的账号；不能操作同级、更高权限或自己。
+`/users/:id/password` 重置密码后撤销目标用户全部会话，并写 `user.password_reset` 审计记录。
+
+---
+
+## 5. 邀请制注册
 
 ### `POST /register`
 
@@ -276,14 +297,14 @@
   "username": "newbie",
   "password": "Passw0rd!!",
   "real_name": "张三",
-  "graduation_year": "2029"
+  "enrollment_year": "2026"
 }
 ```
 
 响应 `201`：
 
 ```json
-{ "item": { "id": "…", "username": "newbie", "real_name": "张三", "graduation_year": "2029", "role": "member", "status": "pending" } }
+{ "item": { "id": "…", "username": "newbie", "real_name": "张三", "enrollment_year": "2026", "role": "member", "status": "pending" } }
 ```
 
 ### `POST /invitations` — 需要 `admin`
@@ -306,7 +327,7 @@
 
 ---
 
-## 5. 板块与内容
+## 6. 板块与内容
 
 ### `GET /feed`
 
@@ -337,7 +358,7 @@ Query：`limit`（1–50，默认 20）、`cursor`（上一页返回的 `next_cu
       "id": "…", "board_id": "…", "title": "…", "slug": "…",
       "status": "published", "is_pinned": false, "view_count": 12, "reply_count": 3,
       "last_activity_at": "…", "created_at": "…", "updated_at": "…",
-      "author": { "id": "…", "username": "…", "real_name": "…", "graduation_year": "2029", "role": "member" }
+      "author": { "id": "…", "username": "…", "real_name": "…", "enrollment_year": "2026", "role": "member" }
     }
   ],
   "next_cursor": "…"
@@ -378,7 +399,7 @@ Query：`limit`（1–50，默认 20）、`cursor`（上一页返回的 `next_cu
 
 ---
 
-## 6. 互动
+## 7. 互动
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
@@ -411,7 +432,7 @@ Query：`limit`（1–50，默认 20）、`cursor`（上一页返回的 `next_cu
 
 ---
 
-## 7. 公告与通知
+## 8. 公告与通知
 
 ### `GET /announcements`
 
@@ -445,7 +466,7 @@ Query：`limit`（1–50，默认 20）、`cursor`（上一页返回的 `next_cu
 
 ---
 
-## 8. 举报与监管
+## 9. 举报与监管
 
 ### `POST /reports` — 需要登录
 
@@ -500,7 +521,7 @@ Query `status` ∈ `open | in_review | resolved | rejected`，可选。按待处
 
 ---
 
-## 9. 用户管理（管理后台）
+## 10. 用户管理（管理后台）
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
@@ -528,7 +549,7 @@ Query `status` ∈ `open | in_review | resolved | rejected`，可选。按待处
 
 ---
 
-## 10. 站点外观与运行时设置（仅 `owner`）
+## 11. 站点外观与运行时设置（仅 `owner`）
 
 ### `GET /admin/site-config`
 
@@ -592,7 +613,7 @@ Query `status` ∈ `open | in_review | resolved | rejected`，可选。按待处
 
 ---
 
-## 11. 变更与兼容策略
+## 12. 变更与兼容策略
 
 - 路径带 `/api/v1`：**破坏性变更必须升 `API_VERSION`**，并新增 `/api/v2` 而不是原地改 v1。
 - 响应对象新增字段是兼容变更，客户端必须忽略未知字段。

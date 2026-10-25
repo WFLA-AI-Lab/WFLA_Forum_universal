@@ -13,7 +13,8 @@ let mf: Awaited<ReturnType<typeof createTestEnv>>['mf'];
 async function migrate() {
   const schema = readFileSync('src/migrations/0001_init.sql', 'utf8');
   const settings = readFileSync('src/migrations/0006_app_settings.sql', 'utf8');
-  for (const statement of (schema + '\n' + settings)
+  const enrollment = readFileSync('src/migrations/0011_enrollment_year.sql', 'utf8');
+  for (const statement of (schema + '\n' + settings + '\n' + enrollment)
     .split(';')
     .map(value => value.replace(/^\s*--.*$/gm, '').trim())
     .filter(value => value && !/^PRAGMA\b/i.test(value))) {
@@ -24,8 +25,8 @@ async function migrate() {
 async function createSessionUser(id: string, username: string, role: Role, password: string): Promise<string> {
   const now = new Date().toISOString();
   await env.DB.prepare(
-    'INSERT INTO users (id, username, password_hash, real_name, graduation_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, username, bcrypt.hashSync(password, 4), '测试用户', '2029', role, 'active', now, now).run();
+    'INSERT INTO users (id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(id, username, bcrypt.hashSync(password, 4), '测试用户', '2026', role, 'active', now, now).run();
   const token = 'token-' + id;
   await env.DB.prepare(
     'INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)'

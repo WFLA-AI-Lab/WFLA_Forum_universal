@@ -11,7 +11,7 @@ interface BoardRow { id: string; slug: string; name: string; description: string
 interface ThreadRow {
   id: string; board_id: string; author_id: string; title: string; slug: string; status: string;
   is_pinned: number; view_count: number; reply_count: number; last_activity_at: string; created_at: string; updated_at: string;
-  author_username?: string; author_real_name?: string; author_graduation_year?: string; author_role?: string;
+  author_username?: string; author_real_name?: string; author_enrollment_year?: string; author_role?: string;
   board_slug?: string; board_name?: string; preview_html?: string | null;
 }
 
@@ -24,7 +24,7 @@ function threadJson(row: ThreadRow) {
     is_pinned: row.is_pinned === 1,
     author: row.author_username ? {
       id: row.author_id, username: row.author_username, real_name: row.author_real_name,
-      graduation_year: row.author_graduation_year, role: row.author_role
+      enrollment_year: row.author_enrollment_year, role: row.author_role
     } : undefined
   };
 }
@@ -41,7 +41,7 @@ contentRoutes.get('/feed', async c => {
   const rows = await c.env.DB.prepare(
     `SELECT t.*, b.slug AS board_slug, b.name AS board_name,
             u.username AS author_username, u.real_name AS author_real_name,
-            u.graduation_year AS author_graduation_year, u.role AS author_role,
+            u.enrollment_year AS author_enrollment_year, u.role AS author_role,
             (SELECT p.content_html FROM posts p
               WHERE p.thread_id = t.id AND p.floor_number = 1 AND p.status = 'published'
               LIMIT 1) AS preview_html
@@ -91,7 +91,7 @@ contentRoutes.get('/boards/:slug/threads', async c => {
   const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 20), 1), 50);
   const cursor = c.req.query('cursor');
   const rows = await c.env.DB.prepare(
-    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.graduation_year AS author_graduation_year, u.role AS author_role
+    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
        FROM threads t JOIN users u ON u.id = t.author_id
       WHERE t.board_id = ? AND t.status = 'published' AND (? IS NULL OR t.id < ?)
       ORDER BY t.is_pinned DESC, t.last_activity_at DESC, t.id DESC LIMIT ?`
@@ -134,12 +134,12 @@ function slugifyTitle(title: string): string {
 contentRoutes.get('/threads/:id', async c => {
   const id = c.req.param('id');
   const row = await c.env.DB.prepare(
-    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.graduation_year AS author_graduation_year, u.role AS author_role
+    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
        FROM threads t JOIN users u ON u.id = t.author_id WHERE t.id = ? AND t.status != 'deleted'`
   ).bind(id).first<ThreadRow>();
   if (!row) throw notFound('话题不存在');
   const posts = await c.env.DB.prepare(
-    `SELECT p.*, u.username AS author_username, u.real_name AS author_real_name, u.graduation_year AS author_graduation_year, u.role AS author_role
+    `SELECT p.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
        FROM posts p JOIN users u ON u.id = p.author_id
       WHERE p.thread_id = ? AND p.status != 'deleted' ORDER BY p.floor_number LIMIT 200`
   ).bind(id).all<ThreadRow & { content_markdown: string; content_html: string; floor_number: number }>();
@@ -148,7 +148,7 @@ contentRoutes.get('/threads/:id', async c => {
     posts: (posts.results ?? []).map(post => ({
       ...post, author: {
         id: post.author_id, username: post.author_username, real_name: post.author_real_name,
-        graduation_year: post.author_graduation_year, role: post.author_role
+        enrollment_year: post.author_enrollment_year, role: post.author_role
       }
     }))
   });
@@ -239,7 +239,7 @@ contentRoutes.delete('/threads/:id/bookmark', async c => {
 contentRoutes.get('/bookmarks', async c => {
   const actor = await requireUser(c);
   const rows = await c.env.DB.prepare(
-    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.graduation_year AS author_graduation_year, u.role AS author_role
+    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
        FROM bookmarks b JOIN threads t ON t.id = b.thread_id JOIN users u ON u.id = t.author_id
       WHERE b.user_id = ? AND t.status != 'deleted' ORDER BY b.created_at DESC LIMIT 100`
   ).bind(actor.id).all<ThreadRow>();
@@ -287,7 +287,7 @@ contentRoutes.get('/search', async c => {
   if (q.length < 1 || q.length > 100) throw badRequest('搜索词必须为 1-100 字符');
   const pattern = `%${q}%`;
   const threads = await c.env.DB.prepare(
-    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.graduation_year AS author_graduation_year, u.role AS author_role
+    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
        FROM threads t JOIN users u ON u.id = t.author_id
       WHERE t.status = 'published' AND t.title LIKE ? ORDER BY t.last_activity_at DESC LIMIT 20`
   ).bind(pattern).all<ThreadRow>();
@@ -297,8 +297,8 @@ contentRoutes.get('/search', async c => {
       WHERE p.status = 'published' AND t.status = 'published' AND p.content_markdown LIKE ? ORDER BY p.created_at DESC LIMIT 20`
   ).bind(pattern).all<{ id: string; thread_id: string; floor_number: number; created_at: string; thread_title: string }>();
   const users = await c.env.DB.prepare(
-    `SELECT id, username, real_name, graduation_year, role FROM users WHERE status = 'active' AND (username LIKE ? OR real_name LIKE ?) LIMIT 20`
-  ).bind(pattern, pattern).all<{ id: string; username: string; real_name: string; graduation_year: string; role: string }>();
+    `SELECT id, username, real_name, enrollment_year, role FROM users WHERE status = 'active' AND (username LIKE ? OR real_name LIKE ?) LIMIT 20`
+  ).bind(pattern, pattern).all<{ id: string; username: string; real_name: string; enrollment_year: string; role: string }>();
   return c.json({
     threads: (threads.results ?? []).map(threadJson),
     posts: posts.results ?? [],

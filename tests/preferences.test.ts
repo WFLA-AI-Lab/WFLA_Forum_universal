@@ -31,8 +31,8 @@ async function migrate(files: string[]) {
 async function createSessionUser(id: string, username: string, role: Role): Promise<string> {
   const now = new Date().toISOString();
   await env.DB.prepare(
-    'INSERT INTO users (id, username, password_hash, real_name, graduation_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, username, bcrypt.hashSync('Passw0rd!', 4), '测试用户', '2029', role, 'active', now, now).run();
+    'INSERT INTO users (id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(id, username, bcrypt.hashSync('Passw0rd!', 4), '测试用户', '2026', role, 'active', now, now).run();
   const token = 'token-' + id;
   await env.DB.prepare(
     'INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)'
@@ -46,7 +46,7 @@ beforeEach(async () => {
   const testEnv = await createTestEnv();
   env = testEnv.env;
   mf = testEnv.mf;
-  await migrate(['0001_init.sql', '0006_app_settings.sql', '0007_site_settings.sql', '0008_user_preferences.sql']);
+  await migrate(['0001_init.sql', '0006_app_settings.sql', '0007_site_settings.sql', '0008_user_preferences.sql', '0011_enrollment_year.sql']);
 });
 
 afterEach(async () => {

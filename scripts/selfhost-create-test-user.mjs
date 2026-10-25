@@ -22,15 +22,15 @@ if (!existsSync(dbPath)) {
     const existing = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get('test');
     const passwordHash = bcrypt.hashSync('Test123456', 12);
     if (existing) {
-      db.prepare(`UPDATE users SET password_hash = ?, real_name = ?, graduation_year = ?, role = 'member',
+      db.prepare(`UPDATE users SET password_hash = ?, real_name = ?, enrollment_year = ?, role = 'member',
                   status = 'active', updated_at = ? WHERE id = ?`)
-        .run(passwordHash, '测试同学', '2029', now, existing.id);
+        .run(passwordHash, '测试同学', '2026', now, existing.id);
       db.prepare('DELETE FROM sessions WHERE user_id = ?').run(existing.id);
       console.log('test account refreshed: test / Test123456');
     } else {
       db.prepare(`INSERT INTO users
-        (id, username, password_hash, real_name, graduation_year, role, status, created_at, updated_at)
-        VALUES (?, 'test', ?, '测试同学', '2029', 'member', 'active', ?, ?)`)
+        (id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at)
+        VALUES (?, 'test', ?, '测试同学', '2026', 'member', 'active', ?, ?)`)
         .run(randomUUID(), passwordHash, now, now);
       console.log('test account created: test / Test123456');
     }

@@ -19,7 +19,7 @@ interface SessionRow {
   id: string;
   username: string;
   real_name: string;
-  graduation_year: string;
+  enrollment_year: string;
   role: SessionUser['role'];
   status: SessionUser['status'];
   created_at: string;
@@ -31,7 +31,7 @@ function mapUser(row: SessionRow): SessionUser {
     id: row.id,
     username: row.username,
     realName: row.real_name,
-    graduationYear: row.graduation_year,
+    enrollmentYear: row.enrollment_year,
     role: row.role,
     status: row.status,
     createdAt: row.created_at,
@@ -44,7 +44,7 @@ export async function loadSession(c: Context<{ Bindings: Env }>): Promise<Sessio
   if (!token) return null;
   const tokenHash = await sha256(token);
   const result = await c.env.DB.prepare(
-    `SELECT s.token_hash, s.expires_at, u.id, u.username, u.real_name, u.graduation_year, u.role, u.status,
+    `SELECT s.token_hash, s.expires_at, u.id, u.username, u.real_name, u.enrollment_year, u.role, u.status,
             u.created_at, u.updated_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
@@ -73,4 +73,3 @@ export async function sha256(value: string): Promise<string> {
 export function newToken(): string {
   return createOpaqueToken();
 }
-

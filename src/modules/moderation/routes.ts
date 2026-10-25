@@ -162,7 +162,7 @@ moderationRoutes.post('/announcements', async c => {
 moderationRoutes.get('/announcements', async c => {
   const now = nowIso();
   const rows = await c.env.DB.prepare(
-    `SELECT a.*, u.username AS author_username, u.real_name AS author_real_name, u.graduation_year AS author_graduation_year
+    `SELECT a.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year
        FROM announcements a JOIN users u ON u.id = a.author_id
       WHERE a.starts_at <= ? AND (a.ends_at IS NULL OR a.ends_at > ?)
       ORDER BY CASE a.level WHEN 'urgent' THEN 0 WHEN 'important' THEN 1 ELSE 2 END, a.starts_at DESC LIMIT 100`

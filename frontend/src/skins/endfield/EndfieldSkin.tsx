@@ -71,7 +71,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
             onClick={e => { e.preventDefault(); setView({ name: 'settings' }); messages.clearMessages(); }}>
             <small>SETTINGS</small>设置
           </a>
-          {session.isStaff && (
+          {session.isAdmin && (
             <a href="#" aria-current={view.name === 'admin' ? 'page' : undefined}
               onClick={e => { e.preventDefault(); goAdmin('users'); }}>
               <small>CONSOLE</small>管理
@@ -81,7 +81,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
         <div className="util">
           {session.me ? (
             <>
-              <span>{session.me.real_name} │ {session.me.graduation_year} 届 │ {ui.roleLabel[session.me.role] ?? session.me.role}</span>
+              <span>{session.me.real_name} │ {session.me.enrollment_year} 届 │ {ui.roleLabel[session.me.role] ?? session.me.role}</span>
               {session.providers.microsoft && (
                 <Btn small onClick={() => { window.location.href = `${site.api_origin}/api/v1/auth/microsoft/link?return_to=/`; }}>绑定 Microsoft</Btn>
               )}
@@ -128,7 +128,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
             <div className="ef-facts" style={{ marginBottom: '2.5rem' }}>
               <Field>{data.boards.length} 个板块</Field>
               <Field>{data.announcements.length} 条公告</Field>
-              <Field>{session.me ? `当前：${session.me.real_name} / ${session.me.graduation_year} 届` : '当前：访客'}</Field>
+              <Field>{session.me ? `当前：${session.me.real_name} / ${session.me.enrollment_year} 届` : '当前：访客'}</Field>
             </div>
 
             {data.announcements.length > 0 && (
@@ -181,7 +181,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
                         ? <StateTag label={ui.levelLabel[a.level] ?? a.level} alert />
                         : <span className="ef-tag">{ui.levelLabel[a.level] ?? a.level}</span>}
                       <Field>{helpers.formatDate(a.starts_at)}{a.ends_at ? ` │ 截止 ${helpers.formatDate(a.ends_at)}` : ''}</Field>
-                      <Field>{a.author_real_name} / {a.author_graduation_year} 届</Field>
+                      <Field>{a.author_real_name} / {a.author_enrollment_year} 届</Field>
                     </div>
                     <h3 style={{ margin: '0 0 0.5rem', fontWeight: 800, fontSize: '1.15rem' }}>{a.title}</h3>
                     <div className="ef-prose" dangerouslySetInnerHTML={{ __html: a.content_html }} />
@@ -239,7 +239,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
                   <a href="#" className="ef-record" onClick={event => { event.preventDefault(); void actions.openThread(post.thread_id); }}><span className="ef-field">No.{String(index + 1).padStart(3, '0')}</span><span className="ef-field">回复</span><span className="name">{post.thread_title}</span><span className="ef-field">查看 →</span></a>
                 </li>)}</ul> : <p className="ef-empty">没有匹配的回复。</p>}
                 <h2 className="ef-bar-title">成员</h2>
-                {data.searchResults.users.length ? data.searchResults.users.map(user => <p key={user.id} className="ef-field">{user.real_name} / {user.graduation_year} 届</p>) : <p className="ef-empty">没有匹配的成员。</p>}
+                {data.searchResults.users.length ? data.searchResults.users.map(user => <p key={user.id} className="ef-field">{user.real_name} / {user.enrollment_year} 届</p>) : <p className="ef-empty">没有匹配的成员。</p>}
               </>}
           </main>
         )}
@@ -265,7 +265,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
                       <span className="name" style={{ fontWeight: 700 }}>
                         {t.is_pinned && <span className="ef-tag" style={{ marginRight: '0.5em' }}>置顶</span>}
                         {t.title}
-                        <span style={{ display: 'block', fontWeight: 400, fontSize: '0.85rem', color: 'var(--ef-ink-2)' }}>{t.author?.real_name ?? '?'} / {t.author?.graduation_year ?? '--'} 届</span>
+                        <span style={{ display: 'block', fontWeight: 400, fontSize: '0.85rem', color: 'var(--ef-ink-2)' }}>{t.author?.real_name ?? '?'} / {t.author?.enrollment_year ?? '--'} 届</span>
                       </span>
                       <span className="ef-field">{t.reply_count} 回复 │ {t.view_count} 浏览</span>
                     </a>
@@ -296,7 +296,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
             <div style={{ padding: '1.75rem 0 0.5rem' }}>
               <Pair en={`THREAD / ${activeThread.id.slice(0, 8).toUpperCase()}`} zh={activeThread.title} />
               <Field>
-                {activeThread.author?.real_name} / {activeThread.author?.graduation_year} 届 │ {activeThread.reply_count} 回复 │ {activeThread.view_count} 次浏览 │ 最后活动 {helpers.formatDate(activeThread.last_activity_at)}
+                {activeThread.author?.real_name} / {activeThread.author?.enrollment_year} 届 │ {activeThread.reply_count} 回复 │ {activeThread.view_count} 次浏览 │ 最后活动 {helpers.formatDate(activeThread.last_activity_at)}
               </Field>
               {session.me && (
                 <div style={{ marginTop: '0.75rem' }}>
@@ -310,7 +310,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
                 <article key={post.id} style={{ borderTop: '1px solid var(--ef-rule)', padding: '1.25rem 0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' }}>
                     <Field>
-                      No.{String(post.floor_number).padStart(3, '0')} │ {post.author?.real_name} / {post.author?.graduation_year} 届
+                      No.{String(post.floor_number).padStart(3, '0')} │ {post.author?.real_name} / {post.author?.enrollment_year} 届
                       {post.author && ['owner', 'admin', 'moderator'].includes(post.author.role) && ` │ ${ui.roleLabel[post.author.role]}`}
                       {' │ '}{helpers.formatDate(post.created_at)}
                     </Field>
@@ -373,7 +373,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
               <FormField label="邀请码" hint="向管理组（AI Lab / Computerization）索取"><input value={forms.regForm.invitation_code} onChange={e => forms.setRegForm({ ...forms.regForm, invitation_code: e.target.value })} required /></FormField>
               <FormField label="用户名"><input value={forms.regForm.username} onChange={e => forms.setRegForm({ ...forms.regForm, username: e.target.value })} required autoComplete="username" /></FormField>
               <FormField label="真实中文姓名" hint="将显示在你的个人主页和每条发言上"><input value={forms.regForm.real_name} onChange={e => forms.setRegForm({ ...forms.regForm, real_name: e.target.value })} placeholder="例如：王小明" required /></FormField>
-              <FormField label="届别" hint="高中毕业年份，例如 2028"><input inputMode="numeric" value={forms.regForm.graduation_year} onChange={e => forms.setRegForm({ ...forms.regForm, graduation_year: e.target.value })} placeholder="例如：2028" required /></FormField>
+              <FormField label="入学届别" hint="入学年份，例如 2026"><input inputMode="numeric" value={forms.regForm.enrollment_year} onChange={e => forms.setRegForm({ ...forms.regForm, enrollment_year: e.target.value })} placeholder="例如：2026" required /></FormField>
               <FormField label="密码" hint="至少 10 位，含大小写字母、数字和符号"><input type="password" value={forms.regForm.password} onChange={e => forms.setRegForm({ ...forms.regForm, password: e.target.value })} required autoComplete="new-password" /></FormField>
               <div><Btn go type="submit">提交注册申请</Btn></div>
             </form>
@@ -449,7 +449,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
               <Pair en="ACCOUNT" zh="账号" />
               {session.me ? (
                 <span className="ef-field" style={{ display: 'block', marginTop: '0.75rem' }}>
-                  {session.me.real_name} │ {session.me.graduation_year} 届 │ {ui.roleLabel[session.me.role] ?? session.me.role}
+                  {session.me.real_name} │ {session.me.enrollment_year} 届 │ {ui.roleLabel[session.me.role] ?? session.me.role}
                   <span style={{ display: 'block', color: 'var(--ef-ink-2)', fontSize: '0.85rem' }}>
                     论坛不作匿名发帖，个人主页公开真实姓名与届别。
                   </span>
@@ -534,7 +534,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
                           {u.status === 'banned' && <StateTag label="已封禁" draft />}
                           <div className="meta">
                             <span>{u.username}</span>
-                            <span>{u.graduation_year} 届</span>
+                            <span>{u.enrollment_year} 届</span>
                             <span>{ui.roleLabel[u.role] ?? u.role}</span>
                             <span>注册于 {helpers.formatDate(u.created_at).slice(0, 10)}</span>
                           </div>

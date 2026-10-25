@@ -41,16 +41,16 @@ function createOwner() {
   let username;
   let password;
   let realName;
-  let graduationYear;
+  let enrollmentYear;
 
   if (args.length === 3 && envPassword) {
-    [username, realName, graduationYear] = args;
+    [username, realName, enrollmentYear] = args;
     password = envPassword;
   } else {
-    [username, password, realName, graduationYear] = args;
+    [username, password, realName, enrollmentYear] = args;
   }
 
-  if (!username || !realName || !graduationYear) {
+  if (!username || !realName || !enrollmentYear) {
     console.error('Usage: WFLA_OWNER_PASSWORD=... npm run selfhost:create-owner -- <username> <真实中文姓名> <届别>');
     console.error('兼容旧方式：npm run selfhost:create-owner -- <username> <password> <真实中文姓名> <届别>（不推荐，密码可能进入命令历史）');
     process.exitCode = 1;
@@ -61,7 +61,7 @@ function createOwner() {
     process.exitCode = 1;
     return;
   }
-  if (!/^[\u4e00-\u9fa5]{2,10}$/.test(realName) || !/^20\d{2}$/.test(graduationYear)) {
+  if (!/^[\u4e00-\u9fa5]{2,10}$/.test(realName) || !/^20\d{2}$/.test(enrollmentYear)) {
     console.error('真实姓名或届别格式无效');
     process.exitCode = 1;
     return;
@@ -97,9 +97,9 @@ function createOwner() {
     }
 
     const now = new Date().toISOString();
-    db.prepare(`INSERT INTO users (id, username, password_hash, real_name, graduation_year, role, status, created_at, updated_at)
+    db.prepare(`INSERT INTO users (id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, 'owner', 'active', ?, ?)`)
-      .run(randomUUID(), username, bcrypt.hashSync(password, 12), realName, graduationYear, now, now);
+      .run(randomUUID(), username, bcrypt.hashSync(password, 12), realName, enrollmentYear, now, now);
 
     if (process.env.WFLA_CREATE_DEFAULT_BOARDS === '1') {
       const boards = [

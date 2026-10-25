@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 <#
   世外墙 WFLA Wall - 第一次一键配置
   用法：
@@ -258,7 +258,7 @@ function Step-Admin {
   if ($script:BACK -eq $adminPassword) { return 'back' }
   $adminRealName = Read-TextValue '真实中文姓名（会公开展示）' $script:WizAdminName '^[\u4E00-\u9FA5]{2,10}$' '请输入 2-10 个中文汉字。' -AllowBack
   if ($script:BACK -eq $adminRealName) { return 'back' }
-  $adminYear = Read-TextValue '届别（毕业年份，例如 2029）' $script:WizAdminYear '^20\d{2}$' '届别应为 2000-2099 的四位年份。' -AllowBack
+  $adminYear = Read-TextValue '入学届别（入学年份，例如 2026）' $script:WizAdminYear '^20\d{2}$' '届别应为 2000-2099 的四位年份。' -AllowBack
   if ($script:BACK -eq $adminYear) { return 'back' }
 
   $script:WizAdminUser = $adminUsername
@@ -501,7 +501,7 @@ try {
       $adminUsername = Read-TextValue '管理员用户名' '' '^[A-Za-z0-9_]{3,32}$' '用户名格式不正确。'
       $adminPassword = Read-PasswordValue '管理员密码'
       $adminRealName = Read-TextValue '真实中文姓名（会公开展示）' '' '^[\u4E00-\u9FA5]{2,10}$' '请输入 2-10 个中文汉字。'
-      $adminYear = Read-TextValue '届别（毕业年份）' '' '^20\d{2}$' '届别应为 2000-2099 的四位年份。'
+      $adminYear = Read-TextValue '入学届别（入学年份，例如 2026）' '' '^20\d{2}$' '届别应为 2000-2099 的四位年份。'
     }
   } else {
     $adminUsername = $script:WizAdminUser

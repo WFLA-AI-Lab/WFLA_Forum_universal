@@ -19,8 +19,8 @@ async function migrate(file: string) {
 async function memberSession(id = 'profile-user') {
   const now = new Date().toISOString();
   await env.DB.prepare(
-    'INSERT INTO users (id, username, password_hash, real_name, graduation_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, id, bcrypt.hashSync('Passw0rd!', 4), '测试同学', '2029', 'member', 'active', now, now).run();
+    'INSERT INTO users (id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(id, id, bcrypt.hashSync('Passw0rd!', 4), '测试同学', '2026', 'member', 'active', now, now).run();
   const token = `token-${id}`;
   await env.DB.prepare('INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)')
     .bind(await sha256(token), id, new Date(Date.now() + 3_600_000).toISOString(), now).run();
@@ -33,6 +33,7 @@ beforeEach(async () => {
   mf = testEnv.mf;
   await migrate('0001_init.sql');
   await migrate('0009_user_profiles.sql');
+  await migrate('0011_enrollment_year.sql');
 });
 
 afterEach(async () => mf.dispose());

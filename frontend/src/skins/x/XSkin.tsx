@@ -85,7 +85,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
       <div>
         <div className="xsk-card-head">
           <span className="name">{thread.author?.real_name ?? 'WFLAer'}</span>
-          <span className="meta">{thread.author?.graduation_year ?? '—'} 届 · {helpers.formatDate(thread.created_at)}</span>
+          <span className="meta">{thread.author?.enrollment_year ?? '—'} 届 · {helpers.formatDate(thread.created_at)}</span>
           {thread.board && <span className="xsk-board-label">{thread.board.name}</span>}
         </div>
         <button type="button" className="xsk-feed-open" onClick={() => void actions.openThread(thread.id)}>
@@ -138,7 +138,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     return <section className="xsk-section"><h2>{data.searchResultQuery ? `搜索结果 · ${data.searchResultQuery}` : '探索校园'}</h2>
       {data.searchBusy ? <p className="xsk-empty" role="status">正在搜索…</p>
         : !results ? <p className="xsk-empty">在上方搜索框输入关键词，按 Enter 搜索校园内容。</p>
-          : <><h3>话题</h3>{results.threads.length ? results.threads.map(renderFeedThread) : <p className="xsk-empty">没有匹配的话题</p>}<h3>回复</h3>{results.posts.length ? results.posts.map(post => <button key={post.id} type="button" className="xsk-search-hit" onClick={() => void actions.openThread(post.thread_id)}>{post.thread_title} · 查看回复 →</button>) : <p className="xsk-empty">没有匹配的回复</p>}<h3>成员</h3>{results.users.length ? results.users.map(user => <p key={user.id} className="xsk-search-hit">{user.real_name} · {user.graduation_year} 届</p>) : <p className="xsk-empty">没有匹配的成员</p>}</>}
+          : <><h3>话题</h3>{results.threads.length ? results.threads.map(renderFeedThread) : <p className="xsk-empty">没有匹配的话题</p>}<h3>回复</h3>{results.posts.length ? results.posts.map(post => <button key={post.id} type="button" className="xsk-search-hit" onClick={() => void actions.openThread(post.thread_id)}>{post.thread_title} · 查看回复 →</button>) : <p className="xsk-empty">没有匹配的回复</p>}<h3>成员</h3>{results.users.length ? results.users.map(user => <p key={user.id} className="xsk-search-hit">{user.real_name} · {user.enrollment_year} 届</p>) : <p className="xsk-empty">没有匹配的成员</p>}</>}
     </section>;
   }
 
@@ -162,7 +162,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
               <div>
                 <div className="xsk-card-head">
                   <span className="name">{thread.author?.real_name ?? '未知'}</span>
-                  <span className="meta">{thread.author?.graduation_year ?? '--'} 届 · {helpers.formatDate(thread.last_activity_at)}</span>
+                  <span className="meta">{thread.author?.enrollment_year ?? '--'} 届 · {helpers.formatDate(thread.last_activity_at)}</span>
                   {thread.is_pinned && <span className="badge">置顶</span>}
                 </div>
                 <h3 className="xsk-card-title">{thread.title}</h3>
@@ -205,7 +205,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
           <div>
             <h1>{activeThread!.title}</h1>
             <span className="sub">
-              {activeThread!.author?.real_name} · {activeThread!.author?.graduation_year} 届 · {activeThread!.reply_count} 回复 · {activeThread!.view_count} 浏览
+              {activeThread!.author?.real_name} · {activeThread!.author?.enrollment_year} 届 · {activeThread!.reply_count} 回复 · {activeThread!.view_count} 浏览
             </span>
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
             <div>
               <div className="xsk-card-head">
                 <span className="name">{post.author?.real_name ?? '未知'}</span>
-                <span className="meta">{post.author?.graduation_year ?? '--'} 届 · #{post.floor_number} · {helpers.formatDate(post.created_at)}</span>
+                <span className="meta">{post.author?.enrollment_year ?? '--'} 届 · #{post.floor_number} · {helpers.formatDate(post.created_at)}</span>
                 {post.author && ROLE_BADGE[post.author.role] && <span className="badge">{ROLE_BADGE[post.author.role]}</span>}
               </div>
               <div className="xsk-prose" dangerouslySetInnerHTML={{ __html: post.content_html }} />
@@ -280,9 +280,9 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
             <input value={forms.regForm.real_name} onChange={event => forms.setRegForm(previous => ({ ...previous, real_name: event.target.value }))} required />
           </label>
           <label className="xsk-field">
-            <span>届别</span>
-            <small>高中毕业年份，例如 2028</small>
-            <input inputMode="numeric" value={forms.regForm.graduation_year} onChange={event => forms.setRegForm(previous => ({ ...previous, graduation_year: event.target.value }))} required />
+            <span>入学届别</span>
+            <small>入学年份，例如 2026</small>
+            <input inputMode="numeric" value={forms.regForm.enrollment_year} onChange={event => forms.setRegForm(previous => ({ ...previous, enrollment_year: event.target.value }))} required />
           </label>
           <label className="xsk-field">
             <span>密码</span>
@@ -337,7 +337,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
         <section className="xsk-panel xsk-profile-panel">
           <div className="xsk-profile-heading">
             <Avatar name={forms.profileForm.nickname || me.real_name} src={forms.profileForm.avatar_data_url} />
-            <div><h2>个人资料</h2><p>@{me.username} · {me.real_name} · {me.graduation_year} 届</p></div>
+            <div><h2>个人资料</h2><p>@{me.username} · {me.real_name} · {me.enrollment_year} 届</p></div>
           </div>
           <form className="xsk-form" onSubmit={actions.saveProfile}>
             <label className="xsk-field"><span>昵称</span><input maxLength={24} value={forms.profileForm.nickname} onChange={event => forms.setProfileForm(current => ({ ...current, nickname: event.target.value }))} required /></label>
@@ -390,7 +390,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
         <section className="xsk-panel">
           <h2>账号</h2>
           <div className="xsk-row" style={{ alignItems: 'baseline' }}>
-            <span><b>{forms.profile?.nickname || me.real_name}</b> · {me.real_name} · {me.graduation_year} 届</span>
+            <span><b>{forms.profile?.nickname || me.real_name}</b> · {me.real_name} · {me.enrollment_year} 届</span>
             <span className="xsk-tag">{ui.roleLabel[me.role] ?? me.role}</span>
             <button type="button" className="xsk-btn ghost small" style={{ marginLeft: 'auto' }} onClick={() => void actions.logout()}>退出登录</button>
           </div>
@@ -451,7 +451,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
                   {user.status === 'banned' && <span className="xsk-tag alarm">已封禁</span>}
                   <div className="meta">
                     <span>{user.username}</span>
-                    <span>{user.graduation_year} 届</span>
+                    <span>{user.enrollment_year} 届</span>
                     <span>{ui.roleLabel[user.role] ?? user.role}</span>
                   </div>
                 </div>
@@ -845,7 +845,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
             <a href="#" className="xsk-navitem" aria-current={view.name === 'settings' ? 'page' : undefined} onClick={linkHandler({ name: 'settings' })}>
               <span className="glyph"><MobileIcon name="settings" /></span><span className="label railhide">设置</span>
             </a>
-            {isStaff && (
+            {isAdmin && (
               <a href="#" className="xsk-navitem" aria-current={view.name === 'admin' ? 'page' : undefined} onClick={linkHandler({ name: 'admin', tab: 'users' })}>
                 <span className="glyph">⚙</span><span className="label">管理</span>
               </a>
@@ -865,7 +865,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
                   <Avatar name={forms.profile?.nickname || me.real_name} src={forms.profile?.avatar_data_url} small />
                   <div>
                     <div className="name">{forms.profile?.nickname || me.real_name}</div>
-                    <div className="meta">{me.graduation_year} 届 · {ui.roleLabel[me.role] ?? me.role}</div>
+                    <div className="meta">{me.enrollment_year} 届 · {ui.roleLabel[me.role] ?? me.role}</div>
                   </div>
                 </div>
                 <div className="xsk-row">
