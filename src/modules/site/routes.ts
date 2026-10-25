@@ -4,7 +4,7 @@ import type { Env } from '../../env';
 import { badRequest, forbidden } from '../../core/errors';
 import { requireUser } from '../identity/session';
 import { isOwner } from '../access/service';
-import { insertAudit } from '../moderation/routes';
+import { insertAudit } from '../moderation/audit';
 import { APP_VERSION, API_VERSION, SKIN_CONTRACT_VERSION } from '../../version';
 import { SKIN_REGISTRY } from './skins';
 import {
@@ -43,7 +43,7 @@ siteRoutes.get('/site/config', async c => {
 
 siteRoutes.get('/admin/site-config', async c => {
   const actor = await requireUser(c);
-  if (!isOwner(actor.role)) throw forbidden('只有论坛所有者可以修改站点外观设置');
+  if (!isOwner(actor)) throw forbidden('只有论坛所有者可以修改站点外观设置');
   return c.json({
     config: await readAdminSiteConfig(c.env, VERSION),
     all_skins: SKIN_REGISTRY
@@ -52,7 +52,7 @@ siteRoutes.get('/admin/site-config', async c => {
 
 siteRoutes.patch('/admin/site-config', async c => {
   const actor = await requireUser(c);
-  if (!isOwner(actor.role)) throw forbidden('只有论坛所有者可以修改站点外观设置');
+  if (!isOwner(actor)) throw forbidden('只有论坛所有者可以修改站点外观设置');
   const parsed = siteConfigSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
     throw badRequest(parsed.error.issues[0]?.message ?? '站点设置格式无效');

@@ -3,8 +3,11 @@ import type { Env } from '../../env';
 import { AppError, badRequest, notFound } from '../../core/errors';
 import { createId, nowIso } from '../../core/utils';
 import { requireUser } from '../identity/session';
-import { isAdmin, requireRole } from '../access/service';
+import { canModerate, isAdmin, requireRole } from '../access/service';
+import { loadSession } from '../identity/session';
 import { renderMarkdown } from './markdown';
+import { applyPublicationRules } from '../moderation/automation';
+import { insertAudit } from '../moderation/audit';
 import { titleSchema, contentSchema } from '../../core/validation';
 
 interface BoardRow { id: string; slug: string; name: string; description: string; position: number; is_active: number; created_at: string; updated_at: string }
@@ -69,7 +72,7 @@ contentRoutes.get('/boards', async c => {
 
 contentRoutes.post('/boards', async c => {
   const actor = await requireUser(c);
-  requireRole(actor.role, 'admin');
+  requireRole(actor, 'admin');
   const body = await c.req.json().catch(() => null);
   const name = String(body?.name ?? '').trim();
   const slug = String(body?.slug ?? '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
@@ -81,6 +84,7 @@ contentRoutes.post('/boards', async c => {
   await c.env.DB.prepare(
     'INSERT INTO boards (id, slug, name, description, position, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)'
   ).bind(id, slug, name, description, Number(body?.position ?? 0), nowIso(), nowIso()).run();
+  await insertAudit(c.env, actor.id, 'board.create', 'board', id, '管理员创建板块', { slug, name });
   return c.json({ item: { id, slug, name, description, position: Number(body?.position ?? 0), is_active: true } }, 201);
 });
 
@@ -124,6 +128,7 @@ contentRoutes.post('/boards/:slug/threads', async c => {
        VALUES (?, ?, ?, NULL, ?, ?, 'published', 0, 1, ?, ?)`
     ).bind(postId, threadId, actor.id, content, html, timestamp, timestamp)
   ]);
+  await applyPublicationRules(c.env, { targetType: 'thread', targetId: threadId, threadId, authorId: actor.id, content });
   return c.json({ item: { id: threadId, post_id: postId, title, slug: `${threadId}-${slugifyTitle(title)}` } }, 201);
 });
 
@@ -138,10 +143,14 @@ contentRoutes.get('/threads/:id', async c => {
        FROM threads t JOIN users u ON u.id = t.author_id WHERE t.id = ? AND t.status != 'deleted'`
   ).bind(id).first<ThreadRow>();
   if (!row) throw notFound('话题不存在');
+  if (row.status === 'hidden') {
+    const viewer = await loadSession(c);
+    if (!viewer || !canModerate(viewer)) throw new AppError('FORBIDDEN', '话题已隐藏');
+  }
   const posts = await c.env.DB.prepare(
     `SELECT p.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
        FROM posts p JOIN users u ON u.id = p.author_id
-      WHERE p.thread_id = ? AND p.status != 'deleted' ORDER BY p.floor_number LIMIT 200`
+      WHERE p.thread_id = ? AND p.status = 'published' ORDER BY p.floor_number LIMIT 200`
   ).bind(id).all<ThreadRow & { content_markdown: string; content_html: string; floor_number: number }>();
   return c.json({
     item: threadJson(row),
@@ -178,6 +187,7 @@ contentRoutes.post('/threads/:id/posts', async c => {
     `INSERT INTO posts (id, thread_id, author_id, parent_post_id, content_markdown, content_html, status, edit_count, floor_number, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, 'published', 0, ?, ?, ?)`
   ).bind(id, threadId, actor.id, parentPostId, content, renderMarkdown(content), floor, timestamp, timestamp).run();
+  await applyPublicationRules(c.env, { targetType: 'post', targetId: id, threadId, authorId: actor.id, content });
   await c.env.DB.prepare('UPDATE threads SET reply_count = reply_count + 1, last_activity_at = ?, updated_at = ? WHERE id = ?').bind(timestamp, timestamp, threadId).run();
   const threadAuthor = await c.env.DB.prepare('SELECT author_id, title FROM threads WHERE id = ?').bind(threadId).first<{ author_id: string; title: string }>();
   if (threadAuthor && threadAuthor.author_id !== actor.id) {
@@ -193,11 +203,14 @@ contentRoutes.patch('/posts/:id', async c => {
   const id = c.req.param('id');
   const post = await c.env.DB.prepare('SELECT id, author_id, status, edit_count FROM posts WHERE id = ?').bind(id).first<{ id: string; author_id: string; status: string; edit_count: number }>();
   if (!post || post.status === 'deleted') throw notFound('帖子不存在');
-  if (post.author_id !== actor.id && !isAdmin(actor.role)) throw new AppError('FORBIDDEN', '只能编辑自己的帖子');
+  if (post.author_id !== actor.id && !isAdmin(actor)) throw new AppError('FORBIDDEN', '只能编辑自己的帖子');
   const body = await c.req.json().catch(() => null);
   const content = contentSchema.parse(body?.content);
   await c.env.DB.prepare('UPDATE posts SET content_markdown = ?, content_html = ?, edit_count = edit_count + 1, updated_at = ? WHERE id = ?')
     .bind(content, renderMarkdown(content), nowIso(), id).run();
+  const thread = await c.env.DB.prepare('SELECT thread_id FROM posts WHERE id = ?').bind(id).first<{ thread_id: string }>();
+  await applyPublicationRules(c.env, { targetType: 'post', targetId: id, threadId: thread?.thread_id ?? id, authorId: post.author_id, content });
+  await insertAudit(c.env, actor.id, 'post.edit', 'post', id, post.author_id === actor.id ? '作者编辑帖子' : '管理员编辑他人帖子', { automated_review: true });
   return c.json({ success: true });
 });
 
@@ -206,8 +219,9 @@ contentRoutes.delete('/posts/:id', async c => {
   const id = c.req.param('id');
   const post = await c.env.DB.prepare('SELECT id, author_id FROM posts WHERE id = ?').bind(id).first<{ id: string; author_id: string }>();
   if (!post) throw notFound('帖子不存在');
-  if (post.author_id !== actor.id && !isAdmin(actor.role)) throw new AppError('FORBIDDEN', '没有权限删除帖子');
+  if (post.author_id !== actor.id && !isAdmin(actor)) throw new AppError('FORBIDDEN', '没有权限删除帖子');
   await c.env.DB.prepare(`UPDATE posts SET status = 'deleted', updated_at = ? WHERE id = ?`).bind(nowIso(), id).run();
+  await insertAudit(c.env, actor.id, 'post.delete', 'post', id, post.author_id === actor.id ? '作者删除帖子' : '管理员删除他人帖子', {});
   return c.json({ success: true });
 });
 

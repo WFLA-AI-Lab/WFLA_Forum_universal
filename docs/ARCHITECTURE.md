@@ -65,7 +65,7 @@
 `atLeast(role, required)`。默认拒绝；`admin` 以上才能改别人数据；`owner`
 才能改站点级配置。所有敏感操作写 `audit_logs`。
 
-**数据模型 / Data model**: 单一 SQLite 文件。核心表（v0.4.1，`SCHEMA_VERSION=12`）：
+**数据模型 / Data model**: 单一 SQLite 文件。核心表（v0.5.0，`SCHEMA_VERSION = 13`）：
 
 - `users` — 用户与身份（真实姓名、入学届别、角色、状态）
 - `sessions` — 会话（仅存哈希）
@@ -79,6 +79,7 @@
 - `app_settings` — 运行时配置（含加密的 OAuth Secret）
 - `user_preferences` — **v0.2 新增**：每用户偏好（当前 `skin_id`）
 - `user_notes` / `sanctions` — **v0.3 新增**：账号管理备注与禁言 / 封禁 / 恢复历史
+- `moderation_rules` / `risk_events` / `appeals` — **v0.5 新增**：自动监管规则、风险事件与申诉复核
 
 迁移规则：`src/migrations/` 只增不改；新迁移文件 = 下一序号；
 `src/version.ts` 的 `SCHEMA_VERSION` 同步 +1。
@@ -137,7 +138,7 @@ DOM
 | --- | --- | --- |
 | `APP_VERSION` | 应用整体版本 | 0.4.1 |
 | `API_VERSION` | HTTP 契约版本（破坏性变更才 bump） | v1 |
-| `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 12 |
+| `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 13 |
 | `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 2 |
 
 规则：契约只增不改 → 不 bump；重命名/删除/改语义 → bump。

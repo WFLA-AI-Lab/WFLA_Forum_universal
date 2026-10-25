@@ -8,6 +8,7 @@ import apiApp from '../index';
 import { loadConfig, toEnv } from './config';
 import { SqliteD1 } from './sqlite-d1';
 import { applyStoredSettings } from '../modules/settings/service';
+import { expireSanctions } from '../modules/moderation/appeal.routes';
 
 const config = loadConfig();
 const db = new SqliteD1(config.dbPath);
@@ -46,6 +47,13 @@ const rootApp = selfHost;
 const requestListener = getRequestListener((request, ...rest) => rootApp.fetch(request, ...rest));
 const server = createServer(requestListener);
 
+const sanctionTimer = setInterval(() => {
+  void expireSanctions(env).catch(error => {
+    console.warn('[wfla] sanction expiry failed:', error instanceof Error ? error.message : String(error));
+  });
+}, 60_000);
+sanctionTimer.unref();
+
 server.listen(config.port, config.host, () => {
   const address = server.address();
   const port = typeof address === 'object' && address ? address.port : config.port;
@@ -58,6 +66,7 @@ server.listen(config.port, config.host, () => {
 function shutdown(signal: string): void {
   console.log(`[wfla] ${signal} received, shutting down`);
   server.close(() => {
+    clearInterval(sanctionTimer);
     db.close();
     process.exit(0);
   });

@@ -4,16 +4,17 @@ import { badRequest, forbidden, notFound } from '../../core/errors';
 import { createId, nowIso } from '../../core/utils';
 import { requireUser } from '../identity/session';
 import { ROLE_RANK, requireRole } from '../access/service';
-import { insertAudit } from '../moderation/routes';
+import { insertAudit } from '../moderation/audit';
 
 const RANK = ROLE_RANK;
 const AUDIT_ACTIONS = new Set([
   'user.create', 'user.activate', 'user.role_change', 'user.status_change',
   'user.password_reset', 'user.sessions_revoke', 'user.note_create',
   'invitation.create', 'invitation.register', 'invitation.revoke', 'report.resolve', 'report.reject',
-  'report.assign', 'thread.status_change', 'post.status_change',
+  'report.assign', 'thread.status_change', 'post.status_change', 'post.edit', 'post.delete',
   'announcement.create', 'announcement.delete', 'board.create', 'board.update',
-  'settings.update', 'site.config_update'
+  'settings.update', 'site.config_update', 'moderation.rule_update', 'risk.dismiss',
+  'appeal.create', 'appeal.approve', 'appeal.reject'
 ]);
 
 function boundedInteger(value: unknown, fallback: number, min: number, max: number): number {
@@ -26,9 +27,15 @@ function isAssignable(actorRole: SessionUser['role'], targetRole: SessionUser['r
   return RANK[targetRole] < RANK[actorRole];
 }
 
+async function requireModerator(c: Parameters<typeof requireUser>[0]): Promise<SessionUser> {
+  const actor = await requireUser(c);
+  requireRole(actor, 'moderator');
+  return actor;
+}
+
 async function requireAdmin(c: Parameters<typeof requireUser>[0]): Promise<SessionUser> {
   const actor = await requireUser(c);
-  requireRole(actor.role, 'admin');
+  requireRole(actor, 'admin');
   return actor;
 }
 
@@ -47,7 +54,7 @@ function lastDays(count: number): string[] {
 export const adminRoutes = new Hono<{ Bindings: Env }>();
 
 adminRoutes.get('/admin/overview', async c => {
-  await requireAdmin(c);
+  await requireModerator(c);
   const [
     userRows, threadRows, postRows, reportRows, invitationRows,
     byDayUsers, byDayThreads, byDayPosts, recentActivity, hotThreads
@@ -90,13 +97,13 @@ adminRoutes.get('/admin/overview', async c => {
     c.env.DB.prepare(`
       SELECT COUNT(*) AS total,
         SUM(CASE WHEN used_by IS NULL AND (expires_at IS NULL OR expires_at > ?) THEN 1 ELSE 0 END) AS unused,
-        SUM(CASE WHEN used_by IS NULL AND expires_at IS NOT NULL AND expires_at <= ? THEN 1 ELSE 0 END) AS expired,
+        SUM(CASE WHEN used_by IS NULL AND expires_at <= ? THEN 1 ELSE 0 END) AS expired,
         SUM(CASE WHEN used_by IS NOT NULL THEN 1 ELSE 0 END) AS used
       FROM invitations
     `).bind(nowIso(), nowIso()).first<Record<string, number | null>>(),
-    c.env.DB.prepare("SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS count FROM users WHERE created_at >= ? GROUP BY day").bind(`${lastDays(14)[0]}T00:00:00.000Z`).all<{ day: string; count: number }>(),
-    c.env.DB.prepare("SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS count FROM threads WHERE created_at >= ? GROUP BY day").bind(`${lastDays(14)[0]}T00:00:00.000Z`).all<{ day: string; count: number }>(),
-    c.env.DB.prepare("SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS count FROM posts WHERE created_at >= ? GROUP BY day").bind(`${lastDays(14)[0]}T00:00:00.000Z`).all<{ day: string; count: number }>(),
+    c.env.DB.prepare(`SELECT date(created_at) AS day, COUNT(*) AS count FROM users WHERE created_at >= ? GROUP BY date(created_at)`).bind(new Date(Date.now() - 13 * 86400_000).toISOString()).all<{ day: string; count: number }>(),
+    c.env.DB.prepare(`SELECT date(created_at) AS day, COUNT(*) AS count FROM threads WHERE created_at >= ? GROUP BY date(created_at)`).bind(new Date(Date.now() - 13 * 86400_000).toISOString()).all<{ day: string; count: number }>(),
+    c.env.DB.prepare(`SELECT date(created_at) AS day, COUNT(*) AS count FROM posts WHERE created_at >= ? GROUP BY date(created_at)`).bind(new Date(Date.now() - 13 * 86400_000).toISOString()).all<{ day: string; count: number }>(),
     c.env.DB.prepare(`
       SELECT a.id, a.action, a.target_type, a.target_id, a.reason, a.created_at,
              u.username AS actor_username, u.real_name AS actor_real_name
@@ -149,9 +156,9 @@ adminRoutes.get('/admin/overview', async c => {
       posts: postMap.get(day) ?? 0
     })),
     alerts: [
-      ...(toNumber(userRows?.pending) > 0 ? [{ level: 'info', message: `${toNumber(userRows?.pending)} 个账号等待激活` }] : []),
-      ...(toNumber(reportRows?.open) + toNumber(reportRows?.in_review) > 0 ? [{ level: 'warning', message: `${toNumber(reportRows?.open) + toNumber(reportRows?.in_review)} 条举报待处理` }] : []),
-      ...(toNumber(invitationRows?.unused) === 0 ? [{ level: 'info', message: '当前没有可用邀请码' }] : [])
+      ...(toNumber(userRows?.pending) > 0 ? [{ level: 'info' as const, message: `${toNumber(userRows?.pending)} 个账号等待激活` }] : []),
+      ...(toNumber(reportRows?.open) + toNumber(reportRows?.in_review) > 0 ? [{ level: 'warning' as const, message: `${toNumber(reportRows?.open) + toNumber(reportRows?.in_review)} 条举报待处理` }] : []),
+      ...(toNumber(invitationRows?.unused) === 0 ? [{ level: 'info' as const, message: '当前没有可用邀请码' }] : [])
     ],
     recent_activity: recentActivity.results ?? [],
     hot_threads: hotThreads.results ?? []
@@ -159,7 +166,7 @@ adminRoutes.get('/admin/overview', async c => {
 });
 
 adminRoutes.get('/admin/users', async c => {
-  await requireAdmin(c);
+  await requireModerator(c);
   const query = (c.req.query('query') ?? '').trim().slice(0, 80);
   const role = c.req.query('role') ?? '';
   const status = c.req.query('status') ?? '';
@@ -193,7 +200,7 @@ adminRoutes.get('/admin/users', async c => {
 });
 
 adminRoutes.get('/admin/users/:id', async c => {
-  await requireAdmin(c);
+  await requireModerator(c);
   const id = c.req.param('id');
   const [user, oauth, notes, sanctions, counts] = await Promise.all([
     c.env.DB.prepare('SELECT id, username, real_name, enrollment_year, role, status, created_at, updated_at FROM users WHERE id = ?').bind(id).first(),
@@ -235,7 +242,7 @@ adminRoutes.post('/admin/users/:id/sessions/revoke', async c => {
 });
 
 adminRoutes.get('/admin/content', async c => {
-  await requireAdmin(c);
+  await requireModerator(c);
   const type = c.req.query('type') === 'posts' ? 'posts' : 'threads';
   const status = (c.req.query('status') ?? '').trim();
   const query = (c.req.query('query') ?? '').trim().slice(0, 80);
@@ -256,7 +263,7 @@ adminRoutes.get('/admin/content', async c => {
   }
   const rows = await c.env.DB.prepare(`
     SELECT p.id, p.thread_id, p.floor_number, p.content_markdown, p.status, p.created_at, p.updated_at,
-           t.title AS thread_title, u.id AS author_id, u.username AS author_username, u.real_name AS author_real_name,
+           t.title AS thread_title, u.id AS author_id, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year,
            (SELECT COUNT(*) FROM reports r WHERE r.target_type = 'post' AND r.target_id = p.id AND r.status IN ('open','in_review')) AS report_count
       FROM posts p JOIN users u ON u.id = p.author_id JOIN threads t ON t.id = p.thread_id
      WHERE (? = '' OR p.status = ?) AND (? = '' OR p.content_markdown LIKE ?)
@@ -266,7 +273,7 @@ adminRoutes.get('/admin/content', async c => {
 });
 
 adminRoutes.get('/admin/audit', async c => {
-  const actor = await requireAdmin(c);
+  const actor = await requireModerator(c);
   const action = (c.req.query('action') ?? '').trim();
   const actorId = (c.req.query('actor_id') ?? '').trim();
   const targetType = (c.req.query('target_type') ?? '').trim();

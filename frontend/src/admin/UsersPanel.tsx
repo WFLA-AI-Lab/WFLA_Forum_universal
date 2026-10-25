@@ -73,7 +73,7 @@ export function UsersPanel({ me, notify }: { me: User; notify: Notify }) {
       await load();
     }
   }
-  const manageable = Boolean(detail && detail.user.id !== me.id && ROLE_RANK[detail.user.role] < ROLE_RANK[me.role]);
+  const manageable = Boolean(detail && me.status === 'active' && detail.user.id !== me.id && ROLE_RANK[detail.user.role] < ROLE_RANK[me.role]);
 
   return (
     <>

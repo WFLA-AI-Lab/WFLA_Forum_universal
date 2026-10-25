@@ -7,6 +7,7 @@ import { passwordSchema, realNameSchema, enrollmentYearSchema, usernameSchema } 
 import { createId, addSeconds, nowIso } from '../../core/utils';
 import { loadSession, newToken, requireUser, sessionCookieName, sha256 } from './session';
 import { isAdmin, requireRole, ROLE_RANK } from '../access/service';
+import { insertAudit } from '../moderation/audit';
 import { enforceRateLimit } from './crypto';
 
 const bcryptHash = (password: string): Promise<string> => bcrypt.hash(password, 12);
@@ -70,6 +71,7 @@ identityRoutes.post('/login', async c => {
     throw unauthorized('用户名或密码错误');
   }
   if (row.status === 'banned' || row.status === 'deleted') throw unauthorized('账号不可用');
+  if (row.status === 'pending') throw unauthorized('账号尚未激活，请等待管理员审核');
   const user: SessionUser = {
     id: row.id, username: row.username, realName: row.real_name, enrollmentYear: row.enrollment_year,
     role: row.role, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at
@@ -135,7 +137,7 @@ identityRoutes.patch('/me/profile', async c => {
 
 identityRoutes.get('/users', async c => {
   const actor = await requireUser(c);
-  requireRole(actor.role, 'moderator');
+  requireRole(actor, 'moderator');
   const rows = await c.env.DB.prepare(
     'SELECT id, username, real_name, enrollment_year, role, status, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT 300'
   ).all();
@@ -144,7 +146,7 @@ identityRoutes.get('/users', async c => {
 
 identityRoutes.post('/users/:id/role', async c => {
   const actor = await requireUser(c);
-  requireRole(actor.role, 'admin');
+  requireRole(actor, 'admin');
   const targetId = c.req.param('id');
   const target = await c.env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(targetId).first<{ id: string; role: SessionUser['role'] }>();
   if (!target) throw new AppError('NOT_FOUND', '用户不存在');
@@ -154,9 +156,7 @@ identityRoutes.post('/users/:id/role', async c => {
   if (!['member','moderator','admin'].includes(newRole)) throw badRequest('角色无效');
   if (ROLE_RANK[newRole] >= ROLE_RANK[actor.role]) throw new AppError('FORBIDDEN', '不能授予同级或更高权限');
   await c.env.DB.prepare('UPDATE users SET role = ?, updated_at = ? WHERE id = ?').bind(newRole, nowIso(), targetId).run();
-  await c.env.DB.prepare(
-    'INSERT INTO audit_logs (id, actor_id, action, target_type, target_id, reason, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(createId(), actor.id, 'user.role_change', 'user', targetId, String(body?.reason ?? ''), JSON.stringify({ role: newRole }), nowIso()).run();
+  await insertAudit(c.env, actor.id, 'user.role_change', 'user', targetId, String(body?.reason ?? ''), { role: newRole });
   return c.json({ success: true });
 });
 identityRoutes.get('/users/:id', async c => {
@@ -184,7 +184,7 @@ identityRoutes.patch('/users/:id', async c => {
   const row = await c.env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(targetId).first<{ id: string; role: SessionUser['role'] }>();
   if (!row) throw new AppError('NOT_FOUND', '用户不存在');
   if (actor.id !== targetId) {
-    if (!isAdmin(actor.role)) throw new AppError('FORBIDDEN', '只能修改自己的资料');
+    if (!isAdmin(actor)) throw new AppError('FORBIDDEN', '只能修改自己的资料');
     assertCanManage(actor, targetId, row.role, '修改');
   }
   const body = await c.req.json().catch(() => null);
@@ -200,7 +200,7 @@ identityRoutes.patch('/users/:id', async c => {
 
 identityRoutes.post('/users', async c => {
   const actor = await requireUser(c);
-  requireRole(actor.role, 'admin');
+  requireRole(actor, 'admin');
   const body = await c.req.json().catch(() => null);
   const username = usernameSchema.parse(body?.username);
   const password = passwordSchema.parse(body?.password);
@@ -215,9 +215,7 @@ identityRoutes.post('/users', async c => {
   await c.env.DB.prepare(
     'INSERT INTO users (id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(id, username, await bcryptHash(password), realName, enrollmentYear, role, 'active', nowIso(), nowIso()).run();
-  await c.env.DB.prepare(
-    'INSERT INTO audit_logs (id, actor_id, action, target_type, target_id, reason, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(createId(), actor.id, 'user.create', 'user', id, 'admin provisioned internal beta account', JSON.stringify({ role }), nowIso()).run();
+  await insertAudit(c.env, actor.id, 'user.create', 'user', id, 'admin provisioned internal beta account', { role });
   return c.json({ user: { id, username, real_name: realName, enrollment_year: enrollmentYear, role, status: 'active' } }, 201);
 });
 
@@ -225,7 +223,7 @@ identityRoutes.post('/users/:id/password', async c => {
   const actor = await requireUser(c);
   const targetId = c.req.param('id');
   if (actor.id !== targetId) {
-    if (!isAdmin(actor.role)) throw new AppError('FORBIDDEN', '没有权限修改密码');
+    if (!isAdmin(actor)) throw new AppError('FORBIDDEN', '没有权限修改密码');
     const target = await c.env.DB.prepare('SELECT role FROM users WHERE id = ?').bind(targetId).first<{ role: SessionUser['role'] }>();
     if (!target) throw new AppError('NOT_FOUND', '用户不存在');
     assertCanManage(actor, targetId, target.role, '修改密码');
@@ -235,12 +233,13 @@ identityRoutes.post('/users/:id/password', async c => {
   await c.env.DB.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?')
     .bind(await bcryptHash(password), nowIso(), targetId).run();
   await c.env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(targetId).run();
+  await insertAudit(c.env, actor.id, 'user.password_reset', 'user', targetId, actor.id === targetId ? '用户修改自己的密码' : '管理员重置他人密码', {});
   return c.json({ success: true });
 });
 
 identityRoutes.post('/users/:id/status', async c => {
   const actor = await requireUser(c);
-  requireRole(actor.role, 'moderator');
+  requireRole(actor, 'moderator');
   const targetId = c.req.param('id');
   const target = await c.env.DB.prepare('SELECT role FROM users WHERE id = ?').bind(targetId).first<{ role: SessionUser['role'] }>();
   if (!target) throw new AppError('NOT_FOUND', '用户不存在');
@@ -248,17 +247,19 @@ identityRoutes.post('/users/:id/status', async c => {
   const body = await c.req.json().catch(() => null);
   const status = (body?.status ?? '') as SessionUser['status'];
   if (!['active','muted','banned','pending'].includes(status)) throw badRequest('状态无效');
+  const expiresAt = status === 'muted' || status === 'banned'
+    ? (body?.expires_at ? new Date(body.expires_at).toISOString() : null)
+    : null;
+  if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) throw badRequest('临时处罚结束时间必须晚于当前时间');
   const timestamp = nowIso();
   await c.env.DB.prepare('UPDATE users SET status = ?, updated_at = ? WHERE id = ?').bind(status, timestamp, targetId).run();
   if (status === 'muted' || status === 'banned' || status === 'active') {
-    await c.env.DB.prepare('INSERT INTO sanctions (id, user_id, actor_id, action, reason, expires_at, created_at) VALUES (?, ?, ?, ?, ?, NULL, ?)')
-      .bind(createId(), targetId, actor.id, status === 'active' ? 'restore' : status === 'muted' ? 'mute' : 'ban', String(body?.reason ?? ''), timestamp).run();
+    await c.env.DB.prepare('INSERT INTO sanctions (id, user_id, actor_id, action, reason, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(createId(), targetId, actor.id, status === 'active' ? 'restore' : status === 'muted' ? 'mute' : 'ban', String(body?.reason ?? ''), expiresAt, timestamp).run();
   }
   if (status === 'banned') {
     await c.env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(targetId).run();
   }
-  await c.env.DB.prepare(
-    'INSERT INTO audit_logs (id, actor_id, action, target_type, target_id, reason, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(createId(), actor.id, 'user.status_change', 'user', targetId, String(body?.reason ?? ''), JSON.stringify({ status }), nowIso()).run();
+  await insertAudit(c.env, actor.id, 'user.status_change', 'user', targetId, String(body?.reason ?? ''), { status, expires_at: expiresAt });
   return c.json({ success: true });
 });

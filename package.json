@@ -1,6 +1,6 @@
 {
   "name": "wfla-wall-backend",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "WFLA Wall (世外墙) — a self-hosted, skin-pluggable campus forum for Shanghai World Foreign Language Academy, with invite-only onboarding, moderation and audit built in. / 面向上海市世外中学的自托管、可换肤校园论坛，内置邀请制注册、监管与审计。",
   "main": "src/index.ts",
   "directories": {

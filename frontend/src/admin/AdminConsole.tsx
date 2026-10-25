@@ -5,11 +5,12 @@ import { UsersPanel } from './UsersPanel';
 import { ContentPanel } from './ContentPanel';
 import { ReportsPanel } from './ReportsPanel';
 import { OperationsPanel } from './OperationsPanel';
+import { AutomationPanel } from './AutomationPanel';
 import { SystemPanel } from './SystemPanel';
 import { Empty, formatDate, formatDay } from './shared';
 import './admin.css';
 
-export type AdminSection = 'overview' | 'users' | 'content' | 'reports' | 'invitations' | 'announcements' | 'audit' | 'appearance' | 'settings' | 'system';
+export type AdminSection = 'overview' | 'users' | 'content' | 'reports' | 'risks' | 'invitations' | 'announcements' | 'audit' | 'appearance' | 'settings' | 'system';
 
 interface AdminConsoleProps {
   me: User;
@@ -36,9 +37,9 @@ const ACTION_LABEL: Record<string, string> = {
   'user.create': '创建账号', 'user.activate': '激活账号', 'user.role_change': '变更角色', 'user.status_change': '变更状态',
   'user.password_reset': '重置密码', 'user.sessions_revoke': '撤销会话', 'user.note_create': '添加备注',
   'invitation.create': '生成邀请码', 'invitation.revoke': '吊销邀请码', 'report.resolve': '处理举报', 'report.reject': '驳回举报',
-  'report.assign': '分配举报', 'thread.status_change': '变更话题状态', 'post.status_change': '变更回复状态',
+  'report.assign': '分配举报', 'thread.status_change': '变更话题状态', 'post.status_change': '变更回复状态', 'post.edit': '编辑回复', 'post.delete': '删除回复',
   'announcement.create': '发布公告', 'announcement.delete': '删除公告', 'board.create': '创建板块',
-  'settings.update': '更新高级设置', 'site.config_update': '更新站点配置'
+  'settings.update': '更新高级设置', 'site.config_update': '更新站点配置', 'moderation.rule_update': '更新自动规则', 'risk.dismiss': '忽略风险事件', 'appeal.create': '提交申诉', 'appeal.approve': '通过申诉', 'appeal.reject': '驳回申诉'
 };
 
 const NAV: { id: AdminSection; label: string; hint: string; ownerOnly?: boolean; icon: ReactNode }[] = [
@@ -48,6 +49,7 @@ const NAV: { id: AdminSection; label: string; hint: string; ownerOnly?: boolean;
   { id: 'reports', label: '举报', hint: 'Queue', icon: <><path d="M12 3 2.5 20h19L12 3Z" /><path d="M12 9v5M12 17.3v.2" /></> },
   { id: 'invitations', label: '邀请码', hint: 'Access', icon: <><path d="M4 8h16v8H4z" /><circle cx="8" cy="12" r="2" /><path d="M13 10h4M13 14h4" /></> },
   { id: 'announcements', label: '公告与板块', hint: 'Publishing', icon: <><path d="M4 12 19 5v14L4 12Z" /><path d="m7 13 1.6 6h3L10 12" /></> },
+  { id: 'risks', label: '自动监管', hint: 'Automation', icon: <><circle cx='12' cy='12' r='8' /><path d='M12 4v4M12 16v4M4 12h4M16 12h4' /></> },
   { id: 'audit', label: '审计日志', hint: 'Audit', icon: <><path d="M6 3h12v18H6z" /><path d="M9 8h6M9 12h6M9 16h4" /></> },
   { id: 'appearance', label: '外观', hint: 'Experience', ownerOnly: true, icon: <><circle cx="12" cy="12" r="8" /><path d="M12 4v16M4 12h16" /></> },
   { id: 'settings', label: '高级设置', hint: 'Owner only', ownerOnly: true, icon: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.55V21h-4v-.08A1.7 1.7 0 0 0 8.95 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.58 15 1.7 1.7 0 0 0 3.03 14H3v-4h.03A1.7 1.7 0 0 0 4.6 8.95a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8.97 4.6 1.7 1.7 0 0 0 10 3.03V3h4v.03A1.7 1.7 0 0 0 15.05 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.97 10H21v4h-.03A1.7 1.7 0 0 0 19.4 15Z" /></> },
@@ -131,6 +133,7 @@ export default function AdminConsole({ me, site, initialTab = 'overview', onExit
           {section === 'reports' && <ReportsPanel notify={notify} />}
           {section === 'invitations' && <OperationsPanel mode="invitations" me={me} notify={notify} />}
           {section === 'announcements' && <OperationsPanel mode="announcements" me={me} notify={notify} />}
+          {section === 'risks' && <AutomationPanel notify={notify} canEdit={me.role === 'owner'} />}
           {section === 'audit' && <OperationsPanel mode="audit" me={me} notify={notify} />}
           {section === 'appearance' && isOwner && <SystemPanel mode="appearance" me={me} site={site} notify={notify} onSettingsChanged={onSettingsChanged} />}
           {section === 'settings' && isOwner && <SystemPanel mode="settings" me={me} site={site} notify={notify} onSettingsChanged={onSettingsChanged} />}

@@ -1,6 +1,6 @@
 # WFLA Wall API 接口文档
 
-> 适用版本：**v0.4.2** ｜ API 版本：**v1** ｜ 皮肤契约：**2** ｜ 数据库结构：**12**
+> 适用版本：**v0.5.0** ｜ API 版本：**v1** ｜ 皮肤契约：**2** ｜ 数据库结构：**13**
 
 本文件是给前端 / 移动端 / 第三方集成开发者看的接口契约。所有接口都挂在基础路径
 `/api/v1` 之下；若站点公开地址是 `https://wflawall.zh.kg`，则完整地址是
@@ -72,9 +72,9 @@
 {
   "status": "ok",
   "time": "2026-10-25T04:00:00.000Z",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "api_version": "v1",
-  "schema_version": 12
+  "schema_version": 13
 }
 ```
 
@@ -86,7 +86,7 @@
 {
   "forum_name": "世外墙 WFLA Wall",
   "tagline": "世外中学校园论坛",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "api_version": "v1",
   "skin_contract_version": 2,
   "default_skin": "x",
@@ -262,7 +262,7 @@
 ```
 ---
 
-## 4. 管理后台（v0.4.2）
+## 4. 管理后台（v0.5.0）
 
 以下接口均要求 `admin` 或 `owner`；`/admin/settings`、`/admin/site-config` 与 `/admin/diagnostics` 仅 `owner` 可访问。
 
@@ -480,6 +480,8 @@ Query：`limit`（1–50，默认 20）、`cursor`（上一页返回的 `next_cu
 `target_type` ∈ `thread | post | user`；`reason` 2–100 字；`details` 最多 1000 字。
 提交后会给**所有在岗监管者**（`moderator` / `admin` / `owner`）发送通知。
 
+### `GET /reports/:id` — 需要 `moderator`
+返回举报详情和完整上下文：举报人身份、被举报用户身份，或被举报话题/回复及其作者身份。监管者不需要再拼接多个接口。
 ### `GET /reports` — 需要 `moderator`
 
 Query `status` ∈ `open | in_review | resolved | rejected`，可选。按待处理优先排序，最多 100 条。
@@ -518,6 +520,26 @@ Query `status` ∈ `open | in_review | resolved | rejected`，可选。按待处
 
 `status` ∈ `published | hidden`。
 
+### `GET /moderation/rules` — 需要 `moderator`
+返回五条自动监管规则：举报阈值、高风险词、高链接密度、重复灌水、新用户高频发布。
+### `PATCH /moderation/rules/:id` — 需要 `admin`
+```json
+{ "enabled": true, "threshold": 3 }
+```
+写审计日志。当前版本阈值表示：举报人数、链接数量、重复次数或单位时间发布量。
+### `GET /moderation/risks` — 需要 `moderator`
+返回自动监管生成的风险事件。
+### `POST /moderation/risks/:id/dismiss` — 需要 `moderator`
+```json
+{ "reason": "人工复核后确认不违规" }
+```
+### `POST /appeals` — 需要登录且账号处于 `muted` 或 `banned`
+```json
+{ "reason": "我认为处罚不符合事实，申请复核" }
+```
+### `GET /appeals` — 需要 `moderator`
+### `POST /appeals/:id/approve` / `POST /appeals/:id/reject` — 需要 `moderator`
+通过申诉会恢复账号并记录一条 `restore` 处置；两种结果都会通知用户并写审计日志。
 ### `GET /audit-logs` — 需要 `admin`
 
 返回最近 200 条审计记录，覆盖邀请、用户状态 / 角色变更、监管操作、公告、站点配置等。

@@ -149,9 +149,9 @@ export default function App() {
     confirm_password: ''
   });
 
-  const isStaff = me ? ['moderator', 'admin', 'owner'].includes(me.role) : false;
-  const isAdmin = me ? ['admin', 'owner'].includes(me.role) : false;
-  const isOwner = me?.role === 'owner';
+  const isStaff = me ? me.status === 'active' && ['moderator', 'admin', 'owner'].includes(me.role) : false;
+  const isAdmin = me ? me.status === 'active' && ['moderator', 'admin', 'owner'].includes(me.role) : false; // legacy flag: standalone moderation console
+  const isOwner = me?.status === 'active' && me.role === 'owner';
   const adminTab = view.name === 'admin' ? view.tab : null;
 
   useEffect(() => {

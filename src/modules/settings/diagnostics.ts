@@ -36,7 +36,7 @@ export const diagnosticsRoutes = new Hono<{ Bindings: Env }>();
 
 diagnosticsRoutes.get('/admin/diagnostics', async c => {
   const actor = await requireUser(c);
-  if (!isOwner(actor.role)) throw forbidden('只有论坛所有者可以运行网络诊断');
+  if (!isOwner(actor)) throw forbidden('只有论坛所有者可以运行网络诊断');
 
   const entries = await Promise.all(PROVIDER_ENDPOINTS.map(async endpoint => {
     const probe = endpoint.method

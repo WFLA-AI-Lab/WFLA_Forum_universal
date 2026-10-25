@@ -6,7 +6,7 @@ import { badRequest, forbidden } from '../../core/errors';
 import { requireUser } from '../identity/session';
 import { isOwner } from '../access/service';
 import { enforceRateLimit } from '../identity/crypto';
-import { insertAudit } from '../moderation/routes';
+import { insertAudit } from '../moderation/audit';
 import {
   applyPreparedSettings,
   persistSettingUpdates,
@@ -89,7 +89,7 @@ function parseSettings(body: unknown): SettingsPatch {
 
 async function requestOwner(c: Parameters<typeof requireUser>[0]) {
   const actor = await requireUser(c);
-  if (!isOwner(actor.role)) throw forbidden('只有论坛所有者可以修改高级设置');
+  if (!isOwner(actor)) throw forbidden('只有论坛所有者可以修改高级设置');
   return actor;
 }
 

@@ -61,6 +61,10 @@ export async function loadSession(c: Context<{ Bindings: Env }>): Promise<Sessio
 export async function requireUser(c: Context<{ Bindings: Env }>): Promise<SessionUser> {
   const user = await loadSession(c);
   if (!user) throw unauthorized();
+  if (user.status === 'banned' || user.status === 'deleted') {
+    await c.env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
+    throw unauthorized('账号不可用');
+  }
   return user;
 }
 
