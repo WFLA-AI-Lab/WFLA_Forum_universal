@@ -446,7 +446,7 @@ export default function App() {
   async function register(event: React.FormEvent) {
     event.preventDefault();
     try {
-      await api.post('/register', { ...regForm, enrollment_year: Number(regForm.enrollment_year) });
+      await api.post('/register', regForm);
       setSuccess('注册申请已提交，请等待管理员激活后再登录');
       setView({ name: 'settings' }); setError('');
     } catch (e) { setError((e as Error).message); }

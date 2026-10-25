@@ -9,7 +9,7 @@
 上海市世外中学校园论坛 —— 一个**可扩展、可监管、可交接**的校园社区平台，
 自托管（Node.js + SQLite），通过内网穿透提供公网访问。
 
-Current version: **v0.4.1** ｜ API: **v1** ｜ DB schema: **12** ｜ Skin contract: **2**
+Current version: **v0.4.2** ｜ API: **v1** ｜ DB schema: **12** ｜ Skin contract: **2**
 
 ---
 
@@ -122,7 +122,7 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 版本号唯一来源是 `src/version.ts`：
 
 ```ts
-APP_VERSION        = '0.4.1'   // 应用版本
+APP_VERSION        = '0.4.2'   // 应用版本
 API_VERSION        = 'v1'      // HTTP 契约版本
 SCHEMA_VERSION     = 12        // 数据库结构版本（= 最高迁移序号）
 SKIN_CONTRACT_VERSION = 2      // 前端皮肤契约版本
@@ -293,7 +293,7 @@ See [`docs/FRONTEND_SKIN_GUIDE.md`](docs/FRONTEND_SKIN_GUIDE.md) (Chinese).
 Single source of truth is `src/version.ts`:
 
 ```ts
-APP_VERSION           = '0.4.1'
+APP_VERSION           = '0.4.2'
 API_VERSION           = 'v1'
 SCHEMA_VERSION        = 12
 SKIN_CONTRACT_VERSION = 2

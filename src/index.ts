@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
+import { ZodError } from 'zod';
 import type { Env } from './env';
 import { AppError } from './core/errors';
 import { identityRoutes } from './modules/identity/routes';
@@ -56,6 +57,20 @@ app.notFound(c => c.json({ error: { code: 'NOT_FOUND', message: '接口不存在
 app.onError((error, c) => {
   if (error instanceof AppError) {
     return c.json({ error: { code: error.code, message: error.message, details: error.details ?? null } }, error.status as 400);
+  }
+  // Schema parsers throw ZodError synchronously. Without this branch a typo or
+  // an invalid client payload would be reported as an opaque HTTP 500.
+  if (error instanceof ZodError) {
+    return c.json({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: error.issues[0]?.message || '请求参数无效',
+        details: error.issues.map(issue => ({
+          path: issue.path.join('.'),
+          message: issue.message
+        }))
+      }
+    }, 422);
   }
   if (error instanceof Error && 'status' in error && typeof error.status === 'number') {
     return c.json({ error: { code: 'RATE_LIMITED', message: error.message } }, error.status as 400);

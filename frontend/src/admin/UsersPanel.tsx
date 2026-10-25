@@ -67,7 +67,7 @@ export function UsersPanel({ me, notify }: { me: User; notify: Notify }) {
     else setManualCopy({ text, label });
   }
   async function createUser() {
-    if (await run(() => api.post('/users', { ...newUser, enrollment_year: Number(newUser.enrollment_year) }), '账号已创建并立即生效')) {
+    if (await run(() => api.post('/users', newUser), '账号已创建并立即生效')) {
       setCreating(false);
       setNewUser({ username: '', real_name: '', enrollment_year: '2026', password: randomPassword(), role: 'member' });
       await load();

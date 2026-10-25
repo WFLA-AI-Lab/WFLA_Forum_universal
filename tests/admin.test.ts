@@ -69,6 +69,24 @@ describe('admin hierarchy', () => {
 });
 
 describe('role-bearing invitations', () => {
+  it('returns a readable validation error instead of HTTP 500 for invalid enrollment years', async () => {
+    const response = await app.request('/api/v1/register', {
+      method: 'POST',
+      headers: json({}),
+      body: JSON.stringify({
+        invitation_code: 'a'.repeat(32),
+        username: 'invalid-year',
+        password: 'TestPass1!',
+        real_name: '测试戊',
+        enrollment_year: 1999
+      })
+    }, env);
+    expect(response.status).toBe(422);
+    const body = await response.json() as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(body.error.message).toContain('入学年份');
+  });
+
   it('lets the owner issue admin invites and rejects admin-issued admin invites', async () => {
     const owner = await user('owner-invite', 'owner-invite', 'owner');
     const admin = await user('admin-invite', 'admin-invite', 'admin');
@@ -87,7 +105,7 @@ describe('role-bearing invitations', () => {
     const admin = await user('admin-activate', 'admin-activate', 'admin');
     const issued = await app.request('/api/v1/invitations', { method: 'POST', headers: { ...cookie(owner), ...json({}) }, body: JSON.stringify({ role: 'admin', ttl_hours: 168 }) }, env);
     const issuedBody = await issued.json() as { item: { code: string } };
-    const registered = await app.request('/api/v1/register', { method: 'POST', headers: json({}), body: JSON.stringify({ invitation_code: issuedBody.item.code, username: 'new-admin', password: 'TestPass1!', real_name: '测试乙', enrollment_year: '2026' }) }, env);
+    const registered = await app.request('/api/v1/register', { method: 'POST', headers: json({}), body: JSON.stringify({ invitation_code: issuedBody.item.code, username: 'new-admin', password: 'TestPass1!', real_name: '测试乙', enrollment_year: 2026 }) }, env);
     expect(registered.status).toBe(201);
     const registeredBody = await registered.json() as { item: { id: string; role: string; status: string } };
     expect(registeredBody.item.role).toBe('admin');

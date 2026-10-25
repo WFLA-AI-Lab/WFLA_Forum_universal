@@ -1,6 +1,6 @@
 # WFLA Wall API 接口文档
 
-> 适用版本：**v0.4.1** ｜ API 版本：**v1** ｜ 皮肤契约：**2** ｜ 数据库结构：**12**
+> 适用版本：**v0.4.2** ｜ API 版本：**v1** ｜ 皮肤契约：**2** ｜ 数据库结构：**12**
 
 本文件是给前端 / 移动端 / 第三方集成开发者看的接口契约。所有接口都挂在基础路径
 `/api/v1` 之下；若站点公开地址是 `https://wflawall.zh.kg`，则完整地址是
@@ -72,7 +72,7 @@
 {
   "status": "ok",
   "time": "2026-10-25T04:00:00.000Z",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "api_version": "v1",
   "schema_version": 12
 }
@@ -86,7 +86,7 @@
 {
   "forum_name": "世外墙 WFLA Wall",
   "tagline": "世外中学校园论坛",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "api_version": "v1",
   "skin_contract_version": 2,
   "default_skin": "x",
@@ -262,7 +262,7 @@
 ```
 ---
 
-## 4. 管理后台（v0.4.1）
+## 4. 管理后台（v0.4.2）
 
 以下接口均要求 `admin` 或 `owner`；`/admin/settings`、`/admin/site-config` 与 `/admin/diagnostics` 仅 `owner` 可访问。
 
