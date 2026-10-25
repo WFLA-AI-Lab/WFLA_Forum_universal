@@ -155,6 +155,14 @@ export interface Diagnostics {
   hint: string | null;
 }
 
+/** Remembers the signed-in member's skin choice on their account. */
+export interface UserPreferences {
+  skin_id: string | null;
+  updated_at: string | null;
+}
+
+/** Snapshot of where a member's skin preference lives right now. */
+export type SkinPreferenceStatus = 'idle' | 'saving' | 'saved' | 'guest' | 'error';
 export interface SkinDescriptor {
   id: string;
   name: string;
@@ -190,6 +198,7 @@ export type View =
   | { name: 'login' }
   | { name: 'register' }
   | { name: 'notifications' }
+  | { name: 'settings' }
   | { name: 'admin'; tab: AdminTab };
 
 /* ----------------------------------------------------------------- context */
@@ -210,6 +219,10 @@ export interface SkinSite {
   registration_enabled: boolean;
   /** Switches skin and persists the choice. Safe to call from any skin. */
   setSkin: (id: string) => void;
+  /** Where the current choice is stored: the account, or this browser only. */
+  skin_preference_status: SkinPreferenceStatus;
+  /** True when the visitor has an account and can sync the choice across devices. */
+  skin_sync_available: boolean;
 }
 
 export interface SkinSession {
@@ -334,6 +347,8 @@ export interface SkinActions {
   markNotificationRead: (id: string) => Promise<void>;
   createAnnouncement: (event: React.FormEvent) => Promise<void>;
   createBoard: (event: React.FormEvent) => Promise<void>;
+  /** Persists the signed-in member's skin choice to their account. */
+  saveSkinPreference: (id: string) => Promise<void>;
 }
 
 /** Everything a skin needs. This is the object you receive as the `forum` prop. */

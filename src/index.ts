@@ -14,6 +14,7 @@ import { oauthProviderRoutes } from './routes/oauth-provider.routes';
 import { settingsRoutes } from './modules/settings/routes';
 import { diagnosticsRoutes } from './modules/settings/diagnostics';
 import { siteRoutes } from './modules/site/routes';
+import { preferenceRoutes } from './modules/preferences/routes';
 import { healthRoutes } from './routes/health.routes';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api/v1');
@@ -28,7 +29,7 @@ app.use('*', cors({
     return allowed.includes(origin ?? '') ? origin : fallback;
   },
   credentials: true,
-  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type'],
   maxAge: 600
 }));
@@ -47,6 +48,7 @@ app.route('/', oauthProviderRoutes);
 app.route('/', settingsRoutes);
 app.route('/', diagnosticsRoutes);
 app.route('/', siteRoutes);
+app.route('/', preferenceRoutes);
 
 app.notFound(c => c.json({ error: { code: 'NOT_FOUND', message: '接口不存在' } }, 404));
 app.onError((error, c) => {

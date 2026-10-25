@@ -31,6 +31,15 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   return /^(1|true|yes|on)$/i.test(value);
 }
 
+/**
+ * Reads one raw stored site setting, falling back to the compiled-in default.
+ * Used by modules that need a single policy value (for example the allow-list
+ * check when saving a per-account preference) without loading the whole config.
+ */
+export async function rawSiteSetting(env: Env, key: SiteSettingKey): Promise<string> {
+  const map = await readSiteRows(env);
+  return rawValue(map, key);
+}
 export interface PublicSiteConfig {
   forum_name: string;
   tagline: string;

@@ -300,6 +300,88 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     );
   }
 
+  /* ------------------------------------------------------------- settings */
+
+  const SKIN_SYNC_LABEL: Record<string, string> = {
+    idle: '尚未同步到账号',
+    saving: '正在同步…',
+    saved: '已同步到账号',
+    guest: '游客 · 仅保存在本浏览器',
+    error: '同步失败 · 已保存在本浏览器'
+  };
+
+  /**
+   * User-facing settings. Currently the layout (skin) picker, which is the one
+   * personal preference the forum has; it is deliberately reachable by every
+   * member from the rail, not only by admins.
+   */
+  function renderSettings(): ReactNode {
+    const status = site.skin_preference_status;
+    const preview = [
+      { id: 'x', hint: '三段式信息流：左导航 / 中信息流 / 右栏公告与板块。' },
+      { id: 'endfield', hint: '档案式布局：几何切割、等宽数字、跑马灯公告。' }
+    ].filter(item => site.skins.some(skin => skin.id === item.id));
+
+    return (
+      <>
+        <div className="xsk-topbar">
+          <div>
+            <h1>设置</h1>
+            <span className="sub">个人偏好只作用于你自己的账号和浏览器。</span>
+          </div>
+        </div>
+
+        <section className="xsk-panel">
+          <h2>界面皮肤</h2>
+          <p className="xsk-notice" style={{ marginTop: 0 }}>
+            皮肤切换的是<b>整套布局</b>，不只是颜色。切换后立即生效。
+            {site.skin_sync_available
+              ? ' 你已登录，选择会同步到账号，换设备登录后自动沿用。'
+              : ' 当前是游客模式，选择只保存在本浏览器；登录后可同步到账号。'}
+          </p>
+          <div className="xsk-skin-grid">
+            {preview.map(item => {
+              const skin = site.skins.find(candidate => candidate.id === item.id)!;
+              const active = item.id === site.active_skin;
+              return (
+                <button key={item.id} type="button" className={active ? 'xsk-skin-card active' : 'xsk-skin-card'}
+                  aria-pressed={active}
+                  onClick={() => site.setSkin(item.id)}>
+                  <span className="thumb" aria-hidden="true">
+                    <i /><i /><i />
+                  </span>
+                  <span className="body">
+                    <span className="name">{skin.name}{active && <span className="badge">当前</span>}</span>
+                    <span className="desc">{item.hint}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="xsk-field-desc">
+            同步状态：{SKIN_SYNC_LABEL[status] ?? status}
+            {site.skin_sync_available && status === 'error' && '（可再点一次皮肤重试）'}
+          </p>
+        </section>
+
+        <section className="xsk-panel">
+          <h2>账号</h2>
+          {me ? (
+            <div className="xsk-row" style={{ alignItems: 'baseline' }}>
+              <span><b>{me.real_name}</b> · {me.graduation_year} 届</span>
+              <span className="xsk-tag">{ui.roleLabel[me.role] ?? me.role}</span>
+              <span className="xsk-field-desc" style={{ marginLeft: 'auto' }}>
+                论坛不作匿名发帖，个人主页公开真实姓名与届别。
+              </span>
+            </div>
+          ) : (
+            <p className="xsk-field-desc">你还未登录。登录后可在此查看账号信息与同步偏好。</p>
+          )}
+        </section>
+      </>
+    );
+  }
+
   function renderNotifications(): ReactNode {
     const unread = data.notifications.filter(item => !item.is_read).length;
     return (
@@ -695,6 +777,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     if (view.name === 'login') return renderLogin();
     if (view.name === 'register') return renderRegister();
     if (view.name === 'notifications') return renderNotifications();
+    if (view.name === 'settings') return renderSettings();
     if (view.name === 'admin' && isStaff) return renderAdmin();
     return <p className="xsk-empty">页面不存在。</p>;
   }
@@ -705,6 +788,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     : view.name === 'login' ? '登录'
     : view.name === 'register' ? '注册'
     : view.name === 'notifications' ? '通知'
+    : view.name === 'settings' ? '设置'
     : '管理后台';
   return (
     <div className="xsk">
@@ -730,6 +814,9 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
                 {data.notifications.some(item => !item.is_read) && <span className="n">{data.notifications.filter(item => !item.is_read).length}</span>}
               </a>
             )}
+            <a href="#" className="xsk-navitem" aria-current={view.name === 'settings' ? 'page' : undefined} onClick={linkHandler({ name: 'settings' })}>
+              <span className="glyph">☰</span><span className="label railhide">设置</span>
+            </a>
             {isStaff && (
               <a href="#" className="xsk-navitem" aria-current={view.name === 'admin' ? 'page' : undefined} onClick={linkHandler({ name: 'admin', tab: 'users' })}>
                 <span className="glyph">⚙</span><span className="label">管理</span>
@@ -754,6 +841,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
                   </div>
                 </div>
                 <div className="xsk-row">
+                  <button type="button" className="xsk-btn ghost small" onClick={() => navigate({ name: 'settings' })}>设置</button>
                   <button type="button" className="xsk-btn ghost small" onClick={() => void actions.logout()}>退出</button>
                   {providers.github && (
                     <button type="button" className="xsk-btn ghost small" onClick={() => { window.location.href = `${site.api_origin}/api/v1/auth/github/link?return_to=/`; }}>绑定 GitHub</button>
@@ -814,17 +902,15 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
             </ul>
           </div>
           <div className="panel">
-            <h3>切换皮肤</h3>
-            <div className="xsk-row">
-              {site.skins.map(skin => (
-                <button key={skin.id} type="button" className="xsk-btn ghost small"
-                  aria-pressed={skin.id === site.active_skin}
-                  style={skin.id === site.active_skin ? { borderColor: 'var(--x-accent)', color: 'var(--x-accent)' } : undefined}
-                  onClick={() => site.setSkin(skin.id)}>
-                  {skin.name}
-                </button>
-              ))}
-            </div>
+            <h3>界面皮肤</h3>
+            <p className="xsk-field-desc" style={{ marginTop: 0 }}>
+              当前：<b>{site.skins.find(skin => skin.id === site.active_skin)?.name ?? site.active_skin}</b>
+            </p>
+            {/* The canonical, per-user switch lives in Settings so every member
+                can reach it; this is only a shortcut for signed-in members. */}
+            <button type="button" className="xsk-btn ghost small" onClick={() => navigate({ name: 'settings' })}>
+              在设置中切换
+            </button>
           </div>
           <div className="panel">
             <h3>版本</h3>
@@ -839,6 +925,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
           <button type="button" aria-current={activeBoard ? 'page' : undefined} onClick={() => navigate({ name: 'board', board: data.boards[0]! })}>板块</button>
         )}
         {me && <button type="button" aria-current={view.name === 'notifications' ? 'page' : undefined} onClick={openNotifications}>通知</button>}
+        <button type="button" aria-current={view.name === 'settings' ? 'page' : undefined} onClick={() => navigate({ name: 'settings' })}>设置</button>
         {isStaff && <button type="button" aria-current={view.name === 'admin' ? 'page' : undefined} onClick={() => goAdmin('users')}>管理</button>}
         {!me && <button type="button" onClick={() => navigate({ name: 'login' })}>登录</button>}
       </nav>

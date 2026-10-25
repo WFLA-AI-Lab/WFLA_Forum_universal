@@ -12,7 +12,7 @@
 ```ts
 export const APP_VERSION = '0.1.0';          // 应用（产品）版本
 export const API_VERSION = 'v1';             // HTTP 契约版本
-export const SCHEMA_VERSION = 7;             // 数据库结构版本（= 最高迁移序号）
+export const SCHEMA_VERSION = 8;             // 数据库结构版本（= 最高迁移序号）
 export const SKIN_CONTRACT_VERSION = 1;      // 前端皮肤契约版本
 ```
 
@@ -53,7 +53,8 @@ export const SKIN_CONTRACT_VERSION = 1;      // 前端皮肤契约版本
 | `0004_engagement.sql` | 4 | 反应、收藏、浏览量等互动数据 |
 | `0005_oauth_providers.sql` | 5 | 多 OAuth 提供方支持 |
 | `0006_app_settings.sql` | 6 | `app_settings` 表（运行时配置） |
-| `0007_site_settings.sql` | **7** | 站点外观 / 注册策略默认值（`default_skin`、`allowed_skins` 等） |
+| `0007_site_settings.sql` | 7 | 站点外观 / 注册策略默认值（`default_skin`、`allowed_skins` 等） |
+| `0008_user_preferences.sql` | **8** | `user_preferences` 表（每用户偏好，当前仅 `skin_id`） |
 
 ### 迁移铁律
 

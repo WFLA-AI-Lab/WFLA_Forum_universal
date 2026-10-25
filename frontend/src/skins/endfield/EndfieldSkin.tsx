@@ -57,6 +57,12 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
               <small>NOTICES</small>通知
             </a>
           )}
+          {session.me && (
+            <a href="#" aria-current={view.name === 'settings' ? 'page' : undefined}
+              onClick={e => { e.preventDefault(); setView({ name: 'settings' }); messages.clearMessages(); }}>
+              <small>SETTINGS</small>设置
+            </a>
+          )}
           {session.isStaff && (
             <a href="#" aria-current={view.name === 'admin' ? 'page' : undefined}
               onClick={e => { e.preventDefault(); goAdmin('users'); }}>
@@ -74,6 +80,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
               {session.providers.github && (
                 <Btn small onClick={() => { window.location.href = `${site.api_origin}/api/v1/auth/github/link?return_to=/`; }}>绑定 GitHub</Btn>
               )}
+              <Btn small onClick={() => { setView({ name: 'settings' }); messages.clearMessages(); }}>设置</Btn>
               <Btn small onClick={actions.logout}>退出</Btn>
             </>
           ) : (
@@ -310,6 +317,67 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
               <FormField label="密码" hint="至少 10 位，含大小写字母、数字和符号"><input type="password" value={forms.regForm.password} onChange={e => forms.setRegForm({ ...forms.regForm, password: e.target.value })} required autoComplete="new-password" /></FormField>
               <div><Btn go type="submit">提交注册申请</Btn></div>
             </form>
+          </main>
+        )}
+
+        {/* ======= settings ======= */}
+        {view.name === 'settings' && (
+          <main style={{ maxWidth: '48rem' }}>
+            <div className="ef-tri" aria-hidden="true" style={{ marginTop: '1.5rem' }} />
+            <div style={{ padding: '1.75rem 0 0.5rem' }}>
+              <Pair en="PREFERENCES" zh="设置" />
+              <Field>个人偏好只作用于你自己的账号和浏览器。</Field>
+            </div>
+
+            <section style={{ marginTop: '1.25rem' }}>
+              <Pair en="LAYOUT SKIN" zh="界面皮肤" />
+              <p className="ef-empty" style={{ marginTop: '0.75rem' }}>
+                皮肤切换的是整套布局，不只是颜色，切换后立即生效。
+                {site.skin_sync_available
+                  ? ' 你已登录，选择会同步到账号，换设备登录后自动沿用。'
+                  : ' 当前是游客模式，选择只保存在本浏览器；登录后可同步到账号。'}
+              </p>
+              <ul className="ef-records" style={{ marginTop: '1rem' }}>
+                {site.skins.map((skin, i) => {
+                  const active = skin.id === site.active_skin;
+                  return (
+                    <li key={skin.id}>
+                      <a className="ef-record" href="#" style={active ? { borderColor: 'var(--ef-accent)' } : undefined}
+                        onClick={e => { e.preventDefault(); site.setSkin(skin.id); }}>
+                        <span className="ef-field">No.{String(i + 1).padStart(3, '0')}</span>
+                        <span className="ef-field">{skin.id.toUpperCase()}</span>
+                        <span className="name" style={{ fontWeight: active ? 700 : 400 }}>
+                          {skin.name}
+                          <span style={{ display: 'block', fontWeight: 400, fontSize: '0.85rem', color: 'var(--ef-ink-2)' }}>{skin.description}</span>
+                        </span>
+                        <span>{active ? <StateTag label="当前使用" draft /> : <span className="ef-field">可切换</span>}</span>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+              <span className="ef-field" style={{ display: 'block', marginTop: '0.75rem' }}>
+                同步状态：{site.skin_preference_status === 'saved' ? '已同步到账号'
+                  : site.skin_preference_status === 'saving' ? '正在同步…'
+                  : site.skin_preference_status === 'error' ? '同步失败 · 已保存在本浏览器'
+                  : site.skin_preference_status === 'guest' ? '游客 · 仅保存在本浏览器'
+                  : '尚未同步到账号'}
+              </span>
+            </section>
+
+            <section style={{ marginTop: '1.75rem' }}>
+              <Pair en="ACCOUNT" zh="账号" />
+              {session.me ? (
+                <span className="ef-field" style={{ display: 'block', marginTop: '0.75rem' }}>
+                  {session.me.real_name} │ {session.me.graduation_year} 届 │ {ui.roleLabel[session.me.role] ?? session.me.role}
+                  <span style={{ display: 'block', color: 'var(--ef-ink-2)', fontSize: '0.85rem' }}>
+                    论坛不作匿名发帖，个人主页公开真实姓名与届别。
+                  </span>
+                </span>
+              ) : (
+                <span className="ef-field" style={{ display: 'block', marginTop: '0.75rem' }}>你还未登录。登录后可在此查看账号信息与同步偏好。</span>
+              )}
+            </section>
           </main>
         )}
 

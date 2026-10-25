@@ -1,7 +1,7 @@
 {
   "name": "wfla-wall-frontend",
-  "version": "0.1.0",
-  "description": "",
+  "version": "0.2.0",
+  "description": "WFLA Wall frontend — container/skin split SPA (React + Vite). / 世外墙前端：容器 / 皮肤分离的单页应用。",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -11,8 +11,8 @@
     "type-check": "tsc --noEmit",
     "build:worker": "node scripts/build-worker.mjs"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["wfla-wall", "react", "vite", "skin"],
+  "author": "WFLA AI Lab / Computerization",
   "license": "ISC",
   "type": "module",
   "private": "true",

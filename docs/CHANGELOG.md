@@ -5,6 +5,28 @@
 
 ---
 
+## [0.2.0] - 2026-10-25
+
+### Added — 用户偏好与皮肤
+
+- **跨设备皮肤偏好（API /api/v1/me/preferences）**：登录用户选择的界面皮肤保存到账号；
+  换设备登录后自动沿用。游客仍只保存在浏览器本地。接口幂等、只读写本人数据。
+- **皮肤偏好 API**：`GET /me/preferences`、`PUT /me/preferences/skin`（幂等）、
+  `GET /me/preferences/effective-skin`。站点白名单在服务端强制执行：未启用或未知皮肤会被拒绝。
+- **迁移 0008**：新增 `user_preferences` 表（`user_id` 主键 + `skin_id` + `updated_at`），
+  `SCHEMA_VERSION` 8。删除用户时级联清理。
+
+- **用户「设置」页（两个默认皮肤均实现）**：整布局预览式皮肤选择器、同步状态提示、账号信息区；
+  左侧导航栏与移动端底部导航均有入口。
+- **皮肤契约扩展（向后兼容，仍为 v1）**：`site.skin_preference_status`、`site.skin_sync_available`、
+  `View = settings`、`actions.saveSkinPreference`、`UserPreferences` 类型。
+
+### Fixed
+
+- 迁移测试中对包含分号的 SQL 注释的解析。
+
+---
+
 ## [Unreleased]
 
 （下一次发版前的改动先写在这里，发版时整体移入对应版本条目。）

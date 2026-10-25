@@ -62,7 +62,7 @@ export default function MySkin({ forum }: { forum: SkinContext }) { /* … */ }
 | `forms` | 受控表单状态（登录、注册、发帖、回复、公告、建板块、高级设置、站点配置、诊断） |
 | `messages` | `error` / `success` 与 `clearMessages()` |
 | `actions` | 所有可调用的服务端动作（登录、发帖、回复、举报、管理操作…） |
-| `view` / `setView` | 站内路由：`home` / `board` / `thread` / `login` / `register` / `notifications` / `admin` |
+| `view` / `setView` | 站内路由：`home` / `board` / `thread` / `login` / `register` / `notifications` / `settings` / `admin` |
 | `helpers` | `formatDate` |
 | `ui` | `roleLabel`、`levelLabel`、`adminTabs` 等展示常量 |
 
@@ -134,12 +134,32 @@ export const SKIN_REGISTRY: readonly SkinDescriptor[] = [
 
 ## 4. 皮肤切换机制（已实现）
 
-- 站点配置接口 `GET /api/v1/site/config` 返回 `default_skin` 与 `skins` 白名单。
-- 前端启动时读取 `localStorage['wfla.skin']`；若该值在白名单内就使用，否则回落到服务端默认皮肤。
-- `site.setSkin(id)` 切换皮肤、写入 `<html data-skin>` / `<body class>` 并持久化到 `localStorage`。
+皮肤切换分两个层面，职责不同：
+
+### 4.1 站点层（后端策略，管理员控制）
+
+- `GET /api/v1/site/config` 返回 `default_skin` 与 `skins` 白名单；
 - 管理后台「外观」标签（`AdminTab = 'appearance'`）可修改 `default_skin` 与 `allowed_skins`，
-  通过 `PATCH /api/v1/admin/site-config` 保存，**立即生效、无需重启**。
+  通过 `PATCH /api/v1/admin/site-config` 保存，立即生效、无需重启；
 - 若配置的皮肤在前端没有实现，`resolveSkin()` 会回落到 `FALLBACK_SKIN_ID`，页面不会白屏。
+
+### 4.2 用户层（个人偏好，用户控制）
+
+- `site.setSkin(id)` 切换皮肤、写入 `<html data-skin>` / `<body class>` 并持久化到 `localStorage`；
+- 已登录用户的选择会额外通过 `PUT /api/v1/me/preferences/skin` 保存到账号，换设备登录后自动沿用（见 `docs/API.md` 第 3 节）；
+- 游客只有浏览器本地保存，登录后首次访问会把浏览器中的选择镜像进账号；
+- `site.skin_preference_status`（`idle / saving / saved / guest / error`）与 `site.skin_sync_available` 已在皮肤契约中，皮肤可以据此展示同步状态。
+
+### 4.3 用户「设置」页（已实现）
+
+两个默认皮肤都实现了 `view.name === 'settings'` 页面，包含：
+
+- 皮肤选择器（整布局预览与切换）；
+- 同步状态提示（已同步到账号 / 仅本浏览器 / 同步失败可重试）；
+- 账号信息区（真实姓名、届别、角色——论坛无匿名发帖）。
+
+入口：左侧导航栏「设置」、移动端底部导航「设置」。皮肤作者可以自由重排入口，
+但必须保证每个登录用户都能找到它。
 
 ---
 

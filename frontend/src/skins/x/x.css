@@ -331,3 +331,43 @@
 @media (prefers-reduced-motion: reduce) {
   .xsk *, .xsk *::before, .xsk *::after { transition: none !important; animation: none !important; }
 }
+/* ---------------------------------------------------------------- settings */
+/* Skin picker: a layout choice, so each card gets a tiny wireframe preview. */
+.xsk-skin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0 0.5rem;
+}
+.xsk-skin-card {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  text-align: left;
+  padding: 0.9rem;
+  border: 1px solid var(--x-line);
+  border-radius: var(--x-radius);
+  background: var(--x-bg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.xsk-skin-card:hover { background: var(--x-panel); }
+.xsk-skin-card.active { border-color: var(--x-accent); box-shadow: inset 0 0 0 1px var(--x-accent); }
+.xsk-skin-card .thumb {
+  flex: 0 0 auto;
+  width: 3.5rem;
+  height: 2.6rem;
+  border: 1px solid var(--x-line);
+  border-radius: 6px;
+  padding: 0.22rem;
+  display: grid;
+  grid-template-columns: 0.8fr 1.6fr 0.8fr;
+  gap: 0.15rem;
+  background: var(--x-panel);
+}
+.xsk-skin-card .thumb i { background: var(--x-line); border-radius: 2px; display: block; }
+.xsk-skin-card .body { display: grid; gap: 0.2rem; min-width: 0; }
+.xsk-skin-card .name { font-weight: 700; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.xsk-skin-card .desc { font-size: 0.8rem; color: var(--x-ink-2); overflow-wrap: anywhere; }
+.xsk-field-desc { font-size: 0.78rem; color: var(--x-ink-2); margin: 0.5rem 0 0; overflow-wrap: anywhere; }

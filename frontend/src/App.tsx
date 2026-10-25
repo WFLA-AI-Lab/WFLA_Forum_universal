@@ -31,6 +31,8 @@ import type {
   SiteConfig,
   SkinContext,
   SkinDescriptor,
+  SkinPreferenceStatus,
+  UserPreferences,
   Thread,
   User,
   View
@@ -85,6 +87,7 @@ export default function App() {
   const [providers, setProviders] = useState<Provider>({ microsoft: false, github: false });
   const [site, setSite] = useState<SiteConfig>(FALLBACK_SITE);
   const [activeSkin, setActiveSkin] = useState<string>(() => readSavedSkin() ?? FALLBACK_SITE.default_skin);
+  const [skinPreferenceStatus, setSkinPreferenceStatus] = useState<SkinPreferenceStatus>('idle');
   const [boards, setBoards] = useState<Board[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -152,7 +155,44 @@ export default function App() {
     document.body.className = resolveSkin(activeSkin).bodyClass;
   }, [activeSkin]);
 
-  /** Keeps the chosen skin inside the server allow-list and persists it. */
+  /**
+   * After a successful sign-in, prefer the skin saved on the account.
+   * Falls back to mirroring the current browser choice into the account so a
+   * brand-new member keeps the layout they were already looking at.
+   */
+  async function adoptAccountSkin() {
+    try {
+      const d = await api.get<{ preferences: UserPreferences }>('/me/preferences');
+      const allowed = site.skins.length > 0 ? site.skins : FALLBACK_SITE.skins;
+      const accountChoice = d.preferences.skin_id && allowed.some(skin => skin.id === d.preferences.skin_id)
+        ? d.preferences.skin_id
+        : null;
+      if (accountChoice) {
+        setActiveSkin(accountChoice);
+        try { window.localStorage.setItem(SKIN_STORAGE_KEY, accountChoice); } catch { /* storage may be unavailable */ }
+        setSkinPreferenceStatus('saved');
+        return;
+      }
+      const browserChoice = readSavedSkin();
+      if (browserChoice && allowed.some(skin => skin.id === browserChoice)) {
+        await api.put('/me/preferences/skin', { skin_id: browserChoice });
+        setSkinPreferenceStatus('saved');
+      } else {
+        setSkinPreferenceStatus('idle');
+      }
+    } catch {
+      setSkinPreferenceStatus('error');
+    }
+  }
+
+  /**
+   * Applies a skin and remembers the choice.
+   *
+   * The layout switches immediately and is always cached in localStorage so the
+   * very first paint on the next visit is already correct. When a member is
+   * signed in we additionally PUT it to their account, so the choice follows
+   * them to another browser; that call is best-effort and never blocks the UI.
+   */
   function applySkinChoice(id: string) {
     setActiveSkin(id);
     try {
@@ -160,6 +200,14 @@ export default function App() {
     } catch {
       // Private-mode browsers can refuse storage; the in-memory choice still applies.
     }
+    if (!me) {
+      setSkinPreferenceStatus('guest');
+      return;
+    }
+    setSkinPreferenceStatus('saving');
+    void api.put<{ preference: { skin_id: string } }>('/me/preferences/skin', { skin_id: id })
+      .then(() => setSkinPreferenceStatus('saved'))
+      .catch(() => setSkinPreferenceStatus('error'));
   }
 
   function chooseSkin(id: string | null): string {
@@ -171,14 +219,50 @@ export default function App() {
   }
 
   async function loadBase() {
+    let config: SiteConfig & { skin_registry?: SkinDescriptor[] } = FALLBACK_SITE;
     try {
-      const config = await api.get<SiteConfig & { skin_registry: SkinDescriptor[] }>('/site/config');
+      config = await api.get<SiteConfig & { skin_registry: SkinDescriptor[] }>('/site/config');
       setSite(config);
-      chooseSkin(readSavedSkin());
     } catch {
       setSite(FALLBACK_SITE);
     }
-    try { const d = await api.get<{ user: User }>('/me'); setMe(d.user); } catch { setMe(null); }
+
+    /**
+     * Resolve the layout in this order:
+     *   1. the member's account preference (follows them across devices);
+     *   2. this browser's last choice (guests, and offline/failed API);
+     *   3. the deployment default.
+     * A guest short-circuits at step 2 so the public page never waits on auth.
+     */
+    let user: User | null = null;
+    try { const d = await api.get<{ user: User }>('/me'); user = d.user; setMe(d.user); } catch { setMe(null); }
+
+    const allowed = config.skins.length > 0 ? config.skins : FALLBACK_SITE.skins;
+    const pickAllowed = (id: string | null | undefined): string | null =>
+      id && allowed.some(skin => skin.id === id) ? id : null;
+
+    const browserChoice = pickAllowed(readSavedSkin());
+    let accountChoice: string | null = null;
+    if (user) {
+      try {
+        const d = await api.get<{ preferences: UserPreferences }>('/me/preferences');
+        accountChoice = pickAllowed(d.preferences.skin_id);
+        setSkinPreferenceStatus(d.preferences.skin_id ? 'saved' : 'idle');
+      } catch {
+        setSkinPreferenceStatus('error');
+      }
+    } else {
+      setSkinPreferenceStatus('guest');
+    }
+    chooseSkin(accountChoice ?? browserChoice);
+
+    // Mirror a browser-only choice into the account the first time a member
+    // signs in on a device, so the two do not silently disagree.
+    if (user && !accountChoice && browserChoice) {
+      void api.put('/me/preferences/skin', { skin_id: browserChoice })
+        .then(() => setSkinPreferenceStatus('saved'))
+        .catch(() => setSkinPreferenceStatus('error'));
+    }
     try { const d = await api.get<{ items: Board[] }>('/boards'); setBoards(d.items); } catch { setBoards([]); }
     try { const d = await api.get<{ items: Announcement[] }>('/announcements'); setAnnouncements(d.items); } catch { setAnnouncements([]); }
     try {
@@ -217,12 +301,14 @@ export default function App() {
       const d = await api.post<{ user: User }>('/login', { username, password });
       setMe(d.user); setView({ name: 'home' }); setError(''); setSuccess('登录成功');
       setUsername(''); setPassword('');
+      await adoptAccountSkin();
     } catch (e) { setError((e as Error).message); }
   }
 
   async function logout() {
     await api.post('/logout').catch(() => undefined);
     setMe(null); setView({ name: 'home' }); setSuccess(''); setError('');
+    setSkinPreferenceStatus('guest');
   }
 
   async function register(event: React.FormEvent) {
@@ -410,7 +496,9 @@ export default function App() {
       api_origin: API_ORIGIN,
       guest_read_enabled: site.guest_read_enabled,
       registration_enabled: site.registration_enabled,
-      setSkin: applySkinChoice
+      setSkin: applySkinChoice,
+      skin_preference_status: me ? skinPreferenceStatus : 'guest',
+      skin_sync_available: Boolean(me)
     },
     session: { me, providers, isStaff, isAdmin, isOwner },
     data: {
@@ -434,7 +522,8 @@ export default function App() {
       createThread, createReply, submitReport, loadAdmin, saveSettings, saveSiteConfig,
       runDiagnostics, resetSettingsPassword, activateUser, setUserStatus,
       resolveReport, rejectReport, createInvitation, createAnnouncement, createBoard,
-      markAllNotificationsRead, markNotificationRead
+      markAllNotificationsRead, markNotificationRead,
+      saveSkinPreference: async (id: string) => { applySkinChoice(id); }
     },
     view,
     setView,
