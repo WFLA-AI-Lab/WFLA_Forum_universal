@@ -9,6 +9,12 @@ export interface User {
   updated_at: string;
 }
 
+export interface UserProfile {
+  nickname: string;
+  avatar_data_url: string | null;
+  updated_at: string;
+}
+
 export interface Board {
   id: string;
   slug: string;

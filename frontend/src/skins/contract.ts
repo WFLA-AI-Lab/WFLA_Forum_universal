@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * WFLA Wall skin contract  (SKIN_CONTRACT_VERSION = 1)
+ * WFLA Wall skin contract  (SKIN_CONTRACT_VERSION = 2)
  * ============================================================================
  *
  * A *skin* is a whole frontend layout, not a colour theme. Two skins may
@@ -42,6 +42,14 @@ export interface User {
   updated_at: string;
 }
 
+export interface UserProfile {
+  nickname: string;
+  avatar_data_url: string | null;
+  updated_at: string;
+}
+
+export type ProfileFormState = Pick<UserProfile, 'nickname' | 'avatar_data_url'>;
+
 export interface Board {
   id: string;
   slug: string;
@@ -63,6 +71,14 @@ export interface Thread {
   created_at: string;
   author_id: string;
   author?: { username: string; real_name: string; graduation_year: string; role: string };
+  board?: { slug: string; name: string };
+  preview_html?: string | null;
+}
+
+export interface SearchResults {
+  threads: Thread[];
+  posts: { id: string; thread_id: string; thread_title: string }[];
+  users: Pick<User, 'id' | 'real_name' | 'graduation_year' | 'role'>[];
 }
 
 export interface Post {
@@ -193,6 +209,9 @@ export type AdminTab = 'users' | 'reports' | 'invitations' | 'announcements' | '
 
 export type View =
   | { name: 'home' }
+  | { name: 'announcements' }
+  | { name: 'bookmarks' }
+  | { name: 'search' }
   | { name: 'board'; board: Board }
   | { name: 'thread'; thread: Thread }
   | { name: 'login' }
@@ -235,6 +254,14 @@ export interface SkinSession {
 
 export interface SkinData {
   boards: Board[];
+  feed: Thread[];
+  feedCursor: string | null;
+  feedBusy: boolean;
+  bookmarks: Thread[];
+  searchResults: SearchResults | null;
+  /** Query that produced searchResults; null before a completed search. */
+  searchResultQuery: string | null;
+  searchBusy: boolean;
   threads: Thread[];
   posts: Post[];
   announcements: Announcement[];
@@ -291,6 +318,9 @@ export interface SkinForms {
   setPassword: Setter<string>;
   regForm: RegisterFormState;
   setRegForm: Setter<RegisterFormState>;
+  profile: UserProfile | null;
+  profileForm: ProfileFormState;
+  setProfileForm: Setter<ProfileFormState>;
   /* content */
   reply: string;
   setReply: Setter<string>;
@@ -298,6 +328,10 @@ export interface SkinForms {
   setNewTitle: Setter<string>;
   newContent: string;
   setNewContent: Setter<string>;
+  composeBoard: string;
+  setComposeBoard: Setter<string>;
+  searchQuery: string;
+  setSearchQuery: Setter<string>;
   /* announcements + boards (admin) */
   announcementForm: AnnouncementFormState;
   setAnnouncementForm: Setter<AnnouncementFormState>;
@@ -325,11 +359,17 @@ export interface SkinMessages {
 
 export interface SkinActions {
   reloadBase: () => Promise<void>;
+  loadMoreFeed: () => Promise<void>;
+  loadBookmarks: () => Promise<void>;
+  searchForum: (query: string) => Promise<void>;
+  toggleBookmark: (threadId: string, bookmarked: boolean) => Promise<void>;
+  likeThread: (threadId: string) => Promise<void>;
   openThread: (id: string) => Promise<void>;
   loadNotifications: () => Promise<void>;
   login: (event: React.FormEvent) => Promise<void>;
   logout: () => Promise<void>;
   register: (event: React.FormEvent) => Promise<void>;
+  saveProfile: (event: React.FormEvent) => Promise<void>;
   createThread: (event: React.FormEvent) => Promise<void>;
   createReply: (event: React.FormEvent) => Promise<void>;
   submitReport: (targetType: 'thread' | 'post' | 'user', targetId: string) => Promise<void>;

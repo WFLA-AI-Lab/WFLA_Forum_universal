@@ -2,6 +2,9 @@ node_modules/
 .wrangler/
 dist/
 coverage/
+data/
+backups/
+public/
 .env
 .env.*
 !.env.example

@@ -12,6 +12,24 @@ import { enforceRateLimit } from './crypto';
 const bcryptHash = (password: string): Promise<string> => bcrypt.hash(password, 12);
 const bcryptCompare = (password: string, hash: string): Promise<boolean> => bcrypt.compare(password, hash);
 
+const nicknamePattern = /^[\p{L}\p{N}_ .·-]{1,24}$/u;
+const avatarPattern = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/;
+
+function parseProfile(body: unknown): { nickname: string; avatarDataUrl: string | null } {
+  if (!body || typeof body !== 'object') throw badRequest('请求体不能为空');
+  const input = body as Record<string, unknown>;
+  const nickname = typeof input.nickname === 'string' ? input.nickname.trim() : '';
+  if (!nicknamePattern.test(nickname)) throw badRequest('昵称需为 1-24 个中英文字符、数字或常用符号');
+  const avatarDataUrl = input.avatar_data_url === null || input.avatar_data_url === ''
+    ? null
+    : typeof input.avatar_data_url === 'string' ? input.avatar_data_url : undefined;
+  if (avatarDataUrl === undefined) throw badRequest('头像格式无效');
+  if (avatarDataUrl && (avatarDataUrl.length > 350_000 || !avatarPattern.test(avatarDataUrl))) {
+    throw badRequest('头像仅支持 PNG、JPEG 或 WebP，且处理后不得超过 256KB');
+  }
+  return { nickname, avatarDataUrl };
+}
+
 function publicUser(user: SessionUser) {
   return {
     id: user.id,
@@ -83,6 +101,31 @@ identityRoutes.post('/logout', async c => {
 identityRoutes.get('/me', async c => {
   const user = await requireUser(c);
   return c.json({ user: publicUser(user) });
+});
+
+identityRoutes.get('/me/profile', async c => {
+  const user = await requireUser(c);
+  const profile = await c.env.DB.prepare(
+    'SELECT nickname, avatar_data_url, updated_at FROM user_profiles WHERE user_id = ?'
+  ).bind(user.id).first<{ nickname: string; avatar_data_url: string | null; updated_at: string }>();
+  return c.json({
+    profile: profile ?? { nickname: user.realName, avatar_data_url: null, updated_at: user.updatedAt }
+  });
+});
+
+identityRoutes.patch('/me/profile', async c => {
+  const user = await requireUser(c);
+  const { nickname, avatarDataUrl } = parseProfile(await c.req.json().catch(() => null));
+  const updatedAt = nowIso();
+  await c.env.DB.prepare(
+    `INSERT INTO user_profiles (user_id, nickname, avatar_data_url, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       nickname = excluded.nickname,
+       avatar_data_url = excluded.avatar_data_url,
+       updated_at = excluded.updated_at`
+  ).bind(user.id, nickname, avatarDataUrl, updatedAt).run();
+  return c.json({ profile: { nickname, avatar_data_url: avatarDataUrl, updated_at: updatedAt } });
 });
 
 identityRoutes.get('/users', async c => {

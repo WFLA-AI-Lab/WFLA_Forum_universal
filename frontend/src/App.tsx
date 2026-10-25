@@ -9,9 +9,10 @@
  * The contract lives in frontend/src/skins/contract.ts and is documented in
  * docs/FRONTEND_SKIN_GUIDE.md.
  */
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
-import { resolveSkin } from './skins/registry';
+import { FALLBACK_SKIN_ID, resolveSkin } from './skins/registry';
+import './splash.css';
 import type {
   AdminSiteConfig,
   AdminTab,
@@ -23,9 +24,11 @@ import type {
   NewBoardFormState,
   NotificationItem,
   Post,
+  ProfileFormState,
   Provider,
   RegisterFormState,
   ReportItem,
+  SearchResults,
   RuntimeSettings,
   SettingsFormState,
   SiteConfig,
@@ -35,12 +38,20 @@ import type {
   UserPreferences,
   Thread,
   User,
+  UserProfile,
   View
 } from './skins/contract';
 
 const API_ORIGIN = (import.meta.env.VITE_API_BASE ?? '/api/v1').replace(/\/api\/v1$/, '');
 const SKIN_STORAGE_KEY = 'wfla.skin';
 const ANNOUNCEMENT_ANCHOR = 'announcements';
+const SPLASH_SESSION_KEY = 'wfla.splash.seen';
+
+function shouldShowSplash(): boolean {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
+  try { return window.sessionStorage.getItem(SPLASH_SESSION_KEY) !== '1'; }
+  catch { return true; }
+}
 
 const ROLE_LABEL: Record<string, string> = { owner: '负责人', admin: '管理员', moderator: '监管者', member: '成员' };
 const LEVEL_LABEL: Record<string, string> = { normal: '普通', important: '重要', urgent: '紧急' };
@@ -58,7 +69,7 @@ const FALLBACK_SITE: SiteConfig = {
   tagline: '世外中学校园论坛',
   version: '0.1.0',
   api_version: 'v1',
-  skin_contract_version: 1,
+  skin_contract_version: 2,
   default_skin: 'x',
   skins: [
     { id: 'x', name: 'X 风格', description: '仿 X 的三段式信息流布局', status: 'stable' },
@@ -83,13 +94,25 @@ function readSavedSkin(): string | null {
 
 export default function App() {
   const [view, setView] = useState<View>({ name: 'home' });
+  const [showSplash, setShowSplash] = useState(shouldShowSplash);
+  const viewKey = view.name === 'board' ? `board:${view.board.slug}` : view.name === 'thread' ? `thread:${view.thread.id}` : view.name === 'admin' ? `admin:${view.tab}` : view.name;
   const [me, setMe] = useState<User | null>(null);
   const [providers, setProviders] = useState<Provider>({ microsoft: false, github: false });
   const [site, setSite] = useState<SiteConfig>(FALLBACK_SITE);
-  const [activeSkin, setActiveSkin] = useState<string>(() => readSavedSkin() ?? FALLBACK_SITE.default_skin);
+  // The public entry point is always the X skin. A saved account preference is
+  // applied only after /me confirms that this browser has an active session.
+  const [activeSkin, setActiveSkin] = useState<string>(FALLBACK_SKIN_ID);
   const [skinPreferenceStatus, setSkinPreferenceStatus] = useState<SkinPreferenceStatus>('idle');
   const [boards, setBoards] = useState<Board[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
+  const [feed, setFeed] = useState<Thread[]>([]);
+  const [feedCursor, setFeedCursor] = useState<string | null>(null);
+  const [feedBusy, setFeedBusy] = useState(false);
+  const [bookmarks, setBookmarks] = useState<Thread[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const [searchResultQuery, setSearchResultQuery] = useState<string | null>(null);
+  const [searchBusy, setSearchBusy] = useState(false);
+  const searchRequestId = useRef(0);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -99,9 +122,13 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [regForm, setRegForm] = useState<RegisterFormState>({ invitation_code: '', username: '', password: '', real_name: '', graduation_year: '' });
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileForm, setProfileForm] = useState<ProfileFormState>({ nickname: '', avatar_data_url: null });
   const [reply, setReply] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
+  const [composeBoard, setComposeBoard] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [adminUsers, setAdminUsers] = useState<User[]>([]);
   const [adminReports, setAdminReports] = useState<ReportItem[]>([]);
@@ -144,6 +171,20 @@ export default function App() {
       window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : ''));
     }
   }, []);
+
+  useEffect(() => {
+    if (!showSplash) return;
+    try { window.sessionStorage.setItem(SPLASH_SESSION_KEY, '1'); } catch { /* storage may be unavailable */ }
+    const timer = window.setTimeout(() => setShowSplash(false), 3300);
+    return () => window.clearTimeout(timer);
+  }, [showSplash]);
+
+  useEffect(() => { window.scrollTo(0, 0); }, [viewKey]);
+
+  useEffect(() => {
+    if (me) void loadBookmarks();
+    else setBookmarks([]);
+  }, [me?.id]);
 
   /**
    * Publishes the active skin to the document. Page-level styling (body
@@ -194,15 +235,16 @@ export default function App() {
    * them to another browser; that call is best-effort and never blocks the UI.
    */
   function applySkinChoice(id: string) {
+    if (!me) {
+      setActiveSkin(FALLBACK_SKIN_ID);
+      setSkinPreferenceStatus('guest');
+      return;
+    }
     setActiveSkin(id);
     try {
       window.localStorage.setItem(SKIN_STORAGE_KEY, id);
     } catch {
       // Private-mode browsers can refuse storage; the in-memory choice still applies.
-    }
-    if (!me) {
-      setSkinPreferenceStatus('guest');
-      return;
     }
     setSkinPreferenceStatus('saving');
     void api.put<{ preference: { skin_id: string } }>('/me/preferences/skin', { skin_id: id })
@@ -254,7 +296,8 @@ export default function App() {
     } else {
       setSkinPreferenceStatus('guest');
     }
-    chooseSkin(accountChoice ?? browserChoice);
+    if (user) chooseSkin(accountChoice ?? browserChoice);
+    else setActiveSkin(FALLBACK_SKIN_ID);
 
     // Mirror a browser-only choice into the account the first time a member
     // signs in on a device, so the two do not silently disagree.
@@ -263,12 +306,73 @@ export default function App() {
         .then(() => setSkinPreferenceStatus('saved'))
         .catch(() => setSkinPreferenceStatus('error'));
     }
+    if (user) await loadProfile(user);
+    else {
+      setProfile(null);
+      setProfileForm({ nickname: '', avatar_data_url: null });
+    }
     try { const d = await api.get<{ items: Board[] }>('/boards'); setBoards(d.items); } catch { setBoards([]); }
+    try {
+      const d = await api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20');
+      setFeed(d.items); setFeedCursor(d.next_cursor);
+    } catch (e) { setError((e as Error).message); }
     try { const d = await api.get<{ items: Announcement[] }>('/announcements'); setAnnouncements(d.items); } catch { setAnnouncements([]); }
     try {
       const d = await api.get<Provider>('/auth/providers');
       setProviders(d);
     } catch { setProviders({ microsoft: false, github: false }); }
+  }
+
+  async function loadMoreFeed() {
+    if (!feedCursor || feedBusy) return;
+    setFeedBusy(true);
+    try {
+      const d = await api.get<{ items: Thread[]; next_cursor: string | null }>(`/feed?limit=20&cursor=${encodeURIComponent(feedCursor)}`);
+      setFeed(current => [...current, ...d.items]); setFeedCursor(d.next_cursor);
+    } catch (e) { setError((e as Error).message); }
+    finally { setFeedBusy(false); }
+  }
+
+  async function loadBookmarks() {
+    try { const d = await api.get<{ items: Thread[] }>('/bookmarks'); setBookmarks(d.items); }
+    catch (e) { setError((e as Error).message); }
+  }
+
+  async function searchForum(query: string) {
+    setSearchQuery(query);
+    const requestId = ++searchRequestId.current;
+    setSearchResults(null);
+    setSearchResultQuery(null);
+    if (!query.trim()) { setSearchBusy(false); setView({ name: 'search' }); return; }
+    setSearchBusy(true);
+    setView({ name: 'search' });
+    try {
+      const results = await api.get<SearchResults>(`/search?q=${encodeURIComponent(query.trim())}`);
+      if (requestId === searchRequestId.current) {
+        setSearchResults(results);
+        setSearchResultQuery(query.trim());
+        setSearchBusy(false);
+        setError('');
+      }
+    } catch (e) {
+      if (requestId === searchRequestId.current) { setSearchBusy(false); setError((e as Error).message); }
+    }
+  }
+
+  async function toggleBookmark(threadId: string, bookmarked: boolean) {
+    if (!me) { setView({ name: 'settings' }); return; }
+    try {
+      if (bookmarked) await api.del(`/threads/${threadId}/bookmark`);
+      else await api.put(`/threads/${threadId}/bookmark`);
+      await loadBookmarks();
+      setSuccess(bookmarked ? '已取消收藏' : '已加入书签');
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function likeThread(threadId: string) {
+    if (!me) { setView({ name: 'settings' }); return; }
+    try { await api.put('/reactions', { target_type: 'thread', target_id: threadId, reaction: 'like' }); setSuccess('已点赞'); }
+    catch (e) { setError((e as Error).message); }
   }
 
   const activeBoard = view.name === 'board' ? view.board : null;
@@ -301,6 +405,7 @@ export default function App() {
       const d = await api.post<{ user: User }>('/login', { username, password });
       setMe(d.user); setView({ name: 'home' }); setError(''); setSuccess('登录成功');
       setUsername(''); setPassword('');
+      await loadProfile(d.user);
       await adoptAccountSkin();
     } catch (e) { setError((e as Error).message); }
   }
@@ -308,7 +413,32 @@ export default function App() {
   async function logout() {
     await api.post('/logout').catch(() => undefined);
     setMe(null); setView({ name: 'home' }); setSuccess(''); setError('');
+    setProfile(null); setProfileForm({ nickname: '', avatar_data_url: null });
+    setActiveSkin(FALLBACK_SKIN_ID);
+    try { window.localStorage.removeItem(SKIN_STORAGE_KEY); } catch { /* storage may be unavailable */ }
     setSkinPreferenceStatus('guest');
+  }
+
+  async function loadProfile(user: User) {
+    try {
+      const d = await api.get<{ profile: UserProfile }>('/me/profile');
+      setProfile(d.profile);
+      setProfileForm({ nickname: d.profile.nickname, avatar_data_url: d.profile.avatar_data_url });
+    } catch {
+      const fallback = { nickname: user.real_name, avatar_data_url: null, updated_at: user.updated_at };
+      setProfile(fallback);
+      setProfileForm({ nickname: fallback.nickname, avatar_data_url: null });
+    }
+  }
+
+  async function saveProfile(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const d = await api.patch<{ profile: UserProfile }>('/me/profile', profileForm);
+      setProfile(d.profile);
+      setProfileForm({ nickname: d.profile.nickname, avatar_data_url: d.profile.avatar_data_url });
+      setSuccess('个人资料已保存'); setError('');
+    } catch (e) { setError((e as Error).message); }
   }
 
   async function register(event: React.FormEvent) {
@@ -316,17 +446,23 @@ export default function App() {
     try {
       await api.post('/register', { ...regForm, graduation_year: Number(regForm.graduation_year) });
       setSuccess('注册申请已提交，请等待管理员激活后再登录');
-      setView({ name: 'login' }); setError('');
+      setView({ name: 'settings' }); setError('');
     } catch (e) { setError((e as Error).message); }
   }
 
   async function createThread(event: React.FormEvent) {
     event.preventDefault();
-    if (!activeBoard) return;
+    const slug = activeBoard?.slug ?? composeBoard;
+    if (!slug) { setError('请先选择社区空间'); return; }
     try {
-      await api.post(`/boards/${activeBoard.slug}/threads`, { title: newTitle, content: newContent });
-      const d = await api.get<{ items: Thread[] }>(`/boards/${activeBoard.slug}/threads?limit=50`);
-      setThreads(d.items); setNewTitle(''); setNewContent(''); setSuccess('话题已发布'); setError('');
+      await api.post(`/boards/${slug}/threads`, { title: newTitle, content: newContent });
+      if (activeBoard) {
+        const d = await api.get<{ items: Thread[] }>(`/boards/${slug}/threads?limit=50`);
+        setThreads(d.items);
+      }
+      const page = await api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20');
+      setFeed(page.items); setFeedCursor(page.next_cursor);
+      setNewTitle(''); setNewContent(''); setSuccess('话题已发布'); setError('');
     } catch (e) { setError((e as Error).message); }
   }
 
@@ -337,6 +473,8 @@ export default function App() {
       await api.post(`/threads/${activeThread.id}/posts`, { content: reply });
       const d = await api.get<{ item: Thread; posts: Post[] }>(`/threads/${activeThread.id}`);
       setPosts(d.posts); setView({ name: 'thread', thread: d.item }); setReply(''); setSuccess('回复已发送'); setError('');
+      const page = await api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20');
+      setFeed(page.items); setFeedCursor(page.next_cursor);
     } catch (e) { setError((e as Error).message); }
   }
 
@@ -502,13 +640,16 @@ export default function App() {
     },
     session: { me, providers, isStaff, isAdmin, isOwner },
     data: {
-      boards, threads, posts, announcements, notifications, totalReplies,
+      boards, threads, feed, feedCursor, feedBusy, bookmarks, searchResults, searchResultQuery, searchBusy,
+      posts, announcements, notifications, totalReplies,
       adminUsers, adminReports, adminInvitations, pendingCount, openReports, unusedInvitations,
       announcementAnchorId: ANNOUNCEMENT_ANCHOR
     },
     forms: {
       username, setUsername, password, setPassword, regForm, setRegForm,
+      profile, profileForm, setProfileForm,
       reply, setReply, newTitle, setNewTitle, newContent, setNewContent,
+      composeBoard, setComposeBoard, searchQuery, setSearchQuery,
       announcementForm, setAnnouncementForm, newBoardForm, setNewBoardForm,
       settings, settingsForm, setSettingsForm, siteConfig, setSiteConfig,
       diagnostics, diagnosticsBusy
@@ -518,7 +659,8 @@ export default function App() {
       clearMessages: () => { setError(''); setSuccess(''); }
     },
     actions: {
-      reloadBase: loadBase, openThread, loadNotifications, login, logout, register,
+      reloadBase: loadBase, loadMoreFeed, loadBookmarks, searchForum, toggleBookmark, likeThread,
+      openThread, loadNotifications, login, logout, register, saveProfile,
       createThread, createReply, submitReport, loadAdmin, saveSettings, saveSiteConfig,
       runDiagnostics, resetSettingsPassword, activateUser, setUserStatus,
       resolveReport, rejectReport, createInvitation, createAnnouncement, createBoard,
@@ -533,6 +675,18 @@ export default function App() {
 
   const skin = resolveSkin(activeSkin);
   const Skin = skin.component;
+
+  if (showSplash) return <div className="wfla-splash" aria-label="World Foreign Language Academy">
+    <div className="wfla-splash-content">
+      <div className="wfla-name" aria-hidden="true">
+        <span className="wfla-word" style={{ '--rest': '4.25em' } as React.CSSProperties}><b>W</b><span>orld</span></span>
+        <span className="wfla-word" style={{ '--rest': '4.85em' } as React.CSSProperties}><b>F</b><span>oreign</span></span>
+        <span className="wfla-word" style={{ '--rest': '6.6em' } as React.CSSProperties}><b>L</b><span>anguage</span></span>
+        <span className="wfla-word" style={{ '--rest': '5.9em' } as React.CSSProperties}><b>A</b><span>cademy</span></span>
+      </div>
+      <p>WFLA COMMUNITY</p>
+    </div>
+  </div>;
 
   return (
     <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>正在加载界面…</div>}>

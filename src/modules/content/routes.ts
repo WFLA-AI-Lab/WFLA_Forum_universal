@@ -12,6 +12,7 @@ interface ThreadRow {
   id: string; board_id: string; author_id: string; title: string; slug: string; status: string;
   is_pinned: number; view_count: number; reply_count: number; last_activity_at: string; created_at: string; updated_at: string;
   author_username?: string; author_real_name?: string; author_graduation_year?: string; author_role?: string;
+  board_slug?: string; board_name?: string; preview_html?: string | null;
 }
 
 function boardJson(row: BoardRow) {
@@ -29,6 +30,35 @@ function threadJson(row: ThreadRow) {
 }
 
 export const contentRoutes = new Hono<{ Bindings: Env }>();
+
+// Chronological, cross-board timeline. The cursor follows the same
+// (created_at, id) ordering as the query, including tied timestamps.
+contentRoutes.get('/feed', async c => {
+  const limit = Number(c.req.query('limit') ?? 20);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw badRequest('分页大小无效');
+  const cursor = c.req.query('cursor') ?? null;
+  if (cursor && !/^[a-zA-Z0-9-]{1,100}$/.test(cursor)) throw badRequest('游标无效');
+  const rows = await c.env.DB.prepare(
+    `SELECT t.*, b.slug AS board_slug, b.name AS board_name,
+            u.username AS author_username, u.real_name AS author_real_name,
+            u.graduation_year AS author_graduation_year, u.role AS author_role,
+            (SELECT p.content_html FROM posts p
+              WHERE p.thread_id = t.id AND p.floor_number = 1 AND p.status = 'published'
+              LIMIT 1) AS preview_html
+       FROM threads t
+       JOIN boards b ON b.id = t.board_id
+       JOIN users u ON u.id = t.author_id
+      WHERE b.is_active = 1 AND t.status = 'published'
+        AND (? IS NULL OR (t.created_at, t.id) <
+          (SELECT created_at, id FROM threads WHERE id = ?))
+      ORDER BY t.created_at DESC, t.id DESC LIMIT ?`
+  ).bind(cursor, cursor, limit + 1).all<ThreadRow>();
+  const page = (rows.results ?? []).slice(0, limit);
+  return c.json({
+    items: page.map(row => ({ ...threadJson(row), board: { slug: row.board_slug, name: row.board_name } })),
+    next_cursor: (rows.results ?? []).length > limit ? page[page.length - 1]?.id ?? null : null
+  });
+});
 
 contentRoutes.get('/boards', async c => {
   const rows = await c.env.DB.prepare(

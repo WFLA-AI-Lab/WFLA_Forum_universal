@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import app from '../src/index';
+import { SKIN_CONTRACT_VERSION } from '../src/version';
 import type { Env, Role } from '../src/env';
 import { sha256 } from '../src/modules/identity/session';
 import { createTestEnv } from './test-env';
@@ -53,6 +54,15 @@ afterEach(async () => {
 });
 
 describe('per-account preferences', () => {
+  it('publishes the v2 skin contract for both bundled skins', async () => {
+    const response = await app.request('/api/v1/site/config', {}, env);
+    expect(response.status).toBe(200);
+    const config = await response.json() as { skin_contract_version: number; skins: { id: string }[] };
+    expect(SKIN_CONTRACT_VERSION).toBe(2);
+    expect(config.skin_contract_version).toBe(2);
+    expect(config.skins.map(skin => skin.id)).toEqual(expect.arrayContaining(['x', 'endfield']));
+  });
+
   it('requires a session', async () => {
     const read = await app.request('/api/v1/me/preferences', {}, env);
     expect(read.status).toBe(401);

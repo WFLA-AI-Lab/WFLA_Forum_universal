@@ -1,6 +1,6 @@
 # 前端皮肤（Skin）开发指南
 
-> 皮肤契约版本：**1** ｜ 对应 `SKIN_CONTRACT_VERSION`（`src/version.ts`）
+> 皮肤契约版本：**2** ｜ 对应 `SKIN_CONTRACT_VERSION`（`src/version.ts`）
 
 WFLA Wall 的前端被刻意拆成两层：**容器（container）** 与 **皮肤（skin）**。
 
@@ -58,11 +58,11 @@ export default function MySkin({ forum }: { forum: SkinContext }) { /* … */ }
 | --- | --- |
 | `site` | 论坛名、标语、版本、**可用皮肤列表**、当前皮肤、`setSkin(id)`、`api_origin`、游客/注册开关 |
 | `session` | `me`（`null` 表示游客）、`providers`、`isStaff` / `isAdmin` / `isOwner` |
-| `data` | 板块、话题、回复、公告、通知、管理列表与统计计数 |
+| `data` | 板块、跨板块动态、书签、搜索结果与其查询词、回复、公告、通知、管理列表与统计计数 |
 | `forms` | 受控表单状态（登录、注册、发帖、回复、公告、建板块、高级设置、站点配置、诊断） |
 | `messages` | `error` / `success` 与 `clearMessages()` |
 | `actions` | 所有可调用的服务端动作（登录、发帖、回复、举报、管理操作…） |
-| `view` / `setView` | 站内路由：`home` / `board` / `thread` / `login` / `register` / `notifications` / `settings` / `admin` |
+| `view` / `setView` | 站内路由：`home` / `announcements` / `bookmarks` / `search` / `board` / `thread` / `login` / `register` / `notifications` / `settings` / `admin` |
 | `helpers` | `formatDate` |
 | `ui` | `roleLabel`、`levelLabel`、`adminTabs` 等展示常量 |
 
@@ -147,14 +147,16 @@ export const SKIN_REGISTRY: readonly SkinDescriptor[] = [
 
 - `site.setSkin(id)` 切换皮肤、写入 `<html data-skin>` / `<body class>` 并持久化到 `localStorage`；
 - 已登录用户的选择会额外通过 `PUT /api/v1/me/preferences/skin` 保存到账号，换设备登录后自动沿用（见 `docs/API.md` 第 3 节）；
-- 游客只有浏览器本地保存，登录后首次访问会把浏览器中的选择镜像进账号；
+- 游客固定使用 `x` 皮肤；登录后才读取、切换并同步账号皮肤偏好；
 - `site.skin_preference_status`（`idle / saving / saved / guest / error`）与 `site.skin_sync_available` 已在皮肤契约中，皮肤可以据此展示同步状态。
 
 ### 4.3 用户「设置」页（已实现）
 
 两个默认皮肤都实现了 `view.name === 'settings'` 页面，包含：
 
-- 皮肤选择器（整布局预览与切换）；
+- 访客态用户名 / 密码登录表单（「设置」即统一账户入口）；
+- 登录态昵称、头像资料表单；
+- 登录态皮肤选择器（整布局预览与切换）；
 - 同步状态提示（已同步到账号 / 仅本浏览器 / 同步失败可重试）；
 - 账号信息区（真实姓名、届别、角色——论坛无匿名发帖）。
 

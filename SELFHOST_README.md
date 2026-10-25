@@ -72,6 +72,14 @@ npm run selfhost:start
 
 上面建号命令推荐配合 `WFLA_OWNER_PASSWORD` 环境变量使用，避免密码出现在命令历史。正常使用请优先运行一键配置脚本。
 
+本地界面联调需要固定测试账号时，可在迁移后运行：
+
+```powershell
+npm run selfhost:create-test-user
+```
+
+该命令会创建或重置仅用于开发联调的账号 `test`（密码 `Test123456`），并撤销它已有的会话。正式部署不要运行此命令。
+
 ## 备份
 
 ```powershell

@@ -18,10 +18,11 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
   const activeBoard = view.name === 'board' ? view.board : null;
   const activeThread = view.name === 'thread' ? view.thread : null;
 
-  function go(name: 'home' | 'login' | 'register' | 'notifications') {
+  function go(name: 'home' | 'announcements' | 'bookmarks' | 'search' | 'login' | 'register' | 'notifications') {
     return (event: React.MouseEvent) => {
       event.preventDefault();
       if (name === 'notifications') void actions.loadNotifications();
+      if (name === 'bookmarks') void actions.loadBookmarks();
       setView({ name });
       messages.clearMessages();
     };
@@ -46,6 +47,15 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
           <a href="#" aria-current={view.name === 'home' ? 'page' : undefined} onClick={go('home')}>
             <small>HOME</small>首页
           </a>
+          <a href="#" aria-current={view.name === 'search' ? 'page' : undefined} onClick={go('search')}>
+            <small>EXPLORE</small>探索
+          </a>
+          <a href="#" aria-current={view.name === 'announcements' ? 'page' : undefined} onClick={go('announcements')}>
+            <small>NOTICES</small>公告
+          </a>
+          {session.me && <a href="#" aria-current={view.name === 'bookmarks' ? 'page' : undefined} onClick={go('bookmarks')}>
+            <small>SAVED</small>书签
+          </a>}
           {data.boards.map(b => (
             <a key={b.id} href="#" aria-current={activeBoard?.id === b.id ? 'page' : undefined}
               onClick={e => { e.preventDefault(); setView({ name: 'board', board: b }); messages.setError(''); messages.setSuccess(''); }}>
@@ -57,12 +67,10 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
               <small>NOTICES</small>通知
             </a>
           )}
-          {session.me && (
-            <a href="#" aria-current={view.name === 'settings' ? 'page' : undefined}
-              onClick={e => { e.preventDefault(); setView({ name: 'settings' }); messages.clearMessages(); }}>
-              <small>SETTINGS</small>设置
-            </a>
-          )}
+          <a href="#" aria-current={view.name === 'settings' ? 'page' : undefined}
+            onClick={e => { e.preventDefault(); setView({ name: 'settings' }); messages.clearMessages(); }}>
+            <small>SETTINGS</small>设置
+          </a>
           {session.isStaff && (
             <a href="#" aria-current={view.name === 'admin' ? 'page' : undefined}
               onClick={e => { e.preventDefault(); goAdmin('users'); }}>
@@ -86,7 +94,7 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
           ) : (
             <>
               <span>访客模式 │ 可浏览公开内容</span>
-              <Btn small onClick={() => { setView({ name: 'login' }); messages.setError(''); messages.setSuccess(''); }}>登录</Btn>
+              <Btn small onClick={() => { setView({ name: 'settings' }); messages.setError(''); messages.setSuccess(''); }}>设置 / 登录</Btn>
               <Btn small go onClick={() => { setView({ name: 'register' }); messages.setError(''); messages.setSuccess(''); }}>注册</Btn>
             </>
           )}
@@ -181,6 +189,58 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
                 ))}
               </div>
             )}
+          </main>
+        )}
+
+        {/* ======= contract v2 routes ======= */}
+        {view.name === 'announcements' && (
+          <main style={{ maxWidth: '48rem', paddingTop: '2rem' }}>
+            <Pair en="CAMPUS NOTICES" zh="校园公告" />
+            {data.announcements.length === 0 ? <p className="ef-empty">暂无校园公告。</p> :
+              data.announcements.map((announcement, index) => <article key={announcement.id} className="ef-panel cut-br" style={{ padding: '1.4rem', marginTop: '1rem' }}>
+                <Field>No.{String(index + 1).padStart(3, '0')} │ {helpers.formatDate(announcement.starts_at)} │ {announcement.author_real_name}</Field>
+                <h2>{announcement.title}</h2>
+                <div className="ef-prose" dangerouslySetInnerHTML={{ __html: announcement.content_html }} />
+              </article>)}
+          </main>
+        )}
+
+        {view.name === 'bookmarks' && (
+          <main style={{ maxWidth: '48rem', paddingTop: '2rem' }}>
+            <Pair en="SAVED THREADS" zh="书签" />
+            {!session.me ? <p className="ef-empty">登录后查看收藏。</p> : data.bookmarks.length === 0 ? <p className="ef-empty">还没有收藏的话题。</p> :
+              <ul className="ef-records" style={{ marginTop: '1.5rem' }}>{data.bookmarks.map((thread, index) => <li key={thread.id}>
+                <a href="#" className="ef-record" onClick={event => { event.preventDefault(); void actions.openThread(thread.id); }}>
+                  <span className="ef-field">No.{String(index + 1).padStart(3, '0')}</span>
+                  <span className="ef-field">{helpers.formatDate(thread.created_at).slice(5, 10)}</span>
+                  <span className="name">{thread.title}</span>
+                  <span className="ef-field">{thread.reply_count} 回复 →</span>
+                </a>
+              </li>)}</ul>}
+          </main>
+        )}
+
+        {view.name === 'search' && (
+          <main style={{ maxWidth: '48rem', paddingTop: '2rem' }}>
+            <Pair en="EXPLORE" zh="探索校园" />
+            <form className="ef-form" role="search" onSubmit={event => { event.preventDefault(); void actions.searchForum(forms.searchQuery); }} style={{ display: 'flex', gap: '0.75rem', margin: '1.5rem 0' }}>
+              <input aria-label="搜索校园内容" placeholder="输入关键词" value={forms.searchQuery} onChange={event => forms.setSearchQuery(event.target.value)} />
+              <Btn go type="submit">搜索</Btn>
+            </form>
+            {data.searchBusy ? <p className="ef-empty" role="status">正在搜索…</p> : !data.searchResults ?
+              <p className="ef-empty">输入关键词并点击搜索，查找话题、回复和成员。</p> : <>
+                <Field>搜索结果 / {data.searchResultQuery}</Field>
+                <h2 className="ef-bar-title">话题</h2>
+                {data.searchResults.threads.length ? <ul className="ef-records">{data.searchResults.threads.map((thread, index) => <li key={thread.id}>
+                  <a href="#" className="ef-record" onClick={event => { event.preventDefault(); void actions.openThread(thread.id); }}><span className="ef-field">No.{String(index + 1).padStart(3, '0')}</span><span className="ef-field">话题</span><span className="name">{thread.title}</span><span className="ef-field">查看 →</span></a>
+                </li>)}</ul> : <p className="ef-empty">没有匹配的话题。</p>}
+                <h2 className="ef-bar-title">回复</h2>
+                {data.searchResults.posts.length ? <ul className="ef-records">{data.searchResults.posts.map((post, index) => <li key={post.id}>
+                  <a href="#" className="ef-record" onClick={event => { event.preventDefault(); void actions.openThread(post.thread_id); }}><span className="ef-field">No.{String(index + 1).padStart(3, '0')}</span><span className="ef-field">回复</span><span className="name">{post.thread_title}</span><span className="ef-field">查看 →</span></a>
+                </li>)}</ul> : <p className="ef-empty">没有匹配的回复。</p>}
+                <h2 className="ef-bar-title">成员</h2>
+                {data.searchResults.users.length ? data.searchResults.users.map(user => <p key={user.id} className="ef-field">{user.real_name} / {user.graduation_year} 届</p>) : <p className="ef-empty">没有匹配的成员。</p>}
+              </>}
           </main>
         )}
 
@@ -328,6 +388,26 @@ export default function EndfieldSkin({ forum }: { forum: SkinContext }) {
               <Pair en="PREFERENCES" zh="设置" />
               <Field>个人偏好只作用于你自己的账号和浏览器。</Field>
             </div>
+
+            {session.me && <section style={{ marginTop: '1.25rem' }}>
+              <Pair en="PROFILE" zh="个人资料" />
+              <form className="ef-form" onSubmit={actions.saveProfile} style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
+                {forms.profileForm.avatar_data_url && <img src={forms.profileForm.avatar_data_url} alt="头像预览" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8 }} />}
+                <FormField label="昵称" hint={`账号 @${session.me.username} · 实名 ${session.me.real_name}`}><input maxLength={24} value={forms.profileForm.nickname} onChange={e => forms.setProfileForm(current => ({ ...current, nickname: e.target.value }))} required /></FormField>
+                <FormField label="头像" hint="PNG、JPEG 或 WebP，最大 256KB"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 256 * 1024) { messages.setError('头像文件不能超过 256KB'); event.target.value = ''; return; }
+                  const reader = new FileReader();
+                  reader.onload = () => forms.setProfileForm(current => ({ ...current, avatar_data_url: String(reader.result) }));
+                  reader.readAsDataURL(file);
+                }} /></FormField>
+                <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
+                  <Btn go type="submit">保存资料</Btn>
+                  {forms.profileForm.avatar_data_url && <Btn type="button" onClick={() => forms.setProfileForm(current => ({ ...current, avatar_data_url: null }))}>移除头像</Btn>}
+                </div>
+              </form>
+            </section>}
 
             <section style={{ marginTop: '1.25rem' }}>
               <Pair en="LAYOUT SKIN" zh="界面皮肤" />
