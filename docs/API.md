@@ -88,7 +88,7 @@
   "tagline": "世外中学校园论坛",
   "version": "0.1.0",
   "api_version": "v1",
-  "skin_contract_version": 1,
+  "skin_contract_version": 2,
   "default_skin": "x",
   "skins": [
     { "id": "x", "name": "X 风格", "description": "...", "status": "stable" }

@@ -122,7 +122,7 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 APP_VERSION        = '0.2.0'   // 应用版本
 API_VERSION        = 'v1'      // HTTP 契约版本
 SCHEMA_VERSION     = 8         // 数据库结构版本（= 最高迁移序号）
-SKIN_CONTRACT_VERSION = 1      // 前端皮肤契约版本
+SKIN_CONTRACT_VERSION = 2      // 前端皮肤契约版本
 ```
 
 发版流程、迁移对应表、备份与存档约定见 [`docs/RELEASE_AND_ARCHIVE.md`](docs/RELEASE_AND_ARCHIVE.md)。
@@ -289,7 +289,7 @@ Single source of truth is `src/version.ts`:
 APP_VERSION           = '0.2.0'
 API_VERSION           = 'v1'
 SCHEMA_VERSION        = 8
-SKIN_CONTRACT_VERSION = 1
+SKIN_CONTRACT_VERSION = 2
 ```
 
 Release flow, migration table and backup rules:

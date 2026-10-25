@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * WFLA Wall skin contract  (SKIN_CONTRACT_VERSION = 1)
+ * WFLA Wall skin contract  (SKIN_CONTRACT_VERSION = 2)
  * ============================================================================
  *
  * A *skin* is a whole frontend layout, not a colour theme. Two skins may
@@ -251,6 +251,9 @@ export interface SkinData {
   feedBusy: boolean;
   bookmarks: Thread[];
   searchResults: SearchResults | null;
+  /** Query that produced searchResults; null before a completed search. */
+  searchResultQuery: string | null;
+  searchBusy: boolean;
   threads: Thread[];
   posts: Post[];
   announcements: Announcement[];

@@ -9,4 +9,4 @@ export const API_VERSION = 'v1';
 /** Highest applied file in src/migrations. Compared against the database at boot. */
 export const SCHEMA_VERSION = 8;
 /** Bumps when the skin contract in frontend/src/skins/contract.ts changes shape. */
-export const SKIN_CONTRACT_VERSION = 1;
+export const SKIN_CONTRACT_VERSION = 2;

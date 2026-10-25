@@ -13,7 +13,7 @@
 export const APP_VERSION = '0.1.0';          // 应用（产品）版本
 export const API_VERSION = 'v1';             // HTTP 契约版本
 export const SCHEMA_VERSION = 8;             // 数据库结构版本（= 最高迁移序号）
-export const SKIN_CONTRACT_VERSION = 1;      // 前端皮肤契约版本
+export const SKIN_CONTRACT_VERSION = 2;      // 前端皮肤契约版本
 ```
 
 `package.json` 与 `frontend/package.json` 的 `version` 字段必须与 `APP_VERSION` 保持一致

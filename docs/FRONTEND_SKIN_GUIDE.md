@@ -1,6 +1,6 @@
 # 前端皮肤（Skin）开发指南
 
-> 皮肤契约版本：**1** ｜ 对应 `SKIN_CONTRACT_VERSION`（`src/version.ts`）
+> 皮肤契约版本：**2** ｜ 对应 `SKIN_CONTRACT_VERSION`（`src/version.ts`）
 
 WFLA Wall 的前端被刻意拆成两层：**容器（container）** 与 **皮肤（skin）**。
 
@@ -58,11 +58,11 @@ export default function MySkin({ forum }: { forum: SkinContext }) { /* … */ }
 | --- | --- |
 | `site` | 论坛名、标语、版本、**可用皮肤列表**、当前皮肤、`setSkin(id)`、`api_origin`、游客/注册开关 |
 | `session` | `me`（`null` 表示游客）、`providers`、`isStaff` / `isAdmin` / `isOwner` |
-| `data` | 板块、话题、回复、公告、通知、管理列表与统计计数 |
+| `data` | 板块、跨板块动态、书签、搜索结果与其查询词、回复、公告、通知、管理列表与统计计数 |
 | `forms` | 受控表单状态（登录、注册、发帖、回复、公告、建板块、高级设置、站点配置、诊断） |
 | `messages` | `error` / `success` 与 `clearMessages()` |
 | `actions` | 所有可调用的服务端动作（登录、发帖、回复、举报、管理操作…） |
-| `view` / `setView` | 站内路由：`home` / `board` / `thread` / `login` / `register` / `notifications` / `settings` / `admin` |
+| `view` / `setView` | 站内路由：`home` / `announcements` / `bookmarks` / `search` / `board` / `thread` / `login` / `register` / `notifications` / `settings` / `admin` |
 | `helpers` | `formatDate` |
 | `ui` | `roleLabel`、`levelLabel`、`adminTabs` 等展示常量 |
 

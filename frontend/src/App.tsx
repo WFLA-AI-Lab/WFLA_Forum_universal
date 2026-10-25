@@ -9,7 +9,7 @@
  * The contract lives in frontend/src/skins/contract.ts and is documented in
  * docs/FRONTEND_SKIN_GUIDE.md.
  */
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 import { resolveSkin } from './skins/registry';
 import './splash.css';
@@ -43,6 +43,13 @@ import type {
 const API_ORIGIN = (import.meta.env.VITE_API_BASE ?? '/api/v1').replace(/\/api\/v1$/, '');
 const SKIN_STORAGE_KEY = 'wfla.skin';
 const ANNOUNCEMENT_ANCHOR = 'announcements';
+const SPLASH_SESSION_KEY = 'wfla.splash.seen';
+
+function shouldShowSplash(): boolean {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
+  try { return window.sessionStorage.getItem(SPLASH_SESSION_KEY) !== '1'; }
+  catch { return true; }
+}
 
 const ROLE_LABEL: Record<string, string> = { owner: '负责人', admin: '管理员', moderator: '监管者', member: '成员' };
 const LEVEL_LABEL: Record<string, string> = { normal: '普通', important: '重要', urgent: '紧急' };
@@ -60,7 +67,7 @@ const FALLBACK_SITE: SiteConfig = {
   tagline: '世外中学校园论坛',
   version: '0.1.0',
   api_version: 'v1',
-  skin_contract_version: 1,
+  skin_contract_version: 2,
   default_skin: 'x',
   skins: [
     { id: 'x', name: 'X 风格', description: '仿 X 的三段式信息流布局', status: 'stable' },
@@ -85,7 +92,7 @@ function readSavedSkin(): string | null {
 
 export default function App() {
   const [view, setView] = useState<View>({ name: 'home' });
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(shouldShowSplash);
   const viewKey = view.name === 'board' ? `board:${view.board.slug}` : view.name === 'thread' ? `thread:${view.thread.id}` : view.name === 'admin' ? `admin:${view.tab}` : view.name;
   const [me, setMe] = useState<User | null>(null);
   const [providers, setProviders] = useState<Provider>({ microsoft: false, github: false });
@@ -99,6 +106,9 @@ export default function App() {
   const [feedBusy, setFeedBusy] = useState(false);
   const [bookmarks, setBookmarks] = useState<Thread[]>([]);
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const [searchResultQuery, setSearchResultQuery] = useState<string | null>(null);
+  const [searchBusy, setSearchBusy] = useState(false);
+  const searchRequestId = useRef(0);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -157,9 +167,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!showSplash) return;
+    try { window.sessionStorage.setItem(SPLASH_SESSION_KEY, '1'); } catch { /* storage may be unavailable */ }
     const timer = window.setTimeout(() => setShowSplash(false), 3300);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [showSplash]);
 
   useEffect(() => { window.scrollTo(0, 0); }, [viewKey]);
 
@@ -218,9 +230,6 @@ export default function App() {
    */
   function applySkinChoice(id: string) {
     setActiveSkin(id);
-    if (id !== 'x' && (view.name === 'announcements' || view.name === 'bookmarks' || view.name === 'search')) {
-      setView({ name: 'home' });
-    }
     try {
       window.localStorage.setItem(SKIN_STORAGE_KEY, id);
     } catch {
@@ -318,12 +327,23 @@ export default function App() {
 
   async function searchForum(query: string) {
     setSearchQuery(query);
-    if (!query.trim()) { setSearchResults(null); setView({ name: 'home' }); return; }
+    const requestId = ++searchRequestId.current;
+    setSearchResults(null);
+    setSearchResultQuery(null);
+    if (!query.trim()) { setSearchBusy(false); setView({ name: 'search' }); return; }
+    setSearchBusy(true);
     setView({ name: 'search' });
     try {
-      setSearchResults(await api.get<SearchResults>(`/search?q=${encodeURIComponent(query.trim())}`));
-      setError('');
-    } catch (e) { setError((e as Error).message); }
+      const results = await api.get<SearchResults>(`/search?q=${encodeURIComponent(query.trim())}`);
+      if (requestId === searchRequestId.current) {
+        setSearchResults(results);
+        setSearchResultQuery(query.trim());
+        setSearchBusy(false);
+        setError('');
+      }
+    } catch (e) {
+      if (requestId === searchRequestId.current) { setSearchBusy(false); setError((e as Error).message); }
+    }
   }
 
   async function toggleBookmark(threadId: string, bookmarked: boolean) {
@@ -581,7 +601,7 @@ export default function App() {
     },
     session: { me, providers, isStaff, isAdmin, isOwner },
     data: {
-      boards, threads, feed, feedCursor, feedBusy, bookmarks, searchResults,
+      boards, threads, feed, feedCursor, feedBusy, bookmarks, searchResults, searchResultQuery, searchBusy,
       posts, announcements, notifications, totalReplies,
       adminUsers, adminReports, adminInvitations, pendingCount, openReports, unusedInvitations,
       announcementAnchorId: ANNOUNCEMENT_ANCHOR

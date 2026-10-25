@@ -118,7 +118,11 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
 
   function renderSearch(): ReactNode {
     const results = data.searchResults;
-    return <section className="xsk-section"><h2>搜索结果 · {forms.searchQuery}</h2>{results && <><h3>话题</h3>{results.threads.length ? results.threads.map(renderFeedThread) : <p className="xsk-empty">没有匹配的话题</p>}<h3>回复</h3>{results.posts.length ? results.posts.map(post => <button key={post.id} type="button" className="xsk-search-hit" onClick={() => void actions.openThread(post.thread_id)}>{post.thread_title} · 查看回复 →</button>) : <p className="xsk-empty">没有匹配的回复</p>}<h3>成员</h3>{results.users.length ? results.users.map(user => <p key={user.id} className="xsk-search-hit">{user.real_name} · {user.graduation_year} 届</p>) : <p className="xsk-empty">没有匹配的成员</p>}</>}</section>;
+    return <section className="xsk-section"><h2>{data.searchResultQuery ? `搜索结果 · ${data.searchResultQuery}` : '探索校园'}</h2>
+      {data.searchBusy ? <p className="xsk-empty" role="status">正在搜索…</p>
+        : !results ? <p className="xsk-empty">在上方搜索框输入关键词，按 Enter 搜索校园内容。</p>
+          : <><h3>话题</h3>{results.threads.length ? results.threads.map(renderFeedThread) : <p className="xsk-empty">没有匹配的话题</p>}<h3>回复</h3>{results.posts.length ? results.posts.map(post => <button key={post.id} type="button" className="xsk-search-hit" onClick={() => void actions.openThread(post.thread_id)}>{post.thread_title} · 查看回复 →</button>) : <p className="xsk-empty">没有匹配的回复</p>}<h3>成员</h3>{results.users.length ? results.users.map(user => <p key={user.id} className="xsk-search-hit">{user.real_name} · {user.graduation_year} 届</p>) : <p className="xsk-empty">没有匹配的成员</p>}</>}
+    </section>;
   }
 
   function renderBoard(): ReactNode {
@@ -784,7 +788,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   const title = view.name === 'home' ? '校园动态'
     : view.name === 'announcements' ? '校园公告'
     : view.name === 'bookmarks' ? '书签'
-    : view.name === 'search' ? '搜索结果'
+    : view.name === 'search' ? '探索'
     : view.name === 'board' ? activeBoard?.name ?? '板块'
     : view.name === 'thread' ? activeThread?.title ?? '话题'
     : view.name === 'login' ? '登录'
@@ -888,7 +892,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
               <ul>
                 {data.announcements.slice(0, 5).map(announcement => (
                   <li key={announcement.id}>
-                    <a href={`#${data.announcementAnchorId}`} onClick={event => { event.preventDefault(); navigate({ name: 'home' }); }}>
+                    <a href={`#${data.announcementAnchorId}`} onClick={event => { event.preventDefault(); navigate({ name: 'announcements' }); }}>
                       <span className="t">{announcement.title}</span>
                       <span className="d">{helpers.formatDate(announcement.starts_at)}</span>
                     </a>

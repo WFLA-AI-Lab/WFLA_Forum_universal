@@ -126,7 +126,7 @@ DOM
 | `APP_VERSION` | 应用整体版本 | 0.2.0 |
 | `API_VERSION` | HTTP 契约版本（破坏性变更才 bump） | v1 |
 | `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 8 |
-| `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 1 |
+| `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 2 |
 
 规则：契约只增不改 → 不 bump；重命名/删除/改语义 → bump。
 详见 `docs/RELEASE_AND_ARCHIVE.md`。

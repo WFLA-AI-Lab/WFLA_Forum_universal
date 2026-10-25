@@ -4,22 +4,24 @@ React + Vite 前端，使用容器 / 皮肤分离架构。默认 X 风格首页�
 
 ## 运行
 
-在仓库根目录运行后端，在 `frontend` 目录运行前端，分别开两个终端：
+开发时在仓库根目录运行自托管 Node + SQLite 后端，在 `frontend` 目录运行 Vite，分别开两个终端（首次需完成根目录 `.env` 配置）：
 
 ```powershell
 # 仓库根目录
-npm install
-npm run migrate:local
-npm run dev -- --port 8888
+npm ci
+npm run selfhost:migrate
+npm run selfhost:dev
 
 # frontend 目录
 npm install
 npm run dev
 ```
 
-访问 `http://localhost:5173/`。Vite 默认将 `/api` 代理到 `http://127.0.0.1:8888`，同源使用后端 HttpOnly 会话 Cookie。如端口不同，可在 `frontend/.env.local` 配置 `VITE_API_PROXY_TARGET`。生产部署继续使用仓库已有的 Pages `_worker.js` 代理和 `WFLA_API_ORIGIN`。
+访问 `http://localhost:5173/`。Vite 默认将 `/api` 代理到 `http://127.0.0.1:8888`，同源使用后端 HttpOnly 会话 Cookie。如端口不同，可在 `frontend/.env.local` 配置 `VITE_API_PROXY_TARGET`。
 
-Windows 上如果根目录 `npm install` 因 `better-sqlite3` 原生模块编译失败，Cloudflare Worker/D1 联调可使用 `npm install --ignore-scripts`；自托管 SQLite 模式仍需原生模块正常安装。
+生产环境采用自托管 Node + SQLite：运行根目录 `scripts/一键配置.ps1` 完成初次配置、数据库迁移、前端构建及管理员创建，日常通过 `scripts/一键启动.ps1` 启动。构建产物复制到根目录 `public/`，由同一个 Node 端口同时提供静态前端和 `/api/v1`；公网访问由 HTTPS 反向代理或内网穿透接入。详见 [`../SELFHOST_README.md`](../SELFHOST_README.md)。仓库保留的 Pages `_worker.js` / D1 文件仅为遗留兼容层，不是现行部署链路。
+
+首次进入会显示欢迎动画；同一浏览器会话刷新或再次进入不再阻塞。`prefers-reduced-motion` 下直接跳过。
 
 ## 构建
 
