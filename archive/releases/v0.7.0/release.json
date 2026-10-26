@@ -1,7 +1,7 @@
 {
   "version": "v0.7.0",
   "tag": "v0.7.0",
-  "commit": "pending-tag",
+  "commit": "be5be9f206443992011405760295528092832151",
   "release_date": "2026-10-27",
   "contract": {
     "schema": 13,
