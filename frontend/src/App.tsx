@@ -106,10 +106,10 @@ const FALLBACK_SITE: SiteConfig = {
   tagline: '世外中学校园论坛',
   version: '0.1.0',
   api_version: 'v1',
-  skin_contract_version: 2,
-  default_skin: 'placeholder',
+  skin_contract_version: 3,
+  default_skin: 'x',
   skins: [
-    { id: 'placeholder', name: '占位界面', description: '论坛 UI 重做前的临时外壳', status: 'stable' }
+    { id: 'x', name: 'WFLA X', description: '响应式校园实时信息流', status: 'stable' }
   ],
   guest_read_enabled: true,
   registration_enabled: true
@@ -221,6 +221,35 @@ export default function App() {
     if (me) void loadBookmarks();
     else setBookmarks([]);
   }, [me?.id]);
+
+  // The backend currently exposes a paginated timeline rather than a stream.
+  // Poll the first page while the tab is visible so the home feed and official
+  // announcements update without requiring a manual refresh.
+  useEffect(() => {
+    let cancelled = false;
+    const refreshLiveData = async () => {
+      if (document.hidden) return;
+      try {
+        const [feedPage, announcementPage] = await Promise.all([
+          api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20'),
+          api.get<{ items: Announcement[] }>('/announcements')
+        ]);
+        if (!cancelled) {
+          setFeed(feedPage.items);
+          setFeedCursor(feedPage.next_cursor);
+          setAnnouncements(announcementPage.items);
+        }
+      } catch { /* Keep the last successful timeline during transient outages. */ }
+    };
+    const timer = window.setInterval(() => void refreshLiveData(), 15_000);
+    const onVisible = () => { if (!document.hidden) void refreshLiveData(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
 
   /**
    * Publishes the active skin to the document. Page-level styling (body

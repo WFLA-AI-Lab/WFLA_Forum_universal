@@ -9,19 +9,14 @@ export interface SkinRegistration {
   bodyClass: string;
 }
 
-/**
- * The production forum skin is intentionally absent while its UI is rebuilt.
- * Register a future skin here and add its server descriptor in
- * src/modules/site/skins.ts. Keep the fallback pointing at a renderable skin.
- */
 export const SKIN_COMPONENTS: Record<string, SkinRegistration> = {
-  placeholder: {
-    component: lazy(() => import('./placeholder/PlaceholderSkin')),
-    bodyClass: 'placeholder-body'
+  x: {
+    component: lazy(() => import('./x/XSkin')),
+    bodyClass: 'x-body'
   }
 };
 
-export const FALLBACK_SKIN_ID = 'placeholder';
+export const FALLBACK_SKIN_ID = 'x';
 
 export function resolveSkin(id: string | undefined): SkinRegistration {
   return SKIN_COMPONENTS[id ?? ''] ?? SKIN_COMPONENTS[FALLBACK_SKIN_ID]!;

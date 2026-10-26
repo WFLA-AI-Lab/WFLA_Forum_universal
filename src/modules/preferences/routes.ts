@@ -52,5 +52,5 @@ preferenceRoutes.get('/me/preferences/effective-skin', async c => {
   const actor = await requireUser(c);
   const prefs = await readUserPreferences(c.env, actor.id);
   const fallback = String(c.req.query('default') ?? '').trim();
-  return c.json({ skin_id: resolvePreferredSkin(prefs, fallback || 'placeholder') });
+  return c.json({ skin_id: resolvePreferredSkin(prefs, fallback || 'x') });
 });

@@ -22,9 +22,9 @@ export interface SkinDescriptor {
 
 export const SKIN_REGISTRY: readonly SkinDescriptor[] = [
   {
-    id: 'placeholder',
-    name: '占位界面',
-    description: '生产论坛 UI 重做前的临时外壳，不作为最终设计。',
+    id: 'x',
+    name: 'WFLA X',
+    description: '为 WFLA 校园社区设计的响应式实时信息流界面。',
     status: 'stable'
   }
 ];
@@ -33,7 +33,7 @@ export const STABLE_SKIN_IDS: readonly string[] = SKIN_REGISTRY
   .filter(skin => skin.status === 'stable')
   .map(skin => skin.id);
 
-export const DEFAULT_SKIN_ID = 'placeholder';
+export const DEFAULT_SKIN_ID = 'x';
 
 export function findSkin(id: string | undefined | null): SkinDescriptor | undefined {
   if (!id) return undefined;

@@ -71,7 +71,7 @@ Current version: **v0.6.1** ｜ API: **v1** ｜ DB schema: **13** ｜ Skin contr
 │     └─ skins/             # ★ 皮肤：纯展示布局
 │        ├─ contract.ts     #   皮肤契约（唯一类型来源）
 │        ├─ registry.ts     #   皮肤注册表（id → 懒加载组件）
-│        └─ placeholder/    #   重做前的临时占位界面
+│        └─ x/              #   响应式 X 风格校园界面
 ├─ scripts/                 # 一键配置 / 一键启动 / 迁移 / 备份
 ├─ docs/                    # 文档
 ├─ archive/                 # 发布清单与不可变归档说明（不含密钥 / 数据库）
@@ -110,10 +110,10 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 前端被拆成**容器**与**皮肤**两层：`App.tsx` 独占所有状态、请求与权限判断，皮肤只接收一个
 `SkinContext` 并负责渲染（可以任意重排布局）。
 
-- 论坛皮肤展示层已临时移除，当前默认是**重做前的占位界面**（`placeholder`）。
-- 容器 / 皮肤契约和管理后台保持可用，等待新的前端实现接入。
+- 论坛默认使用响应式 **X 风格校园界面**（`x`），支持桌面三栏和移动端底部导航。
+- 容器 / 皮肤契约、响应式展示层和独立管理后台均保持可维护的边界。
 - 每个登录用户可在「设置」页编辑昵称、头像并选择皮肤，偏好会**同步到账号**（跨设备沿用）。
-- 占位界面不提供完整论坛导航；登录用户仍可使用独立管理后台。
+- X 皮肤提供首页、公告、社区、用户与设置的完整导航；管理人员仍使用独立管理后台。
 - 管理后台「外观」标签可选择默认皮肤与允许的皮肤白名单，**保存后立即生效**。
 - 新增皮肤三步：写组件 → 注册到 `frontend/src/skins/registry.ts` → 注册到 `src/modules/site/skins.ts`。
 
@@ -127,7 +127,7 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 APP_VERSION        = '0.6.1'   // 应用版本
 API_VERSION        = 'v1'      // HTTP 契约版本
 SCHEMA_VERSION = 13        // 数据库结构版本（= 最高迁移序号）
-SKIN_CONTRACT_VERSION = 2      // 前端皮肤契约版本
+SKIN_CONTRACT_VERSION = 3      // 前端皮肤契约版本
 ```
 
 发版流程、迁移对应表、备份与存档约定见 [`docs/RELEASE_AND_ARCHIVE.md`](docs/RELEASE_AND_ARCHIVE.md)。
@@ -237,7 +237,7 @@ self-hosted (Node.js + SQLite) with tunnel-based public access, built around
 │     └─ skins/             # ★ Pure presentation layouts
 │        ├─ contract.ts     #   Skin contract (single type source)
 │        ├─ registry.ts     #   id → lazy-loaded component
-│        └─ placeholder/    #   Temporary placeholder before the new UI
+│        └─ x/              #   Responsive X-style campus UI
 ├─ scripts/                 # one-click setup / start / migrate / backup
 ├─ docs/                    # docs
 ├─ archive/                 # Release records; never contains secrets or databases
@@ -280,7 +280,7 @@ The frontend is split into a **container** (`App.tsx`) that owns all state,
 network calls and permissions, and **skins** — pure presentation components
 that receive one `SkinContext` and may rearrange the whole page.
 
-- The production skin is temporarily removed; `placeholder` is a neutral shell.
+- The default `x` skin provides a responsive desktop and mobile campus experience.
 - The container, API contract and admin console remain ready for the rebuilt skin.
 - Every signed-in member edits their profile and picks a skin on the Settings
   page; both follow the account across devices. Guests always use the X skin.
@@ -300,7 +300,7 @@ Single source of truth is `src/version.ts`:
 APP_VERSION           = '0.6.1'
 API_VERSION           = 'v1'
 SCHEMA_VERSION = 13
-SKIN_CONTRACT_VERSION = 2
+SKIN_CONTRACT_VERSION = 3
 ```
 
 Release flow, migration table and backup rules:
@@ -348,3 +348,5 @@ npm --prefix frontend run build
 ## License
 
 ISC — see [LICENSE](LICENSE).
+
+\n

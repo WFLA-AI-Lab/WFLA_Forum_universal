@@ -1,11 +1,11 @@
 # 前端皮肤（Skin）开发指南
 
-> 皮肤契约版本：**2** ｜ 对应 `SKIN_CONTRACT_VERSION`（`src/version.ts`）
+> 皮肤契约版本：**3** ｜ 对应 `SKIN_CONTRACT_VERSION`（`src/version.ts`）
 
 WFLA Wall 的前端被刻意拆成两层：**容器（container）** 与 **皮肤（skin）**。
 
-这样做的原因：前端要交给不同同学协作开发，每个人想做的界面风格差异很大（例如仿 X 的信息流、
-当前占位外壳）。如果把状态管理和布局混在一起，换一套布局就等于重写整个应用。分层后，
+这样做的原因：前端要交给不同同学协作开发，每个人想做的界面风格差异很大。如果把状态管理和布局
+混在一起，换一套布局就等于重写整个应用。分层后，
 **换皮肤 = 换一整个布局组件**，状态、请求、权限判断一行都不用改。
 
 ---
@@ -20,7 +20,9 @@ frontend/src/
    ├─ base.css              # 文档级基础样式（字体、reset、reduced-motion）
    ├─ contract.ts           # ★ 皮肤契约：唯一的类型来源
    ├─ registry.ts           # ★ 皮肤注册表：id → 懒加载组件 + body class
-      └─ placeholder.css
+   └─ x/
+      ├─ XSkin.tsx
+      └─ x.css
 ```
 
 | 角色 | 职责 | 不做什么 |
@@ -54,7 +56,7 @@ export default function MySkin({ forum }: { forum: SkinContext }) { /* … */ }
 | `forms` | 受控表单状态（登录、注册、发帖、回复、公告、建板块、高级设置、站点配置、诊断） |
 | `messages` | `error` / `success` 与 `clearMessages()` |
 | `actions` | 所有可调用的服务端动作（登录、发帖、回复、举报、管理操作…） |
-| `view` / `setView` | 站内路由：`home` / `announcements` / `bookmarks` / `search` / `board` / `thread` / `login` / `register` / `notifications` / `settings` / `admin` |
+| `view` / `setView` | 站内路由：`home` / `announcements` / `community` / `profile` / `bookmarks` / `search` / `board` / `thread` / `login` / `register` / `notifications` / `settings` / `admin` |
 | `helpers` | `formatDate` |
 | `ui` | `roleLabel`、`levelLabel`、`adminTabs` 等展示常量 |
 
@@ -73,7 +75,7 @@ export default function MySkin({ forum }: { forum: SkinContext }) { /* … */ }
 ### 第 1 步：创建皮肤组件
 
 新建 `frontend/src/skins/<id>/<Name>.tsx`，**默认导出**皮肤组件，并自带一份 CSS（在组件里
-`import './<name>.css'`）。当前可参考 `skins/placeholder/PlaceholderSkin.tsx`。
+`import './<name>.css'`）。当前可参考 `skins/x/XSkin.tsx`。
 
 ```tsx
 import type { SkinContext } from '../contract';
@@ -96,7 +98,7 @@ export default function MySkin({ forum }: { forum: SkinContext }) {
 
 ```ts
 export const SKIN_COMPONENTS: Record<string, SkinRegistration> = {
-  placeholder: { component: lazy(() => import('./placeholder/PlaceholderSkin')), bodyClass: 'placeholder-body' },
+  x: { component: lazy(() => import('./x/XSkin')), bodyClass: 'x-body' },
   myskin: { component: lazy(() => import('./myskin/MySkin')), bodyClass: 'myskin-body' }  // 新增
 };
 ```
@@ -138,7 +140,7 @@ export const SKIN_REGISTRY: readonly SkinDescriptor[] = [
 
 - `site.setSkin(id)` 切换皮肤、写入 `<html data-skin>` / `<body class>` 并持久化到 `localStorage`；
 - 已登录用户的选择会额外通过 `PUT /api/v1/me/preferences/skin` 保存到账号，换设备登录后自动沿用（见 `docs/API.md` 第 3 节）；
-- 占位界面可由游客和登录用户渲染；正式皮肤应按容器状态读取、切换并同步账号皮肤偏好；
+- X 皮肤可由游客和登录用户渲染，并按容器状态读取和同步账号皮肤偏好；
 - `site.skin_preference_status`（`idle / saving / saved / guest / error`）与 `site.skin_sync_available` 已在皮肤契约中，皮肤可以据此展示同步状态。
 
 ### 4.3 用户「设置」页（已实现）
@@ -164,7 +166,7 @@ export const SKIN_REGISTRY: readonly SkinDescriptor[] = [
 ## 5. 样式约定
 
 - `skins/base.css` 只放**文档级**基础样式（box-sizing、字体、滚动、reduced-motion），不放任何皮肤专属视觉。
-- 每个皮肤用**自己的类名前缀**（当前占位界面用 `placeholder-`），避免跨皮肤样式互相污染。
+- 每个皮肤用**自己的类名前缀**（当前 X 界面用 `x-`），避免跨皮肤样式互相污染。
 - 皮肤 CSS 只应挂在皮肤根节点之下（或明确的前缀类），禁止写裸标签选择器影响其它皮肤。
 - 响应式断点建议参考常见三栏信息流：`≤1100px` 折叠为图标侧栏，`≤800px` 隐藏侧栏并显示底部导航。
 
@@ -202,3 +204,5 @@ export const SKIN_REGISTRY: readonly SkinDescriptor[] = [
 - [ ] 保证游客态、登录态、监管态（`isStaff`）三种情况都能正常渲染。
 - [ ] 跑通 `npm --prefix frontend run type-check` 与 `npm --prefix frontend run build`。
 - [ ] 若要改契约，先开 issue / 讨论，改完升 `SKIN_CONTRACT_VERSION` 并同步文档。
+
+\n
