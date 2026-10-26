@@ -10,7 +10,7 @@
     "created_at": "2026-10-26T00:00:00Z"
   },
   "version": "v0.6.0",
-  "commit": "fda6f2c656fced8c7f72216717363176355c691d",
+  "commit": "e15eb25f1f50464d011d437d96d17e9076c6935b",
   "migration": {
     "notes": "schema_version=13; no database migration in this release",
     "file": null,
