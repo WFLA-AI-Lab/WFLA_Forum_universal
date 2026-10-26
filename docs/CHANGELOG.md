@@ -4,6 +4,20 @@
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
 ---
+## [0.6.0] - 2026-10-26
+
+### Added
+
+- 新增重做前的 `placeholder` 临时外壳，并同步后端皮肤注册表、默认皮肤、离线兜底配置与文档；生产论坛 UI 待新前端同学重建。
+
+### Removed
+
+- 移除 `x` 与 `endfield` 两套论坛展示皮肤及其 Endfield 专属动效脚本，保留状态容器、API 契约、开屏和管理后台。
+
+### Fixed
+
+- 数据库中历史皮肤偏好引用已删除皮肤时，后端仍按默认皮肤解析回退；前端 `resolveSkin()` 同样保证不白屏。
+---
 ## [0.5.2] - 2026-10-26
 
 ### Fixed
@@ -130,35 +144,6 @@
 
 ### Added — 用户偏好与皮肤
 
-- **跨设备皮肤偏好（API /api/v1/me/preferences）**：登录用户选择的界面皮肤保存到账号；
-  换设备登录后自动沿用。游客仍只保存在浏览器本地。接口幂等、只读写本人数据。
-- **皮肤偏好 API**：`GET /me/preferences`、`PUT /me/preferences/skin`（幂等）、
-  `GET /me/preferences/effective-skin`。站点白名单在服务端强制执行：未启用或未知皮肤会被拒绝。
-- **迁移 0008**：新增 `user_preferences` 表（`user_id` 主键 + `skin_id` + `updated_at`），
-  `SCHEMA_VERSION` 8。删除用户时级联清理。
-
-- **用户「设置」页（两个默认皮肤均实现）**：整布局预览式皮肤选择器、同步状态提示、账号信息区；
-  左侧导航栏与移动端底部导航均有入口。
-- **皮肤契约扩展（向后兼容，仍为 v1）**：`site.skin_preference_status`、`site.skin_sync_available`、
-  `View = settings`、`actions.saveSkinPreference`、`UserPreferences` 类型。
-
-### Fixed
-
-- 迁移测试中对包含分号的 SQL 注释的解析。
-
----
-
-## [Unreleased]
-
-### Changed
-
-- 统一开发和部署目录：共享包现在是完整 Git 工作区，后端只保留 `src/` 作为唯一源码入口。
-- `一键配置` / `一键启动` / Caddy 启动脚本不再探测或运行废弃的 `src-backend/`。
-- 新增 `MAINTENANCE.md` 与 `archive/`，记录迁移、备份、回滚、发布归档和隐私边界。
-
-
-### Added
-
 - 统一「设置 / 登录」入口：游客设置页只显示账号密码登录，登录后显示个人资料与皮肤偏好。
 - 迁移 0009 与 `/me/profile`：支持账号昵称和头像资料。
 - 本地测试账号初始化命令 `npm run selfhost:create-test-user`。
@@ -167,8 +152,6 @@
 
 - 游客固定使用 X 皮肤；Endfield 仅在登录后开放切换。
 - 桌面端 X 导航改用与移动端一致的图标语言和选中状态。
-
-（下一次发版前的改动先写在这里，发版时整体移入对应版本条目。）
 
 ---
 

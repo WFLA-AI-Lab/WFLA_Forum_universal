@@ -89,9 +89,9 @@
   "version": "0.5.0",
   "api_version": "v1",
   "skin_contract_version": 2,
-  "default_skin": "x",
+  "default_skin": "placeholder",
   "skins": [
-    { "id": "x", "name": "X 风格", "description": "...", "status": "stable" }
+    { "id": "placeholder", "name": "占位界面", "description": "...", "status": "stable" }
   ],
   "guest_read_enabled": true,
   "registration_enabled": true,
@@ -205,7 +205,7 @@
 响应 200：
 
 ```json
-{ "preferences": { "skin_id": "endfield", "updated_at": "…" } }
+{ "preferences": { "skin_id": "placeholder", "updated_at": "…" } }
 ```
 
 `skin_id` 为 `null` 表示该用户从未保存过皮肤偏好。
@@ -218,7 +218,7 @@
 请求：
 
 ```json
-{ "skin_id": "endfield" }
+{ "skin_id": "placeholder" }
 ```
 
 ### `GET /me/profile` / `PATCH /me/profile`
@@ -239,7 +239,7 @@
 响应 200：
 
 ```json
-{ "preference": { "skin_id": "endfield" } }
+{ "preference": { "skin_id": "placeholder" } }
 ```
 
 错误：
@@ -258,7 +258,7 @@
 响应 200：
 
 ```json
-{ "skin_id": "endfield" }
+{ "skin_id": "placeholder" }
 ```
 ---
 
@@ -586,8 +586,8 @@ Query `status` ∈ `open | in_review | resolved | rejected`，可选。按待处
 
 ```json
 {
-  "default_skin": "x",
-  "allowed_skins": ["x", "endfield"],
+  "default_skin": "placeholder",
+  "allowed_skins": ["placeholder"],
   "guest_read_enabled": true,
   "registration_enabled": true,
   "site_tagline": "世外中学校园论坛"

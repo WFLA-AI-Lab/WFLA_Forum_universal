@@ -61,7 +61,7 @@ export function SystemPanel({ mode, me, site, notify, onSettingsChanged }: { mod
               const nextSkins = enabled ? current.skins.filter(item => item.id !== skin.id) : [...current.skins, skin];
               if (nextSkins.length === 0) return current;
               return { ...current, skins: nextSkins, default_skin: enabled && current.default_skin === skin.id ? nextSkins[0]!.id : current.default_skin };
-            })}><span><i>{skin.id === 'x' ? 'X' : 'EF'}</i><b>{skin.name}</b><small>{skin.status === 'stable' ? '稳定版' : '预览版'}</small></span><em>{enabled ? '已启用' : '已关闭'}</em></button>;
+            })}><span><i>{skin.id.slice(0, 1).toUpperCase()}</i><b>{skin.name}</b><small>{skin.status === 'stable' ? '稳定版' : '预览版'}</small></span><em>{enabled ? '已启用' : '已关闭'}</em></button>;
           })}</div>
           <label className="adm-field"><span>访客默认皮肤</span><select value={config.default_skin} onChange={e => setConfig({ ...config, default_skin: e.target.value })}>{config.skins.map(skin => <option key={skin.id} value={skin.id}>{skin.name}</option>)}</select></label>
         </article>

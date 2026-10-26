@@ -5,7 +5,7 @@
 WFLA Wall 的前端被刻意拆成两层：**容器（container）** 与 **皮肤（skin）**。
 
 这样做的原因：前端要交给不同同学协作开发，每个人想做的界面风格差异很大（例如仿 X 的信息流、
-档案站风格的 Endfield）。如果把状态管理和布局混在一起，换一套布局就等于重写整个应用。分层后，
+当前占位外壳）。如果把状态管理和布局混在一起，换一套布局就等于重写整个应用。分层后，
 **换皮肤 = 换一整个布局组件**，状态、请求、权限判断一行都不用改。
 
 ---
@@ -20,15 +20,7 @@ frontend/src/
    ├─ base.css              # 文档级基础样式（字体、reset、reduced-motion）
    ├─ contract.ts           # ★ 皮肤契约：唯一的类型来源
    ├─ registry.ts           # ★ 皮肤注册表：id → 懒加载组件 + body class
-   ├─ x/                    # 仿 X 皮肤（默认主 UI）
-   │  ├─ XSkin.tsx
-   │  └─ x.css
-   └─ endfield/             # Endfield 皮肤
-      ├─ EndfieldSkin.tsx
-      ├─ primitives.tsx
-      ├─ endfield.css
-      ├─ variant.js
-      └─ contours/*.svg
+      └─ placeholder.css
 ```
 
 | 角色 | 职责 | 不做什么 |
@@ -81,7 +73,7 @@ export default function MySkin({ forum }: { forum: SkinContext }) { /* … */ }
 ### 第 1 步：创建皮肤组件
 
 新建 `frontend/src/skins/<id>/<Name>.tsx`，**默认导出**皮肤组件，并自带一份 CSS（在组件里
-`import './<name>.css'`）。参考 `skins/x/XSkin.tsx`。
+`import './<name>.css'`）。当前可参考 `skins/placeholder/PlaceholderSkin.tsx`。
 
 ```tsx
 import type { SkinContext } from '../contract';
@@ -104,8 +96,7 @@ export default function MySkin({ forum }: { forum: SkinContext }) {
 
 ```ts
 export const SKIN_COMPONENTS: Record<string, SkinRegistration> = {
-  x: { component: lazy(() => import('./x/XSkin')), bodyClass: 'xsk-body' },
-  endfield: { component: lazy(() => import('./endfield/EndfieldSkin')), bodyClass: 'ef-body ef-contours' },
+  placeholder: { component: lazy(() => import('./placeholder/PlaceholderSkin')), bodyClass: 'placeholder-body' },
   myskin: { component: lazy(() => import('./myskin/MySkin')), bodyClass: 'myskin-body' }  // 新增
 };
 ```
@@ -147,12 +138,12 @@ export const SKIN_REGISTRY: readonly SkinDescriptor[] = [
 
 - `site.setSkin(id)` 切换皮肤、写入 `<html data-skin>` / `<body class>` 并持久化到 `localStorage`；
 - 已登录用户的选择会额外通过 `PUT /api/v1/me/preferences/skin` 保存到账号，换设备登录后自动沿用（见 `docs/API.md` 第 3 节）；
-- 游客固定使用 `x` 皮肤；登录后才读取、切换并同步账号皮肤偏好；
+- 占位界面可由游客和登录用户渲染；正式皮肤应按容器状态读取、切换并同步账号皮肤偏好；
 - `site.skin_preference_status`（`idle / saving / saved / guest / error`）与 `site.skin_sync_available` 已在皮肤契约中，皮肤可以据此展示同步状态。
 
 ### 4.3 用户「设置」页（已实现）
 
-两个默认皮肤都实现了 `view.name === 'settings'` 页面，包含：
+正式皮肤实现后应包含 `view.name === 'settings'` 页面，并覆盖：
 
 - 访客态用户名 / 密码登录表单（「设置」即统一账户入口）；
 - 登录态昵称、头像资料表单；
@@ -173,9 +164,9 @@ export const SKIN_REGISTRY: readonly SkinDescriptor[] = [
 ## 5. 样式约定
 
 - `skins/base.css` 只放**文档级**基础样式（box-sizing、字体、滚动、reduced-motion），不放任何皮肤专属视觉。
-- 每个皮肤用**自己的类名前缀**（例如 X 用 `xsk-`，Endfield 用 `ef-`），避免跨皮肤样式互相污染。
+- 每个皮肤用**自己的类名前缀**（当前占位界面用 `placeholder-`），避免跨皮肤样式互相污染。
 - 皮肤 CSS 只应挂在皮肤根节点之下（或明确的前缀类），禁止写裸标签选择器影响其它皮肤。
-- 响应式断点参考 X 皮肤：`≤1100px` 折叠为图标侧栏，`≤800px` 隐藏侧栏并显示底部导航。
+- 响应式断点建议参考常见三栏信息流：`≤1100px` 折叠为图标侧栏，`≤800px` 隐藏侧栏并显示底部导航。
 
 ---
 

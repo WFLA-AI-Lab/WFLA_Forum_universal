@@ -1,8 +1,8 @@
 # WFLA Wall 架构 / WFLA Wall Architecture
 
-> 本文档面向协作者（后端、前端、运维），描述现行 **v0.5.2** 的真实架构——
+> 本文档面向协作者（后端、前端、运维），描述现行 **v0.6.0** 的真实架构——
 > 不是早期设想，而是仓库里实际运行的东西。
-> This document describes the architecture as it actually ships in v0.5.2 —
+> This document describes the architecture as it actually ships in v0.6.0 —
 > not the early design sketch, but what the repository runs today.
 
 ---
@@ -110,13 +110,13 @@ DOM
     `PATCH /admin/site-config` 修改，立即生效；
   - **用户层**（v0.2 新增）：`site.setSkin(id)` 立即切换 + 写 localStorage；
     登录用户额外 `PUT /me/preferences/skin` 同步到账号，换设备登录自动沿用。
-- **降级**：白名单里的皮肤若前端没有实现，`resolveSkin()` 回落到 `x`，不白屏。
+- **降级**：白名单里的皮肤若前端没有实现，`resolveSkin()` 回落到当前占位界面，不白屏。
 
 ### 3.2 用户设置页 / Settings page（v0.2 新增）
 
-两个默认皮肤（`x`、`endfield`）均实现 `view.name === 'settings'`：
+正式皮肤实现后应提供 `view.name === 'settings'`：
 
-- 整布局预览式皮肤选择器（X 用缩略网格，Endfield 用档案记录行）；
+- 整布局预览式皮肤选择器和同步状态；
 - 同步状态（`site.skin_preference_status`: `idle / saving / saved / guest / error`）；
 - 账号信息（真实姓名、入学届别、角色——论坛无匿名发帖）；
 - 入口：左侧导航栏 + 移动端底部导航，所有登录用户可达。
@@ -142,7 +142,7 @@ DOM
 
 | 字段 | 含义 | 当前 |
 | --- | --- | --- |
-| `APP_VERSION` | 应用整体版本 | 0.5.2 |
+| `APP_VERSION` | 应用整体版本 | 0.6.0 |
 | `API_VERSION` | HTTP 契约版本（破坏性变更才 bump） | v1 |
 | `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 13 |
 | `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 2 |

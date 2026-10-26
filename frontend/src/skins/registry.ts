@@ -1,20 +1,3 @@
-/**
- * The frontend skin registry.
- *
- * Keys are the skin ids the backend also knows about (src/modules/site/skins.ts).
- * `component` is a lazy import so an unused skin is never downloaded: the
- * browser only fetches the chunk for the skin actually being rendered.
- *
- * `bodyClass` is applied to <body> while that skin is active. Skins that rely
- * on body-level backgrounds (like Endfield's contour art) declare it here
- * instead of mutating the DOM themselves, which keeps skins pure.
- *
- * To add a skin:
- *   1. create frontend/src/skins/<id>/<Name>.tsx  (default-exports SkinComponent)
- *   2. add an entry here
- *   3. add a descriptor in src/modules/site/skins.ts and enable it from the
- *      admin console's Appearance tab.
- */
 import { lazy, type ComponentType } from 'react';
 import type { SkinContext } from './contract';
 
@@ -26,19 +9,19 @@ export interface SkinRegistration {
   bodyClass: string;
 }
 
+/**
+ * The production forum skin is intentionally absent while its UI is rebuilt.
+ * Register a future skin here and add its server descriptor in
+ * src/modules/site/skins.ts. Keep the fallback pointing at a renderable skin.
+ */
 export const SKIN_COMPONENTS: Record<string, SkinRegistration> = {
-  x: {
-    component: lazy(() => import('./x/XSkin')),
-    bodyClass: 'xsk-body'
-  },
-  endfield: {
-    component: lazy(() => import('./endfield/EndfieldSkin')),
-    bodyClass: 'ef-body ef-contours'
+  placeholder: {
+    component: lazy(() => import('./placeholder/PlaceholderSkin')),
+    bodyClass: 'placeholder-body'
   }
 };
 
-/** Fallback used when a configured skin id has no frontend implementation yet. */
-export const FALLBACK_SKIN_ID = 'x';
+export const FALLBACK_SKIN_ID = 'placeholder';
 
 export function resolveSkin(id: string | undefined): SkinRegistration {
   return SKIN_COMPONENTS[id ?? ''] ?? SKIN_COMPONENTS[FALLBACK_SKIN_ID]!;

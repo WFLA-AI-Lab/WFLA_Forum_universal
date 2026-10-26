@@ -16,8 +16,6 @@ body {
 }
 
 /* The active skin sets data-skin on <html> so page-level effects can hook on. */
-html[data-skin="endfield"] body { background: var(--ef-paper, #f4f4f2); }
-
 #root { min-height: 100vh; }
 
 img, svg { max-width: 100%; }

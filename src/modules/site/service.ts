@@ -12,8 +12,8 @@ import {
  * changed from the admin console without a redeploy.
  */
 export const SITE_SETTING_DEFAULTS = {
-  default_skin: 'x',
-  allowed_skins: 'x,endfield',
+  default_skin: 'placeholder',
+  allowed_skins: 'placeholder',
   guest_read_enabled: 'true',
   registration_enabled: 'true',
   site_tagline: '世外中学校园论坛'

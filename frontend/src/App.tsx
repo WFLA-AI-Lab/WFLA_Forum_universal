@@ -107,10 +107,9 @@ const FALLBACK_SITE: SiteConfig = {
   version: '0.1.0',
   api_version: 'v1',
   skin_contract_version: 2,
-  default_skin: 'x',
+  default_skin: 'placeholder',
   skins: [
-    { id: 'x', name: 'X 风格', description: '仿 X 的三段式信息流布局', status: 'stable' },
-    { id: 'endfield', name: 'Endfield 风格', description: '几何档案式界面', status: 'stable' }
+    { id: 'placeholder', name: '占位界面', description: '论坛 UI 重做前的临时外壳', status: 'stable' }
   ],
   guest_read_enabled: true,
   registration_enabled: true

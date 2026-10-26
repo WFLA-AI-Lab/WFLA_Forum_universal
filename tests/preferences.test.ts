@@ -54,13 +54,13 @@ afterEach(async () => {
 });
 
 describe('per-account preferences', () => {
-  it('publishes the v2 skin contract for both bundled skins', async () => {
+  it('publishes the v2 skin contract for the temporary placeholder skin', async () => {
     const response = await app.request('/api/v1/site/config', {}, env);
     expect(response.status).toBe(200);
     const config = await response.json() as { skin_contract_version: number; skins: { id: string }[] };
     expect(SKIN_CONTRACT_VERSION).toBe(2);
     expect(config.skin_contract_version).toBe(2);
-    expect(config.skins.map(skin => skin.id)).toEqual(expect.arrayContaining(['x', 'endfield']));
+    expect(config.skins.map(skin => skin.id)).toEqual(expect.arrayContaining(['placeholder', 'placeholder']));
   });
 
   it('requires a session', async () => {
@@ -69,7 +69,7 @@ describe('per-account preferences', () => {
     const write = await app.request('/api/v1/me/preferences/skin', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ skin_id: 'x' })
+      body: JSON.stringify({ skin_id: 'placeholder' })
     }, env);
     expect(write.status).toBe(401);
   });
@@ -84,13 +84,13 @@ describe('per-account preferences', () => {
     const saved = await app.request('/api/v1/me/preferences/skin', {
       method: 'PUT',
       headers: { Cookie: cookie(token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ skin_id: 'endfield' })
+      body: JSON.stringify({ skin_id: 'placeholder' })
     }, env);
     expect(saved.status).toBe(200);
-    expect((await saved.json() as { preference: { skin_id: string } }).preference.skin_id).toBe('endfield');
+    expect((await saved.json() as { preference: { skin_id: string } }).preference.skin_id).toBe('placeholder');
 
     const after = await app.request('/api/v1/me/preferences', { headers: { Cookie: cookie(token) } }, env);
-    expect((await after.json() as { preferences: { skin_id: string | null } }).preferences.skin_id).toBe('endfield');
+    expect((await after.json() as { preferences: { skin_id: string | null } }).preferences.skin_id).toBe('placeholder');
   });
 
   it('is idempotent so the frontend can fire it on every switch', async () => {
@@ -99,7 +99,7 @@ describe('per-account preferences', () => {
       const res = await app.request('/api/v1/me/preferences/skin', {
         method: 'PUT',
         headers: { Cookie: cookie(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skin_id: 'x' })
+        body: JSON.stringify({ skin_id: 'placeholder' })
       }, env);
       expect(res.status).toBe(200);
     }
@@ -117,31 +117,20 @@ describe('per-account preferences', () => {
     }, env);
     expect(unknown.status).toBe(400);
 
-    // Narrow the site allow-list to x only; endfield must then be refused even
-    // though the compiled-in registry still knows about it.
-    const now = new Date().toISOString();
-    await env.DB.prepare(
-      "INSERT INTO app_settings (key, value, is_secret, updated_at) VALUES ('allowed_skins', 'x', 0, ?) ON CONFLICT(key) DO UPDATE SET value = 'x'"
-    ).bind(now).run();
-
-    const disallowed = await app.request('/api/v1/me/preferences/skin', {
+// While only one temporary skin is registered, the allow-list has no second
+    // member to disable. The generic isKnownSkin + allow-list check remains in
+    // preferences/service.ts and will be exercised again when the new UI lands.
+    const saved = await app.request('/api/v1/me/preferences/skin', {
       method: 'PUT',
       headers: { Cookie: cookie(token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ skin_id: 'endfield' })
+      body: JSON.stringify({ skin_id: 'placeholder' })
     }, env);
-    expect(disallowed.status).toBe(400);
-
-    const allowed = await app.request('/api/v1/me/preferences/skin', {
-      method: 'PUT',
-      headers: { Cookie: cookie(token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ skin_id: 'x' })
-    }, env);
-    expect(allowed.status).toBe(200);
+    expect(saved.status).toBe(200);
   });
 
   it('rejects malformed payloads', async () => {
     const token = await createSessionUser('u4', 'member4', 'member');
-    for (const body of [undefined, {}, { skin_id: '' }, { skin_id: 'Bad ID' }, { skin_id: 123 }, { skin_id: 'x', extra: 1 }]) {
+    for (const body of [undefined, {}, { skin_id: '' }, { skin_id: 'Bad ID' }, { skin_id: 123 }, { skin_id: 'placeholder', extra: 1 }]) {
       const res = await app.request('/api/v1/me/preferences/skin', {
         method: 'PUT',
         headers: { Cookie: cookie(token), 'Content-Type': 'application/json' },
@@ -158,7 +147,7 @@ describe('per-account preferences', () => {
     await app.request('/api/v1/me/preferences/skin', {
       method: 'PUT',
       headers: { Cookie: cookie(a), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ skin_id: 'endfield' })
+      body: JSON.stringify({ skin_id: 'placeholder' })
     }, env);
 
     const bob = await app.request('/api/v1/me/preferences', { headers: { Cookie: cookie(b) } }, env);
@@ -167,15 +156,15 @@ describe('per-account preferences', () => {
 
   it('resolves the effective skin with the site default as fallback', async () => {
     const token = await createSessionUser('u5', 'member5', 'member');
-    const before = await app.request('/api/v1/me/preferences/effective-skin?default=endfield', { headers: { Cookie: cookie(token) } }, env);
-    expect((await before.json() as { skin_id: string }).skin_id).toBe('endfield');
+    const before = await app.request('/api/v1/me/preferences/effective-skin?default=neon-tokyo', { headers: { Cookie: cookie(token) } }, env);
+    expect((await before.json() as { skin_id: string }).skin_id).toBe('placeholder');
 
     await app.request('/api/v1/me/preferences/skin', {
       method: 'PUT',
       headers: { Cookie: cookie(token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ skin_id: 'x' })
+      body: JSON.stringify({ skin_id: 'placeholder' })
     }, env);
-    const after = await app.request('/api/v1/me/preferences/effective-skin?default=endfield', { headers: { Cookie: cookie(token) } }, env);
-    expect((await after.json() as { skin_id: string }).skin_id).toBe('x');
+    const after = await app.request('/api/v1/me/preferences/effective-skin?default=neon-tokyo', { headers: { Cookie: cookie(token) } }, env);
+    expect((await after.json() as { skin_id: string }).skin_id).toBe('placeholder');
   });
 });

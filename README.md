@@ -9,7 +9,7 @@
 上海市世外中学校园论坛 —— 一个**可扩展、可监管、可交接**的校园社区平台，
 自托管（Node.js + SQLite），通过内网穿透提供公网访问。
 
-Current version: **v0.5.2** ｜ API: **v1** ｜ DB schema: **13** ｜ Skin contract: **2**
+Current version: **v0.6.0** ｜ API: **v1** ｜ DB schema: **13** ｜ Skin contract: **2**
 
 ---
 
@@ -71,8 +71,7 @@ Current version: **v0.5.2** ｜ API: **v1** ｜ DB schema: **13** ｜ Skin contr
 │     └─ skins/             # ★ 皮肤：纯展示布局
 │        ├─ contract.ts     #   皮肤契约（唯一类型来源）
 │        ├─ registry.ts     #   皮肤注册表（id → 懒加载组件）
-│        ├─ x/               #   仿 X 皮肤（默认主 UI）
-│        └─ endfield/        #   Endfield 皮肤
+│        └─ placeholder/    #   重做前的临时占位界面
 ├─ scripts/                 # 一键配置 / 一键启动 / 迁移 / 备份
 ├─ docs/                    # 文档
 ├─ archive/                 # 发布清单与不可变归档说明（不含密钥 / 数据库）
@@ -111,10 +110,10 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 前端被拆成**容器**与**皮肤**两层：`App.tsx` 独占所有状态、请求与权限判断，皮肤只接收一个
 `SkinContext` 并负责渲染（可以任意重排布局）。
 
-- 默认主 UI 是**仿 X 风格的三段式信息流布局**（`x`）。
-- 备选 `endfield` 皮肤为档案式布局。
+- 论坛皮肤展示层已临时移除，当前默认是**重做前的占位界面**（`placeholder`）。
+- 容器 / 皮肤契约和管理后台保持可用，等待新的前端实现接入。
 - 每个登录用户可在「设置」页编辑昵称、头像并选择皮肤，偏好会**同步到账号**（跨设备沿用）。
-- 游客固定使用 X 皮肤；Endfield 登录后才可切换。「设置」同时承担访客登录入口。
+- 占位界面不提供完整论坛导航；登录用户仍可使用独立管理后台。
 - 管理后台「外观」标签可选择默认皮肤与允许的皮肤白名单，**保存后立即生效**。
 - 新增皮肤三步：写组件 → 注册到 `frontend/src/skins/registry.ts` → 注册到 `src/modules/site/skins.ts`。
 
@@ -125,7 +124,7 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 版本号唯一来源是 `src/version.ts`：
 
 ```ts
-APP_VERSION        = '0.5.2'   // 应用版本
+APP_VERSION        = '0.6.0'   // 应用版本
 API_VERSION        = 'v1'      // HTTP 契约版本
 SCHEMA_VERSION = 13        // 数据库结构版本（= 最高迁移序号）
 SKIN_CONTRACT_VERSION = 2      // 前端皮肤契约版本
@@ -238,8 +237,7 @@ self-hosted (Node.js + SQLite) with tunnel-based public access, built around
 │     └─ skins/             # ★ Pure presentation layouts
 │        ├─ contract.ts     #   Skin contract (single type source)
 │        ├─ registry.ts     #   id → lazy-loaded component
-│        ├─ x/               #   X-style skin (default)
-│        └─ endfield/        #   Endfield skin
+│        └─ placeholder/    #   Temporary placeholder before the new UI
 ├─ scripts/                 # one-click setup / start / migrate / backup
 ├─ docs/                    # docs
 ├─ archive/                 # Release records; never contains secrets or databases
@@ -282,8 +280,8 @@ The frontend is split into a **container** (`App.tsx`) that owns all state,
 network calls and permissions, and **skins** — pure presentation components
 that receive one `SkinContext` and may rearrange the whole page.
 
-- The default main UI is the **X-style three-column feed** (`x`).
-- `endfield` is the alternative archive-style layout.
+- The production skin is temporarily removed; `placeholder` is a neutral shell.
+- The container, API contract and admin console remain ready for the rebuilt skin.
 - Every signed-in member edits their profile and picks a skin on the Settings
   page; both follow the account across devices. Guests always use the X skin.
 - Admins pick the site default skin and allow-list in the admin console
@@ -299,7 +297,7 @@ See [`docs/FRONTEND_SKIN_GUIDE.md`](docs/FRONTEND_SKIN_GUIDE.md) (Chinese).
 Single source of truth is `src/version.ts`:
 
 ```ts
-APP_VERSION           = '0.5.2'
+APP_VERSION           = '0.6.0'
 API_VERSION           = 'v1'
 SCHEMA_VERSION = 13
 SKIN_CONTRACT_VERSION = 2

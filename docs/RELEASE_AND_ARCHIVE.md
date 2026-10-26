@@ -73,7 +73,7 @@ export const SKIN_CONTRACT_VERSION = 2;      // 前端皮肤契约版本
 npm run selfhost:migrate
 ```
 
-> `0007` 未执行时，站点配置会回落到编译期默认值（皮肤 = `x`），
+> `0007` 未执行时，站点配置会回落到编译期默认值（皮肤 = `placeholder`），
 > 站点不会崩，但后台「外观」设置无法持久化 —— 所以升级后务必跑一次迁移。
 
 ---

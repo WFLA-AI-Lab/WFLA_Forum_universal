@@ -13,7 +13,7 @@ afterAll(async () => {
 
 describe('self-host static fallback', () => {
   it('classifies fingerprinted assets as non-document paths', () => {
-    expect(isStaticAssetPath('/assets/XSkin-abc123.js')).toBe(true);
+    expect(isStaticAssetPath('/assets/PlaceholderSkin-abc123.js')).toBe(true);
     expect(isStaticAssetPath('/assets/index-abc123.css')).toBe(true);
     expect(isStaticAssetPath('/thread/abc')).toBe(false);
   });
@@ -24,7 +24,7 @@ describe('self-host static fallback', () => {
     const app = new Hono();
     app.get('*', createSpaFallback(root));
 
-    const asset = await app.request('/assets/XSkin-missing.js');
+    const asset = await app.request('/assets/PlaceholderSkin-missing.js');
     expect(asset.status).toBe(404);
     expect(asset.headers.get('content-type')).toContain('application/json');
     const body = await asset.json() as { error: { code: string } };

@@ -22,15 +22,9 @@ export interface SkinDescriptor {
 
 export const SKIN_REGISTRY: readonly SkinDescriptor[] = [
   {
-    id: 'x',
-    name: 'X 风格',
-    description: '仿 X（原 Twitter）的三段式信息流布局，论坛默认主界面。',
-    status: 'stable'
-  },
-  {
-    id: 'endfield',
-    name: 'Endfield 风格',
-    description: '几何切割、等宽数字、公告跑马灯风格的档案式界面。',
+    id: 'placeholder',
+    name: '占位界面',
+    description: '生产论坛 UI 重做前的临时外壳，不作为最终设计。',
     status: 'stable'
   }
 ];
@@ -39,7 +33,7 @@ export const STABLE_SKIN_IDS: readonly string[] = SKIN_REGISTRY
   .filter(skin => skin.status === 'stable')
   .map(skin => skin.id);
 
-export const DEFAULT_SKIN_ID = 'x';
+export const DEFAULT_SKIN_ID = 'placeholder';
 
 export function findSkin(id: string | undefined | null): SkinDescriptor | undefined {
   if (!id) return undefined;

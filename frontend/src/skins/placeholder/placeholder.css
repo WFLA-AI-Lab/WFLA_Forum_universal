@@ -1,0 +1,84 @@
+.placeholder-body {
+  background: #f6f7f9;
+}
+
+.placeholder-skin {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(24px, 7vw, 72px);
+  color: #17202a;
+  font-family: "Noto Sans SC", -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.placeholder-skin section {
+  width: min(100%, 680px);
+  padding: clamp(24px, 5vw, 48px);
+  background: #fff;
+  border: 1px solid #d9e1e7;
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgb(15 23 42 / 6%);
+}
+
+.placeholder-eyebrow {
+  margin: 0 0 12px;
+  color: #536471;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.placeholder-skin h1 {
+  margin: 0 0 16px;
+  font-size: clamp(28px, 6vw, 44px);
+  line-height: 1.15;
+  letter-spacing: -.025em;
+}
+
+.placeholder-skin p {
+  margin: 0 0 20px;
+  color: #42515e;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.placeholder-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: #536471;
+}
+
+.placeholder-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: #17202a;
+  color: #fff;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.placeholder-actions a:focus-visible {
+  outline: 3px solid #74c0fc;
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .placeholder-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .placeholder-skin,
+  .placeholder-skin * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

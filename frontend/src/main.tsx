@@ -15,7 +15,7 @@ window.addEventListener('error', renderBootFallback);
 /**
  * No skin stylesheet is imported here on purpose.
  *
- * Each skin imports its own CSS from its own module (e.g. skins/x/x.css), so the
+ * Each skin imports its own CSS from its own module (e.g. skins/placeholder/placeholder.css), so the
  * browser only downloads the stylesheet for the skin actually rendering. The
  * `base.css` above resets the document chrome that every skin relies on.
  */
