@@ -4,6 +4,15 @@
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
 ---
+## [0.5.2] - 2026-10-26
+
+### Fixed
+
+- 自托管静态服务不再把缺失的 JS/CSS 回退为 `index.html`；懒加载皮肤资源缺失时返回明确的 `ASSET_NOT_FOUND`，避免开屏动画后白屏。
+- 部署包 `public/assets` 补齐当前 X 皮肤 chunk，并已验证公网入口返回正确的 `text/javascript`。
+- 一键配置 / 一键启动的 `frontend/dist → public` 同步改为完整替换，防止旧皮肤 chunk 与新 `index.html` 混用。
+- 前端新增懒加载皮肤错误边界：皮肤 chunk 缺失或网络中断时显示可恢复的错误页，不再留下纯白屏幕。
+- 静态资源返回不可变缓存策略，HTML 每次导航重新验证，降低旧产物缓存导致的发布问题。
 ## [0.5.1] - 2026-10-26
 
 ### Fixed

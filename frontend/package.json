@@ -1,6 +1,6 @@
 {
   "name": "wfla-wall-frontend",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "WFLA Wall frontend — container/skin split SPA (React + Vite). / 世外墙前端：容器 / 皮肤分离的单页应用。",
   "main": "index.js",
   "scripts": {

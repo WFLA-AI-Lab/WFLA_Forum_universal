@@ -45,6 +45,41 @@ import type {
 } from './skins/contract';
 
 const API_ORIGIN = (import.meta.env.VITE_API_BASE ?? '/api/v1').replace(/\/api\/v1$/, '');
+
+/**
+ * A skin is loaded lazily to avoid shipping every layout in the entry bundle.
+ * If that late import fails (for example, a missing deployment asset), React
+ * unmounts the whole tree. This boundary keeps a visible recovery page instead
+ * of leaving the app blank after the splash animation.
+ */
+function SkinErrorBoundary({ children }: { children: React.ReactNode }) {
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (error) return;
+    const onError = (event: ErrorEvent) => setError(event.error instanceof Error ? event.error : new Error(event.message));
+    const onRejection = (event: PromiseRejectionEvent) => setError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+    };
+  }, [error]);
+
+  if (!error) return children;
+  return (
+    <main style={{ minHeight: '100vh', padding: 'clamp(1.5rem, 6vw, 4rem)', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', color: '#0f172a' }}>
+      <h1>界面加载失败</h1>
+      <p>当前皮肤资源没有完整加载。这通常是部署产物缺失或网络中断导致的。</p>
+      <pre style={{ whiteSpace: 'pre-wrap', padding: '1rem', background: '#fff', border: '1px solid #cbd5e1' }}>{error.message}</pre>
+      <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => window.location.reload()}>重新加载</button>
+        <button type="button" onClick={() => { window.sessionStorage.removeItem(SPLASH_SESSION_KEY); window.location.reload(); }}>清除开屏状态并重载</button>
+      </div>
+    </main>
+  );
+}
 const SKIN_STORAGE_KEY = 'wfla.skin';
 const ANNOUNCEMENT_ANCHOR = 'announcements';
 const SPLASH_SESSION_KEY = 'wfla.splash.seen';
@@ -695,8 +730,10 @@ export default function App() {
   </div>;
 
   return (
-    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>正在加载界面…</div>}>
-      <Skin forum={forum} />
-    </Suspense>
+    <SkinErrorBoundary>
+      <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>正在加载界面…</div>}>
+        <Skin forum={forum} />
+      </Suspense>
+    </SkinErrorBoundary>
   );
 }

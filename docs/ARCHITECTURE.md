@@ -1,8 +1,8 @@
 # WFLA Wall 架构 / WFLA Wall Architecture
 
-> 本文档面向协作者（后端、前端、运维），描述现行 **v0.4.1** 的真实架构——
+> 本文档面向协作者（后端、前端、运维），描述现行 **v0.5.2** 的真实架构——
 > 不是早期设想，而是仓库里实际运行的东西。
-> This document describes the architecture as it actually ships in v0.4.1 —
+> This document describes the architecture as it actually ships in v0.5.2 —
 > not the early design sketch, but what the repository runs today.
 
 ---
@@ -130,13 +130,19 @@ DOM
 `admin` / `owner` 可使用概览、账号、内容、举报、邀请码、公告与板块、审计日志；
 `owner` 额外拥有外观、高级设置与系统诊断。所有数据仍由后端权限与审计日志约束，前端隐藏入口不能替代服务端授权。
 
+### 3.4 启动边界 / Boot boundary
+
+- 容器负责开屏动画和懒加载皮肤错误边界；皮肤不拥有启动页，也不能因懒加载失败导致全屏空白。
+- 自托管静态服务把缺失的 JS/CSS 识别为 `ASSET_NOT_FOUND`，只有 document navigation 才回退到 `index.html`。
+- 发布脚本必须完整替换 `public/`，避免旧皮肤 chunk 与新 `index.html` 混用。
+
 ---
 
 ## 4. 版本策略 / Versioning
 
 | 字段 | 含义 | 当前 |
 | --- | --- | --- |
-| `APP_VERSION` | 应用整体版本 | 0.4.1 |
+| `APP_VERSION` | 应用整体版本 | 0.5.2 |
 | `API_VERSION` | HTTP 契约版本（破坏性变更才 bump） | v1 |
 | `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 13 |
 | `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 2 |

@@ -185,7 +185,9 @@ function Invoke-FrontendBuild {
   $public = Join-Path $script:Root 'public'
   if (-not (Test-Path -LiteralPath $dist)) { throw '前端构建完成但没有找到 frontend/dist。' }
   New-Item -ItemType Directory -Force -Path $public | Out-Null
-  Get-ChildItem -LiteralPath $dist -Force | Copy-Item -Destination $public -Recurse -Force
+  # Replace the whole artifact set so stale skin chunks cannot linger.
+  Get-ChildItem -LiteralPath $public -Force | Remove-Item -Recurse -Force
+  Copy-Item -LiteralPath (Join-Path $dist '*') -Destination $public -Recurse -Force
 }
 function Test-FrontendArtifact {
   $publicIndex = Join-Path $script:Root 'public\index.html'

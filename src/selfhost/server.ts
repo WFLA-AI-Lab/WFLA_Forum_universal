@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { getRequestListener } from '@hono/node-server';
 import { createServer } from 'node:http';
 import { serveStatic } from '@hono/node-server/serve-static';
@@ -9,6 +9,7 @@ import { loadConfig, toEnv } from './config';
 import { SqliteD1 } from './sqlite-d1';
 import { applyStoredSettings } from '../modules/settings/service';
 import { expireSanctions } from '../modules/moderation/appeal.routes';
+import { applyStaticHeaders, createSpaFallback } from './static';
 
 const config = loadConfig();
 const db = new SqliteD1(config.dbPath);
@@ -32,15 +33,9 @@ selfHost.use('*', async (c, next) => {
 selfHost.route('/', apiApp);
 
 if (existsSync(frontendRoot)) {
-  selfHost.use('*', serveStatic({ root: frontendRoot }));
-  selfHost.get('*', async c => {
-    if (c.req.path.startsWith('/api/')) {
-      return c.json({ error: { code: 'NOT_FOUND', message: '接口不存在' } }, 404);
-    }
-    const indexFile = join(frontendRoot, 'index.html');
-    if (!existsSync(indexFile)) return c.text('frontend/index.html not found', 404);
-    return c.html(readFileSync(indexFile, 'utf8'));
-  });
+  selfHost.use('*', serveStatic({ root: frontendRoot, onFound: applyStaticHeaders }));
+
+  selfHost.get('*', createSpaFallback(frontendRoot));
 }
 
 const rootApp = selfHost;

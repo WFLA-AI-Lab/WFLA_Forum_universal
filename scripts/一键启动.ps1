@@ -98,13 +98,10 @@ function Build-Frontend {
     $public = Join-Path $script:Root 'public'
     if (-not (Test-Path -LiteralPath $dist)) { throw '找不到 frontend/dist，前端构建异常。' }
     New-Item -ItemType Directory -Force -Path $public | Out-Null
-    Get-ChildItem -LiteralPath $dist -Force | Copy-Item -Destination $public -Recurse -Force
-    # Re-copy referenced assets explicitly; this repairs older packages where assets were copied flat.
-    $indexHtml = [IO.File]::ReadAllText((Join-Path $dist 'index.html'))
-    $referencedAssets = [regex]::Matches($indexHtml, '/assets/([^"''\s>]+)') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
-    foreach ($assetName in $referencedAssets) {
-      Copy-Item -LiteralPath (Join-Path $dist (Join-Path 'assets' $assetName)) -Destination (Join-Path $public (Join-Path 'assets' $assetName)) -Force
-    }
+    # A complete sync prevents stale chunks (especially lazy skin bundles) from
+    # surviving in public/ while a fresh index.html references new filenames.
+    Get-ChildItem -LiteralPath $public -Force | Remove-Item -Recurse -Force
+    Copy-Item -LiteralPath (Join-Path $dist '*') -Destination $public -Recurse -Force
   } else {
     Invoke-NativeStep '构建前端（自托管包）' { & $script:Npm --prefix $script:Root run selfhost:build }
   }
