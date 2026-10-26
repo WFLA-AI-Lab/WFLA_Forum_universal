@@ -1,0 +1,31 @@
+{
+  "version": "v0.7.0",
+  "tag": "v0.7.0",
+  "commit": "pending-tag",
+  "release_date": "2026-10-27",
+  "contract": {
+    "schema": 13,
+    "api": "v1",
+    "skin": 3
+  },
+  "migration": {
+    "file": null,
+    "applied": false,
+    "notes": "schema_version=13; no database migration in this release"
+  },
+  "checks": [
+    "backend type-check/lint/full test suite (9 files / 40 tests)",
+    "frontend type-check/build",
+    "PR #3 review and focused frontend fixes"
+  ],
+  "backup": {
+    "ref": "backups/pre-v0.7.0-frontend-release-20261027",
+    "notes": "online snapshot before frontend release deployment",
+    "created_at": "2026-10-27T00:00:00Z"
+  },
+  "rollback": {
+    "code": "git checkout v0.6.1",
+    "database": "no schema change; no database rollback required",
+    "target_tag": "v0.6.1"
+  }
+}

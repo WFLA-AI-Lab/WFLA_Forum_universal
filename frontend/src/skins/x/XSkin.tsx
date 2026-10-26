@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import type { Board, SkinContext, Thread, View } from '../contract';
+import type { Board, NotificationItem, SkinContext, Thread, View } from '../contract';
 import './x.css';
 
 type IconName = 'home' | 'notice' | 'community' | 'user' | 'search' | 'settings' | 'bell' | 'bookmark' | 'reply' | 'heart' | 'more' | 'back' | 'send' | 'group' | 'edit' | 'shield' | 'logout';
@@ -81,6 +81,14 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     go({ name: 'notifications' });
   }
 
+  function openNotification(item: NotificationItem) {
+    void actions.markNotificationRead(item.id).then(() => {
+      const thread = item.link.match(/^\/threads\/([^/?#]+)/);
+      if (thread) void actions.openThread(decodeURIComponent(thread[1]));
+      else if (item.type === 'announcement') go({ name: 'announcements' });
+    });
+  }
+
   function AuthPanel() {
     return <section className="x-auth">
       <div className="x-auth-brand">W</div>
@@ -115,7 +123,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
         <button type="button" className="x-post-open" onClick={() => void actions.openThread(thread.id)}>
           {thread.board && <small>{thread.board.name}</small>}
           <h2>{thread.title}</h2>
-          {thread.preview_html && <div className="x-post-preview" dangerouslySetInnerHTML={{ __html: thread.preview_html }}/>} 
+          {thread.preview_html && <div className="x-post-preview" dangerouslySetInnerHTML={{ __html: thread.preview_html }}/>}
         </button>
         <footer>
           <button type="button" onClick={() => void actions.openThread(thread.id)} aria-label="查看回复"><Icon name="reply" size={19}/><span>{thread.reply_count}</span></button>
@@ -201,16 +209,22 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
 
   function ThreadPage() {
     if (!activeThread) return null;
-    return <><button className="x-thread-back" type="button" onClick={() => go({ name: 'home' })}><Icon name="back"/>返回</button><article className="x-thread-head"><h1>{activeThread.title}</h1><p>{activeThread.author?.real_name} · {helpers.formatDate(activeThread.created_at)} · {activeThread.view_count} 浏览</p></article>{data.posts.map(post => <article key={post.id} className="x-reply"><Avatar name={post.author?.real_name}/><div><header><b>{post.author?.real_name || 'WFLAer'}</b><span>#{post.floor_number} · {helpers.formatDate(post.created_at)}</span></header><div className="x-rich" dangerouslySetInnerHTML={{ __html: post.content_html }}/>{me && post.author_id !== me.id && <button type="button" onClick={() => void actions.submitReport('post', post.id)}>举报</button>}</div></article>)}{me ? <form className="x-reply-form" onSubmit={actions.createReply}><textarea rows={3} value={forms.reply} onChange={event => forms.setReply(event.target.value)} placeholder="回复这条动态…" required/><button className="x-primary" type="submit">回复</button></form> : <div className="x-soft-note">登录后参与讨论。</div>}</>;
+    const threadBoard = activeThread.board?.slug ? data.boards.find(board => board.slug === activeThread.board?.slug) : undefined;
+    return <><button className="x-thread-back" type="button" onClick={() => go(threadBoard ? { name: 'board', board: threadBoard } : { name: 'home' })}><Icon name="back"/>返回</button><article className="x-thread-head"><h1>{activeThread.title}</h1><p>{activeThread.author?.real_name} · {helpers.formatDate(activeThread.created_at)} · {activeThread.view_count} 浏览</p></article>{data.posts.map(post => <article key={post.id} className="x-reply"><Avatar name={post.author?.real_name}/><div><header><b>{post.author?.real_name || 'WFLAer'}</b><span>#{post.floor_number} · {helpers.formatDate(post.created_at)}</span></header><div className="x-rich" dangerouslySetInnerHTML={{ __html: post.content_html }}/>{me && post.author_id !== me.id && <button type="button" onClick={() => void actions.submitReport('post', post.id)}>举报</button>}</div></article>)}{me ? <form className="x-reply-form" onSubmit={actions.createReply}><textarea rows={3} value={forms.reply} onChange={event => forms.setReply(event.target.value)} placeholder="回复这条动态…" required/><button className="x-primary" type="submit">回复</button></form> : <div className="x-soft-note">登录后参与讨论。</div>}</>;
   }
 
   function SearchPage() {
-    return <><form className="x-search-page" onSubmit={event => { event.preventDefault(); void actions.searchForum(forms.searchQuery); }}><Icon name="search"/><input autoFocus value={forms.searchQuery} onChange={event => forms.setSearchQuery(event.target.value)} placeholder="搜索动态、帖子或用户"/><button type="submit">搜索</button></form>{data.searchBusy ? <div className="x-community-empty">正在搜索…</div> : !data.searchResults ? <Empty icon="search" title="搜索 WFLA" body="输入关键词，查找校园中的内容与用户。"/> : <>{Timeline({ items: data.searchResults.threads, emptyTitle: '没有相关动态', emptyBody: '尝试使用不同的关键词。' })}{data.searchResults.users.length > 0 && <section className="x-search-users"><h2>用户</h2>{data.searchResults.users.map(user => <div key={user.id}><Avatar name={user.real_name} size={38}/><span><b>{user.real_name}</b><small>{user.enrollment_year} 入学</small></span></div>)}</section>}</>}</>;
+    const results = data.searchResults;
+    return <><form className="x-search-page" onSubmit={event => { event.preventDefault(); void actions.searchForum(forms.searchQuery); }}><Icon name="search"/><input autoFocus value={forms.searchQuery} onChange={event => forms.setSearchQuery(event.target.value)} placeholder="搜索动态、帖子或用户"/><button type="submit">搜索</button></form>{data.searchBusy ? <div className="x-community-empty">正在搜索…</div> : !results ? <Empty icon="search" title="搜索 WFLA" body="输入关键词，查找校园中的内容与用户。"/> : <>
+      {results.threads.length > 0 && Timeline({ items: results.threads })}
+      {results.posts.length > 0 && <section className="x-search-posts"><h2>回复</h2>{results.posts.map(post => <button key={post.id} type="button" onClick={() => void actions.openThread(post.thread_id)}><b>{post.thread_title}</b><small>打开话题</small></button>)}</section>}
+      {results.users.length > 0 && <section className="x-search-users"><h2>用户</h2>{results.users.map(user => <div key={user.id}><Avatar name={user.real_name} size={38}/><span><b>{user.real_name}</b><small>{user.enrollment_year} 入学</small></span></div>)}</section>}
+      {results.threads.length === 0 && results.posts.length === 0 && results.users.length === 0 && <Empty icon="search" title="没有相关结果" body="尝试使用不同的关键词。" />}
+    </>}</>;
   }
-
   function Notifications() {
     const unread = data.notifications.filter(item => !item.is_read).length;
-    return <><div className="x-action-header"><span>{unread} 条未读</span>{unread > 0 && <button type="button" onClick={() => void actions.markAllNotificationsRead()}>全部已读</button>}</div>{!data.notifications.length ? <Empty icon="bell" title="暂无通知" body="回复、公告和系统提醒会显示在这里。"/> : data.notifications.map(item => <button key={item.id} className={item.is_read ? 'x-notification read' : 'x-notification'} type="button" onClick={() => void actions.markNotificationRead(item.id)}><span><Icon name={item.type === 'announcement' ? 'notice' : 'bell'}/></span><div><b>{item.title}</b><p>{item.body}</p><small>{helpers.formatDate(item.created_at)}</small></div></button>)}</>;
+    return <><div className="x-action-header"><span>{unread} 条未读</span>{unread > 0 && <button type="button" onClick={() => void actions.markAllNotificationsRead()}>全部已读</button>}</div>{!data.notifications.length ? <Empty icon="bell" title="暂无通知" body="回复、公告和系统提醒会显示在这里。"/> : data.notifications.map(item => <button key={item.id} className={item.is_read ? 'x-notification read' : 'x-notification'} type="button" onClick={() => openNotification(item)}><span><Icon name={item.type === 'announcement' ? 'notice' : 'bell'}/></span><div><b>{item.title}</b><p>{item.body}</p><small>{helpers.formatDate(item.created_at)}</small></div></button>)}</>;
   }
 
   function Register() {
@@ -255,7 +269,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
         <form className="x-aside-search" onSubmit={event => { event.preventDefault(); void actions.searchForum(forms.searchQuery); }}><Icon name="search" size={18}/><input value={forms.searchQuery} onChange={event => forms.setSearchQuery(event.target.value)} placeholder="搜索 WFLA"/></form>
         <section><header><h2>重要公告</h2><button type="button" onClick={() => go({ name: 'announcements' })}>查看全部</button></header>{data.announcements.slice(0, 3).map(item => <button key={item.id} type="button" onClick={() => go({ name: 'announcements' })}><small>{ui.levelLabel[item.level] || item.level} · {item.author_real_name}</small><b>{item.title}</b></button>)}{!data.announcements.length && <p>暂无重要公告</p>}</section>
         <section><header><h2>社区空间</h2></header>{data.boards.slice(0, 5).map(board => <button key={board.id} type="button" onClick={() => go({ name: 'board', board })}><b>{board.name}</b><small>{board.description || '进入交流'}</small></button>)}{!data.boards.length && <p>社区空间正在准备中</p>}</section>
-        {isAdmin && <a className="x-admin-link" href="/admin"><Icon name="shield" size={18}/>管理后台</a>}
+        {isAdmin && <button type="button" className="x-admin-link" onClick={() => go({ name: 'admin', tab: 'users' })}><Icon name="shield" size={18}/>管理后台</button>}
         <footer>© 2026 WFLA · 校园社区</footer>
       </aside>
     </div>

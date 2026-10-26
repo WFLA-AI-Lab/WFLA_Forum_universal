@@ -149,6 +149,7 @@ export default function App() {
   const [searchResultQuery, setSearchResultQuery] = useState<string | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const searchRequestId = useRef(0);
+  const feedRef = useRef<Thread[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -216,6 +217,7 @@ export default function App() {
   }, [showSplash]);
 
   useEffect(() => { window.scrollTo(0, 0); }, [viewKey]);
+  useEffect(() => { feedRef.current = feed; }, [feed]);
 
   useEffect(() => {
     if (me) void loadBookmarks();
@@ -224,7 +226,9 @@ export default function App() {
 
   // The backend currently exposes a paginated timeline rather than a stream.
   // Poll the first page while the tab is visible so the home feed and official
-  // announcements update without requiring a manual refresh.
+  // announcements update without requiring a manual refresh. Once a reader has
+  // loaded later pages, merge updates into the existing list instead of
+  // resetting it to page one.
   useEffect(() => {
     let cancelled = false;
     const refreshLiveData = async () => {
@@ -234,11 +238,19 @@ export default function App() {
           api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20'),
           api.get<{ items: Announcement[] }>('/announcements')
         ]);
-        if (!cancelled) {
+        if (cancelled) return;
+        if (feedRef.current.length > feedPage.items.length) {
+          setFeed(current => {
+            const incoming = new Map(feedPage.items.map(item => [item.id, item]));
+            const updated = current.map(item => incoming.get(item.id) ?? item);
+            const added = feedPage.items.filter(item => !current.some(existing => existing.id === item.id));
+            return [...added, ...updated];
+          });
+        } else {
           setFeed(feedPage.items);
           setFeedCursor(feedPage.next_cursor);
-          setAnnouncements(announcementPage.items);
         }
+        setAnnouncements(announcementPage.items);
       } catch { /* Keep the last successful timeline during transient outages. */ }
     };
     const timer = window.setInterval(() => void refreshLiveData(), 15_000);
