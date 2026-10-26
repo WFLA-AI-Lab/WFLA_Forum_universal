@@ -154,11 +154,8 @@ try {
 
   # UNC shares cannot be used as a CMD working directory; bypass npm.cmd and start tsx directly.
   $tsxCli = Join-Path $script:Root 'node_modules\tsx\dist\cli.mjs'
-  $serverEntry = Join-Path $script:Root 'src-backend\selfhost\server.ts'
+  $serverEntry = Join-Path $script:Root 'src\selfhost\server.ts'
   if (-not (Test-Path -LiteralPath $tsxCli)) { throw "缺少 tsx：$tsxCli。请重新运行一键配置。" }
-  if (-not (Test-Path -LiteralPath $serverEntry)) {
-    $serverEntry = Join-Path $script:Root 'src\selfhost\server.ts'
-  }
   if (-not (Test-Path -LiteralPath $serverEntry)) { throw "找不到后端入口 server.ts。" }
   Set-Location -LiteralPath $script:Root
   & $script:Node $tsxCli $serverEntry

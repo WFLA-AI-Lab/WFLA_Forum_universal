@@ -108,16 +108,21 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\selfhost-windows-install.ps1
 
 ## 目录说明
 
+本包是可运行的 Git 工作区；**后端源码只有一个唯一入口 `src/`**。
+
 ```text
-src/               前端源码（打包版）
-src-backend/       扁平化的后端源码（打包版）
-frontend/          仓库版前端源码
+src/               后端源码（唯一副本）
+frontend/          前端源码
 scripts/           配置、启动、迁移、建号、备份脚本
-public/            构建后的前端
-data/              SQLite 数据库
-backups/           数据库备份
-.env               本机配置，不在 Git 中
+public/            构建后的前端（生成产物，不入 Git）
+data/              SQLite 数据库（运行数据，不入 Git）
+backups/           数据库备份（运行数据，不入 Git）
+certs/             TLS 证书与密钥（运行数据，不入 Git）
+.env               本机配置（不入 Git）
+archive/           发布清单与不可变归档说明
 ```
+
+历史遗留的 `src-backend/` 已废弃，不要再维护或从它启动。迁移与日常维护见 [MAINTENANCE.md](MAINTENANCE.md)。
 
 ## 可选：本地 Caddy HTTPS 源站
 

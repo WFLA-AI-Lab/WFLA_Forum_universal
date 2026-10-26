@@ -1,0 +1,30 @@
+{
+  "checks": [
+    "backend type-check/lint/test",
+    "frontend type-check/build"
+  ],
+  "backup": {
+    "ref": "backups/pre-v0.5.2-staticfix-20261026T182416Z",
+    "notes": "pre-release static asset fix backup",
+    "created_at": "2026-10-26T18:24:16Z"
+  },
+  "version": "v0.5.2",
+  "commit": "acac788",
+  "rollback": {
+    "database": "do not auto-rollback; restore only from verified backup or forward-fix",
+    "target_tag": "v0.5.1",
+    "code": "git checkout v0.5.1"
+  },
+  "migration": {
+    "notes": "schema_version=13",
+    "file": "0013_moderation_automation.sql",
+    "applied": true
+  },
+  "contract": {
+    "schema": 13,
+    "api": "v1",
+    "skin": 2
+  },
+  "tag": "v0.5.2",
+  "release_date": "2026-10-26"
+}

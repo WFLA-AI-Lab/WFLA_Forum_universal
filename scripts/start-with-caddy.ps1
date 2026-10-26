@@ -12,11 +12,7 @@ $caddyfile = Join-Path $root 'Caddyfile'
 $envPath = Join-Path $root '.env'
 $node = (Get-Command node.exe -ErrorAction Stop).Source
 $tsxCli = Join-Path $root 'node_modules\tsx\dist\cli.mjs'
-$serverEntry = if (Test-Path -LiteralPath (Join-Path $root 'src-backend\selfhost\server.ts')) {
-  Join-Path $root 'src-backend\selfhost\server.ts'
-} else {
-  Join-Path $root 'src\selfhost\server.ts'
-}
+$serverEntry = Join-Path $root 'src\selfhost\server.ts'
 
 if (-not (Test-Path -LiteralPath $caddyExe)) { throw '未找到 Caddy，请先运行 scripts\install-caddy.ps1。' }
 if (-not (Test-Path -LiteralPath $caddyfile)) { throw '未找到 Caddyfile，请先运行 scripts\configure-caddy.ps1。' }

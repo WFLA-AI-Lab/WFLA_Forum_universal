@@ -210,10 +210,10 @@ function Ensure-FrontendArtifact {
   if (-not (Test-FrontendArtifact)) { throw '前端未能生成可用构建产物。' }
 }
 function Assert-Layout {
-  $repoConfig = Join-Path $script:Root 'src\selfhost\config.ts'
-  $packageConfig = Join-Path $script:Root 'src-backend\selfhost\config.ts'
-  if (-not (Test-Path -LiteralPath $repoConfig) -and -not (Test-Path -LiteralPath $packageConfig)) {
-    throw '没有找到后端源码，请确认脚本位于项目 scripts 目录。'
+  # src/ is the only authoritative backend tree.
+  $serverEntry = Join-Path $script:Root 'src\selfhost\server.ts'
+  if (-not (Test-Path -LiteralPath $serverEntry)) {
+    throw '没有找到后端源码 src\selfhost\server.ts，请确认项目目录完整。'
   }
   if (-not (Test-Path -LiteralPath (Join-Path $script:Root 'package.json'))) {
     throw '没有找到 package.json，请确认项目目录完整。'

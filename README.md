@@ -74,7 +74,9 @@ Current version: **v0.5.2** ｜ API: **v1** ｜ DB schema: **13** ｜ Skin contr
 │        ├─ x/               #   仿 X 皮肤（默认主 UI）
 │        └─ endfield/        #   Endfield 皮肤
 ├─ scripts/                 # 一键配置 / 一键启动 / 迁移 / 备份
-└─ docs/                    # 文档
+├─ docs/                    # 文档
+├─ archive/                 # 发布清单与不可变归档说明（不含密钥 / 数据库）
+└─ MAINTENANCE.md           # 开发目录、迁移、发布、备份、恢复与交接规范
 ```
 
 ### 文档索引
@@ -88,6 +90,7 @@ Current version: **v0.5.2** ｜ API: **v1** ｜ DB schema: **13** ｜ Skin contr
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | **架构文档（中英双语）**：总览、模块、部署拓扑、交接清单 |
 | [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) | 项目总体规划（目标、范围、数据模型与路线图） |
 | [`SELFHOST_README.md`](SELFHOST_README.md) | 自托管部署说明（Windows / Node.js） |
+| [MAINTENANCE.md](MAINTENANCE.md) | **当前开发目录与交接规范**：唯一源码入口、迁移、发布、备份、恢复 |
 
 ### 快速开始（本地开发）
 
@@ -238,7 +241,9 @@ self-hosted (Node.js + SQLite) with tunnel-based public access, built around
 │        ├─ x/               #   X-style skin (default)
 │        └─ endfield/        #   Endfield skin
 ├─ scripts/                 # one-click setup / start / migrate / backup
-└─ docs/                    # docs
+├─ docs/                    # docs
+├─ archive/                 # Release records; never contains secrets or databases
+└─ MAINTENANCE.md           # Canonical workspace, migration, release and recovery guide
 ```
 
 ### Documentation
@@ -251,6 +256,7 @@ self-hosted (Node.js + SQLite) with tunnel-based public access, built around
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Changelog (must be updated every release) — **Chinese** |
 | [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) | Overall project plan — **Chinese** |
 | [`SELFHOST_README.md`](SELFHOST_README.md) | Self-host deployment notes (Windows / Node.js) — **Chinese** |
+| [MAINTENANCE.md](MAINTENANCE.md) | **Canonical workspace and handover guide** — source layout, migration, release, backup, recovery |
 
 English translations of the API and skin guide are on the roadmap; the type
 contract in `frontend/src/skins/contract.ts` and the route definitions in
