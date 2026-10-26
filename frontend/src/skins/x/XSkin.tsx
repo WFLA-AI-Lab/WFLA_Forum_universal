@@ -104,7 +104,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     const name = thread.author?.real_name || thread.author?.username || 'WFLAer';
     const verified = ['owner', 'admin', 'moderator'].includes(thread.author?.role || '');
     const bookmarked = bookmarkedIds.has(thread.id);
-    return <article className="x-post">
+    return <article className="x-post" key={thread.id}>
       <Avatar name={name}/>
       <div className="x-post-content">
         <header>
@@ -129,7 +129,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
 
   function Timeline({ items, emptyTitle = '这里还没有内容', emptyBody = '新的校园动态会出现在这里。' }: { items: Thread[]; emptyTitle?: string; emptyBody?: string }) {
     if (!items.length) return <Empty icon="edit" title={emptyTitle} body={emptyBody}/>;
-    return <>{items.map(item => <FeedCard key={item.id} thread={item}/>)}</>;
+    return <>{items.map(item => FeedCard({ thread: item }))}</>;
   }
 
   function Composer({ board }: { board?: Board }) {
@@ -147,7 +147,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   }
 
   function Home() {
-    return <><div className="x-page-intro"><div><span className="x-live"><i/>LIVE</span><h1>校园动态</h1><p>来自 WFLAer 的实时分享</p></div></div><Composer/><Timeline items={data.feed}/>{data.feedCursor && <div className="x-load"><button type="button" onClick={() => void actions.loadMoreFeed()} disabled={data.feedBusy}>{data.feedBusy ? '正在加载…' : '加载更多'}</button></div>}</>;
+    return <><div className="x-page-intro"><div><span className="x-live"><i/>LIVE</span><h1>校园动态</h1><p>来自 WFLAer 的实时分享</p></div></div>{Composer({})}{Timeline({ items: data.feed })}{data.feedCursor && <div className="x-load"><button type="button" onClick={() => void actions.loadMoreFeed()} disabled={data.feedBusy}>{data.feedBusy ? '正在加载…' : '加载更多'}</button></div>}</>;
   }
 
   function Announcements() {
@@ -158,7 +158,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   }
 
   function Community() {
-    if (!me) return <AuthPanel/>;
+    if (!me) return AuthPanel();
     const contacts = data.searchResults?.users.filter(user => user.id !== me.id) ?? [];
     const selected = contacts.find(user => user.id === selectedContact);
     return <><div className="x-page-intro"><div><span className="x-eyebrow">WFLA COMMUNITY</span><h1>社区</h1><p>在社团群组中交流，或查找一个联系人</p></div></div>
@@ -179,14 +179,14 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   }
 
   function UserPage() {
-    if (!me) return <AuthPanel/>;
+    if (!me) return AuthPanel();
     return <><section className="x-profile-hero"><div className="x-profile-cover"/><div className="x-profile-main"><Avatar name={forms.profile?.nickname || me.real_name} src={forms.profile?.avatar_data_url} size={84}/><button type="button" onClick={() => go({ name: 'settings' })}>编辑个人资料</button><h1>{forms.profile?.nickname || me.real_name}</h1><p>@{me.username}</p><div><span>{me.real_name}</span><span>{me.enrollment_year} 入学</span><span>{ui.roleLabel[me.role] || me.role}</span></div></div></section>
       <div className="x-tabs"><button type="button" className={profileTab === 'posts' ? 'active' : ''} onClick={() => setProfileTab('posts')}>我发布的</button><button type="button" className={profileTab === 'saved' ? 'active' : ''} onClick={() => { setProfileTab('saved'); void actions.loadBookmarks(); }}>收藏</button></div>
-      {profileTab === 'posts' ? <Timeline items={ownThreads} emptyTitle="还没有发布内容" emptyBody="你发布的动态和帖子会集中显示在这里。"/> : <Timeline items={data.bookmarks} emptyTitle="还没有收藏" emptyBody="收藏的动态和帖子会集中显示在这里。"/>}</>;
+      {profileTab === 'posts' ? Timeline({ items: ownThreads, emptyTitle: '还没有发布内容', emptyBody: '你发布的动态和帖子会集中显示在这里。' }) : Timeline({ items: data.bookmarks, emptyTitle: '还没有收藏', emptyBody: '收藏的动态和帖子会集中显示在这里。' })}</>;
   }
 
   function Settings() {
-    if (!me) return <AuthPanel/>;
+    if (!me) return AuthPanel();
     return <div className="x-settings">
       <section><header><span><Icon name="user"/></span><div><h2>个人资料</h2><p>修改社区中展示的头像与昵称</p></div></header><form className="x-form" onSubmit={actions.saveProfile}><div className="x-avatar-editor"><Avatar name={forms.profileForm.nickname || me.real_name} src={forms.profileForm.avatar_data_url} size={72}/><label className="x-file">选择头像<input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 256 * 1024) { messages.setError('头像文件不能超过 256KB'); return; } const reader = new FileReader(); reader.onload = () => forms.setProfileForm(current => ({ ...current, avatar_data_url: String(reader.result) })); reader.readAsDataURL(file); }}/></label></div><label><span>昵称</span><input maxLength={24} value={forms.profileForm.nickname} onChange={event => forms.setProfileForm(current => ({ ...current, nickname: event.target.value }))} required/></label><div className="x-settings-actions"><button type="submit" className="x-primary">保存修改</button>{forms.profileForm.avatar_data_url && <button type="button" onClick={() => forms.setProfileForm(current => ({ ...current, avatar_data_url: null }))}>移除头像</button>}</div></form></section>
       <section><header><span><Icon name="settings"/></span><div><h2>偏好设置</h2><p>当前账号的界面与内容偏好</p></div></header><div className="x-preference-row"><div><b>界面样式</b><small>WFLA X · 自动适配手机和电脑</small></div><span className="x-badge">已启用</span></div><div className="x-preference-row"><div><b>动态刷新</b><small>页面可见时每 15 秒同步最新内容</small></div><span className="x-badge live">实时</span></div></section>
@@ -196,7 +196,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
 
   function BoardPage() {
     if (!activeBoard) return null;
-    return <><div className="x-page-intro"><div><button className="x-back" type="button" onClick={() => go({ name: 'community' })}><Icon name="back" size={20}/>社区</button><h1>{activeBoard.name}</h1><p>{activeBoard.description}</p></div></div><Composer board={activeBoard}/><Timeline items={data.threads} emptyTitle="群组里还没有内容" emptyBody="成为第一个发起交流的人。"/></>;
+    return <><div className="x-page-intro"><div><button className="x-back" type="button" onClick={() => go({ name: 'community' })}><Icon name="back" size={20}/>社区</button><h1>{activeBoard.name}</h1><p>{activeBoard.description}</p></div></div>{Composer({ board: activeBoard })}{Timeline({ items: data.threads, emptyTitle: '群组里还没有内容', emptyBody: '成为第一个发起交流的人。' })}</>;
   }
 
   function ThreadPage() {
@@ -205,7 +205,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   }
 
   function SearchPage() {
-    return <><form className="x-search-page" onSubmit={event => { event.preventDefault(); void actions.searchForum(forms.searchQuery); }}><Icon name="search"/><input autoFocus value={forms.searchQuery} onChange={event => forms.setSearchQuery(event.target.value)} placeholder="搜索动态、帖子或用户"/><button type="submit">搜索</button></form>{data.searchBusy ? <div className="x-community-empty">正在搜索…</div> : !data.searchResults ? <Empty icon="search" title="搜索 WFLA" body="输入关键词，查找校园中的内容与用户。"/> : <><Timeline items={data.searchResults.threads} emptyTitle="没有相关动态" emptyBody="尝试使用不同的关键词。"/>{data.searchResults.users.length > 0 && <section className="x-search-users"><h2>用户</h2>{data.searchResults.users.map(user => <div key={user.id}><Avatar name={user.real_name} size={38}/><span><b>{user.real_name}</b><small>{user.enrollment_year} 入学</small></span></div>)}</section>}</>}</>;
+    return <><form className="x-search-page" onSubmit={event => { event.preventDefault(); void actions.searchForum(forms.searchQuery); }}><Icon name="search"/><input autoFocus value={forms.searchQuery} onChange={event => forms.setSearchQuery(event.target.value)} placeholder="搜索动态、帖子或用户"/><button type="submit">搜索</button></form>{data.searchBusy ? <div className="x-community-empty">正在搜索…</div> : !data.searchResults ? <Empty icon="search" title="搜索 WFLA" body="输入关键词，查找校园中的内容与用户。"/> : <>{Timeline({ items: data.searchResults.threads, emptyTitle: '没有相关动态', emptyBody: '尝试使用不同的关键词。' })}{data.searchResults.users.length > 0 && <section className="x-search-users"><h2>用户</h2>{data.searchResults.users.map(user => <div key={user.id}><Avatar name={user.real_name} size={38}/><span><b>{user.real_name}</b><small>{user.enrollment_year} 入学</small></span></div>)}</section>}</>}</>;
   }
 
   function Notifications() {
@@ -219,16 +219,16 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   }
 
   function Body() {
-    if (view.name === 'home') return <Home/>;
-    if (view.name === 'announcements') return <Announcements/>;
-    if (view.name === 'community') return <Community/>;
-    if (view.name === 'profile' || view.name === 'bookmarks' || view.name === 'login') return <UserPage/>;
-    if (view.name === 'settings') return <Settings/>;
-    if (view.name === 'board') return <BoardPage/>;
-    if (view.name === 'thread') return <ThreadPage/>;
-    if (view.name === 'search') return <SearchPage/>;
-    if (view.name === 'notifications') return <Notifications/>;
-    if (view.name === 'register') return <Register/>;
+    if (view.name === 'home') return Home();
+    if (view.name === 'announcements') return Announcements();
+    if (view.name === 'community') return Community();
+    if (view.name === 'profile' || view.name === 'bookmarks' || view.name === 'login') return UserPage();
+    if (view.name === 'settings') return Settings();
+    if (view.name === 'board') return BoardPage();
+    if (view.name === 'thread') return ThreadPage();
+    if (view.name === 'search') return SearchPage();
+    if (view.name === 'notifications') return Notifications();
+    if (view.name === 'register') return Register();
     return <Empty icon="home" title="页面不存在" body="请从导航栏选择一个页面。"/>;
   }
 
@@ -240,7 +240,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   return <div className="x-app">
     <div className="x-shell">
       <aside className="x-rail">
-        <button className="x-logo" type="button" onClick={() => go({ name: 'home' })}><span>W</span><b>WFLA</b></button>
+        <button className="x-logo" type="button" onClick={() => go({ name: 'home' })}><img src="/wfla-school-logo.png" alt="WFLA 校徽"/></button>
         <nav>{navItems.map(item => <a key={item.name} href="#" className={currentName === item.name ? 'active' : ''} onClick={nav({ name: item.name })}><Icon name={item.icon}/><span>{item.label}</span></a>)}</nav>
         {me && <button className="x-compose-button" type="button" onClick={() => go({ name: 'home' })}><Icon name="edit" size={19}/><span>发布动态</span></button>}
         <div className="x-account-mini">{me ? <><Avatar name={forms.profile?.nickname || me.real_name} src={forms.profile?.avatar_data_url} size={40}/><div><b>{forms.profile?.nickname || me.real_name}</b><span>@{me.username}</span></div><button type="button" aria-label="设置" onClick={() => go({ name: 'settings' })}><Icon name="more" size={20}/></button></> : <button className="x-signin-mini" type="button" onClick={() => go({ name: 'profile' })}>登录</button>}</div>
@@ -249,7 +249,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
         <header className="x-topbar"><h1>{pageTitle()}</h1><div><button type="button" aria-label="搜索" onClick={() => go({ name: 'search' })}><Icon name="search" size={20}/></button>{me && <button type="button" aria-label="通知" className="x-bell-button" onClick={openNotifications}><Icon name="bell" size={20}/>{data.notifications.some(item => !item.is_read) && <i/>}</button>}<button type="button" aria-label="设置" onClick={() => go({ name: 'settings' })}><Icon name="settings" size={20}/></button></div></header>
         {messages.error && <div className="x-flash error">{messages.error}<button type="button" onClick={() => messages.setError('')}>×</button></div>}
         {messages.success && <div className="x-flash success">{messages.success}<button type="button" onClick={() => messages.setSuccess('')}>×</button></div>}
-        <Body/>
+        {Body()}
       </main>
       <aside className="x-aside">
         <form className="x-aside-search" onSubmit={event => { event.preventDefault(); void actions.searchForum(forms.searchQuery); }}><Icon name="search" size={18}/><input value={forms.searchQuery} onChange={event => forms.setSearchQuery(event.target.value)} placeholder="搜索 WFLA"/></form>

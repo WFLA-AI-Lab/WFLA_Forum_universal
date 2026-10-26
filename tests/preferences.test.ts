@@ -168,5 +168,3 @@ describe('per-account preferences', () => {
     expect((await after.json() as { skin_id: string }).skin_id).toBe('x');
   });
 });
-
-\n
