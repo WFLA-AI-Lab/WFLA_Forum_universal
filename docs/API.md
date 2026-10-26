@@ -88,10 +88,10 @@
   "tagline": "世外中学校园论坛",
   "version": "0.5.0",
   "api_version": "v1",
-  "skin_contract_version": 2,
-  "default_skin": "placeholder",
+  "skin_contract_version": 3,
+  "default_skin": "x",
   "skins": [
-    { "id": "placeholder", "name": "占位界面", "description": "...", "status": "stable" }
+    { "id": "x", "name": "WFLA X", "description": "...", "status": "stable" }
   ],
   "guest_read_enabled": true,
   "registration_enabled": true,
@@ -205,7 +205,7 @@
 响应 200：
 
 ```json
-{ "preferences": { "skin_id": "placeholder", "updated_at": "…" } }
+{ "preferences": { "skin_id": "x", "updated_at": "…" } }
 ```
 
 `skin_id` 为 `null` 表示该用户从未保存过皮肤偏好。
@@ -218,7 +218,7 @@
 请求：
 
 ```json
-{ "skin_id": "placeholder" }
+{ "skin_id": "x" }
 ```
 
 ### `GET /me/profile` / `PATCH /me/profile`
@@ -239,7 +239,7 @@
 响应 200：
 
 ```json
-{ "preference": { "skin_id": "placeholder" } }
+{ "preference": { "skin_id": "x" } }
 ```
 
 错误：
@@ -258,7 +258,7 @@
 响应 200：
 
 ```json
-{ "skin_id": "placeholder" }
+{ "skin_id": "x" }
 ```
 ---
 
@@ -586,8 +586,8 @@ Query `status` ∈ `open | in_review | resolved | rejected`，可选。按待处
 
 ```json
 {
-  "default_skin": "placeholder",
-  "allowed_skins": ["placeholder"],
+  "default_skin": "x",
+  "allowed_skins": ["x"],
   "guest_read_enabled": true,
   "registration_enabled": true,
   "site_tagline": "世外中学校园论坛"
@@ -644,3 +644,5 @@ Query `status` ∈ `open | in_review | resolved | rejected`，可选。按待处
 - 响应对象新增字段是兼容变更，客户端必须忽略未知字段。
 - 撤下字段 / 修改字段类型 = 破坏性变更。
 - 皮肤契约见 [`FRONTEND_SKIN_GUIDE.md`](./FRONTEND_SKIN_GUIDE.md)，与 API 版本独立演进。
+
+\n

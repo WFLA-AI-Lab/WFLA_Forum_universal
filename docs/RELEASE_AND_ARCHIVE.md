@@ -13,7 +13,7 @@
 export const APP_VERSION = '0.4.1';          // 应用（产品）版本
 export const API_VERSION = 'v1';             // HTTP 契约版本
 export const SCHEMA_VERSION = 13;             // 数据库结构版本（= 最高迁移序号）
-export const SKIN_CONTRACT_VERSION = 2;      // 前端皮肤契约版本
+export const SKIN_CONTRACT_VERSION = 3;      // 前端皮肤契约版本
 ```
 
 `package.json` 与 `frontend/package.json` 的 `version` 字段必须与 `APP_VERSION` 保持一致
@@ -73,7 +73,7 @@ export const SKIN_CONTRACT_VERSION = 2;      // 前端皮肤契约版本
 npm run selfhost:migrate
 ```
 
-> `0007` 未执行时，站点配置会回落到编译期默认值（皮肤 = `placeholder`），
+> `0007` 未执行时，站点配置会回落到编译期默认值（皮肤 = `x`），
 > 站点不会崩，但后台「外观」设置无法持久化 —— 所以升级后务必跑一次迁移。
 
 ---
@@ -185,3 +185,5 @@ npm run selfhost:backup
 - [ ] 部署前数据库备份
 - [ ] git tag `vX.Y.Z` 已推送
 - [ ] 线上 `/api/v1/health` 版本核对无误
+
+\n

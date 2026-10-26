@@ -145,7 +145,7 @@ DOM
 | `APP_VERSION` | 应用整体版本 | 0.6.1 |
 | `API_VERSION` | HTTP 契约版本（破坏性变更才 bump） | v1 |
 | `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 13 |
-| `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 2 |
+| `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 3 |
 
 规则：契约只增不改 → 不 bump；重命名/删除/改语义 → bump。
 详见 `docs/RELEASE_AND_ARCHIVE.md`。
@@ -206,3 +206,5 @@ SQLite 文件 + 前端构建产物 public/
 - [ ] 构建：`npm run selfhost:build`。
 - [ ] 后端代码改动 → 重启进程；仅前端 → 无需重启。
 - [ ] 线上核对：`GET /api/v1/health` 的 `version` 字段。
+
+\n

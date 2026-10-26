@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * WFLA Wall skin contract  (SKIN_CONTRACT_VERSION = 2)
+ * WFLA Wall skin contract  (SKIN_CONTRACT_VERSION = 3)
  * ============================================================================
  *
  * A *skin* is a whole frontend layout, not a colour theme. Two skins may
@@ -214,6 +214,8 @@ export type AdminTab = 'users' | 'reports' | 'invitations' | 'announcements' | '
 export type View =
   | { name: 'home' }
   | { name: 'announcements' }
+  | { name: 'community' }
+  | { name: 'profile' }
   | { name: 'bookmarks' }
   | { name: 'search' }
   | { name: 'board'; board: Board }
