@@ -1,0 +1,31 @@
+{
+  "checks": [
+    "backend type-check/lint/full test suite",
+    "frontend type-check/build",
+    "PowerShell start-script syntax check"
+  ],
+  "backup": {
+    "ref": "backups/pre-v0.6.1-startup-guard-20261026",
+    "notes": "working-tree backup before the startup race fix",
+    "created_at": "2026-10-26T00:00:00Z"
+  },
+  "version": "v0.6.1",
+  "commit": "fd07062f588126b479807758e782d39e56900b29",
+  "migration": {
+    "notes": "schema_version=13; no database migration in this release",
+    "file": null,
+    "applied": false
+  },
+  "rollback": {
+    "database": "no schema change; no database rollback required",
+    "target_tag": "v0.6.0",
+    "code": "git checkout v0.6.0"
+  },
+  "contract": {
+    "schema": 13,
+    "api": "v1",
+    "skin": 2
+  },
+  "tag": "v0.6.1",
+  "release_date": "2026-10-26"
+}

@@ -4,6 +4,15 @@
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
 ---
+## [0.6.1] - 2026-10-26
+
+### Fixed
+
+- 一键启动现在会先清理旧版 `src-backend/selfhost/server.ts` 的残留 Node 进程，避免其占用同一 SQLite 数据库 / WAL 锁后触发 `SqliteError: disk I/O error`。
+- 启动前会检查配置端口：本项目的重复服务或其它程序占用时给出明确提示，不再让端口冲突演变成难定位的启动失败。
+- 已确认原数据库完整：`integrity_check = ok`；本次未修改数据库结构或数据。
+
+---
 ## [0.6.0] - 2026-10-26
 
 ### Added

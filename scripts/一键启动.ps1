@@ -87,6 +87,32 @@ function Invoke-NativeStep {
   if ($LASTEXITCODE -ne 0) { throw "$Label 失败，退出码：$LASTEXITCODE" }
 }
 
+function Stop-StaleSelfHostProcesses {
+  # Older packages launched src-backend/selfhost/server.ts. Those orphaned
+  # processes can hold the same SQLite file/WAL lock and the configured port,
+  # which surfaces as an opaque "SqliteError: disk I/O error" on startup.
+  foreach ($process in Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue) {
+    $commandLine = [string]$process.CommandLine
+    if ($commandLine -like '*wfla-wall-selfhost-package*' -and $commandLine -like '*src-backend*selfhost*server.ts*') {
+      Write-Host "[清理] 停止旧的 src-backend 服务进程 PID $($process.ProcessId)。" -ForegroundColor Yellow
+      Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+  }
+}
+
+function Assert-SelfHostPortAvailable {
+  param([Parameter(Mandatory = $true)][int]$Port)
+  $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+  if (-not $listeners) { return }
+  foreach ($listener in $listeners) {
+    $owner = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)" -ErrorAction SilentlyContinue
+    $commandLine = if ($owner) { [string]$owner.CommandLine } else { '' }
+    if ($commandLine -like '*wfla-wall-selfhost-package*' -and $commandLine -like '*src\selfhost\server.ts*') {
+      throw "端口 $Port 已被本项目的另一个新服务占用（PID $($listener.OwningProcess)）。请先关闭那个窗口，或修改 .env 中的 PORT。"
+    }
+    throw "端口 $Port 已被其它程序占用（PID $($listener.OwningProcess)）。请关闭占用程序，或修改 .env 中的 PORT。"
+  }
+}
 function Build-Frontend {
   $frontendPackage = Join-Path $script:Root 'frontend\package.json'
   if (Test-Path -LiteralPath $frontendPackage) {
@@ -126,6 +152,11 @@ try {
   $dbPath = if ([IO.Path]::IsPathRooted($dbRelative)) { $dbRelative } else { Join-Path $script:Root $dbRelative }
   if (-not (Test-Path -LiteralPath $dbPath)) { throw "数据库不存在：$dbPath。请先成功运行 scripts\一键配置.ps1。" }
   if (-not (Test-Path -LiteralPath (Join-Path $script:Root 'node_modules'))) { throw '缺少 node_modules。请先重新运行 scripts\一键配置.ps1。' }
+
+  Stop-StaleSelfHostProcesses
+  $port = [int](Get-DotEnvValue 'PORT')
+  if ($port -le 0) { $port = 8888 }
+  Assert-SelfHostPortAvailable -Port $port
 
   $publicIndex = Join-Path $script:Root 'public\index.html'
   if (-not $NoBuild -and -not (Test-Path -LiteralPath $publicIndex)) {

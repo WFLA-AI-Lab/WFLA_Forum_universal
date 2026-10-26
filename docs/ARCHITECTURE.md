@@ -1,8 +1,8 @@
 # WFLA Wall 架构 / WFLA Wall Architecture
 
-> 本文档面向协作者（后端、前端、运维），描述现行 **v0.6.0** 的真实架构——
+> 本文档面向协作者（后端、前端、运维），描述现行 **v0.6.1** 的真实架构——
 > 不是早期设想，而是仓库里实际运行的东西。
-> This document describes the architecture as it actually ships in v0.6.0 —
+> This document describes the architecture as it actually ships in v0.6.1 —
 > not the early design sketch, but what the repository runs today.
 
 ---
@@ -142,7 +142,7 @@ DOM
 
 | 字段 | 含义 | 当前 |
 | --- | --- | --- |
-| `APP_VERSION` | 应用整体版本 | 0.6.0 |
+| `APP_VERSION` | 应用整体版本 | 0.6.1 |
 | `API_VERSION` | HTTP 契约版本（破坏性变更才 bump） | v1 |
 | `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 13 |
 | `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 2 |
