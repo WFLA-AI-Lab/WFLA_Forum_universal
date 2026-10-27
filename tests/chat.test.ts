@@ -91,6 +91,8 @@ interface Conversation {
   type: 'direct' | 'group';
   title: string;
   unread_count: number;
+  blocked_by_me: boolean;
+  blocked_me: boolean;
   counterpart?: { id: string } | null;
   last_message?: { id: string; content_markdown: string } | null;
 }
@@ -162,6 +164,11 @@ describe('direct chat', () => {
     expect(block.status).toBe(201);
     const id = conversation.body.item.id;
 
+    const blockedForA = await get<{ items: Conversation[] }>('/conversations?type=direct', a);
+    const blockedForB = await get<{ items: Conversation[] }>('/conversations?type=direct', b);
+    expect(blockedForA.body.items[0]).toMatchObject({ blocked_by_me: false, blocked_me: true });
+    expect(blockedForB.body.items[0]).toMatchObject({ blocked_by_me: true, blocked_me: false });
+
     const blockedCreate = await post('/conversations/direct', { user_id: 'chat-user-d' }, a);
     expect(blockedCreate.status).toBe(403);
     const blockedSend = await post(`/conversations/${id}/messages`, { client_id: 'x', content: 'no' }, a);
@@ -171,6 +178,8 @@ describe('direct chat', () => {
 
     const unblock = await del('/users/chat-user-c/block', b);
     expect(unblock.status).toBe(200);
+    const unblockedForB = await get<{ items: Conversation[] }>('/conversations?type=direct', b);
+    expect(unblockedForB.body.items[0]).toMatchObject({ blocked_by_me: false, blocked_me: false });
     const send = await post<{ item: Message }>(`/conversations/${id}/messages`, { client_id: 'x', content: 'yes' }, b);
     expect(send.status).toBe(201);
 

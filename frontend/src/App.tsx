@@ -20,6 +20,8 @@ import type {
   Announcement,
   AnnouncementFormState,
   Board,
+  ChatConversation,
+  ChatMessage,
   Diagnostics,
   InvitationItem,
   InvitationRole,
@@ -153,6 +155,13 @@ export default function App() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatNextCursor, setChatNextCursor] = useState<string | null>(null);
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatSending, setChatSending] = useState(false);
+  const chatMessagesRef = useRef<ChatMessage[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -166,6 +175,7 @@ export default function App() {
   const [newContent, setNewContent] = useState('');
   const [composeBoard, setComposeBoard] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [chatDraft, setChatDraft] = useState('');
 
   const [adminUsers, setAdminUsers] = useState<User[]>([]);
   const [adminReports, setAdminReports] = useState<ReportItem[]>([]);
@@ -218,11 +228,43 @@ export default function App() {
 
   useEffect(() => { window.scrollTo(0, 0); }, [viewKey]);
   useEffect(() => { feedRef.current = feed; }, [feed]);
+  useEffect(() => { chatMessagesRef.current = chatMessages; }, [chatMessages]);
 
   useEffect(() => {
-    if (me) void loadBookmarks();
-    else setBookmarks([]);
+    if (me) {
+      void loadBookmarks();
+      void loadConversations();
+    } else {
+      setBookmarks([]);
+      setConversations([]);
+      setActiveConversation(null);
+      setChatMessages([]);
+    }
   }, [me?.id]);
+
+  useEffect(() => {
+    if (!me || view.name !== 'community' || !activeConversation) return;
+    let cancelled = false;
+    const poll = async () => {
+      const latest = chatMessagesRef.current[chatMessagesRef.current.length - 1];
+      if (!latest || document.hidden) return;
+      try {
+        const page = await api.get<{ items: ChatMessage[]; next_after: string | null }>(
+          `/conversations/${activeConversation.id}/messages?after=${encodeURIComponent(latest.id)}&limit=100`
+        );
+        if (cancelled || page.items.length === 0) return;
+        setChatMessages(current => {
+          const known = new Set(current.map(item => item.id));
+          return [...current, ...page.items.filter(item => !known.has(item.id))];
+        });
+        const newest = page.items[page.items.length - 1];
+        if (newest) await markConversationRead(activeConversation.id, newest.id);
+        await loadConversations();
+      } catch { /* Preserve the open conversation during transient polling failures. */ }
+    };
+    const timer = window.setInterval(() => void poll(), 5_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [me?.id, view.name, activeConversation?.id]);
 
   // The backend currently exposes a paginated timeline rather than a stream.
   // Poll the first page while the tab is visible so the home feed and official
@@ -449,8 +491,20 @@ export default function App() {
   async function likeThread(threadId: string) {
     if (!me) { setView({ name: 'settings' }); return; }
     try {
-      const result = await api.put<{ likes: number }>('/reactions', { target_type: 'thread', target_id: threadId, reaction: 'like' });
-      const update = (thread: Thread): Thread => thread.id === threadId ? { ...thread, like_count: result.likes } : thread;
+      const visibleThread = [
+        ...feed,
+        ...threads,
+        ...bookmarks,
+        ...(searchResults?.threads ?? []),
+        ...(view.name === 'thread' ? [view.thread] : [])
+      ].find(thread => thread.id === threadId);
+      const wasLiked = visibleThread?.liked_by_me ?? false;
+      const result = wasLiked
+        ? await api.del<{ likes: number; liked: boolean }>(`/reactions?target_type=thread&target_id=${encodeURIComponent(threadId)}`)
+        : await api.put<{ likes: number; liked: boolean }>('/reactions', { target_type: 'thread', target_id: threadId, reaction: 'like' });
+      const update = (thread: Thread): Thread => thread.id === threadId
+        ? { ...thread, like_count: result.likes, liked_by_me: result.liked }
+        : thread;
       setFeed(current => current.map(update));
       setThreads(current => current.map(update));
       setBookmarks(current => current.map(update));
@@ -458,9 +512,134 @@ export default function App() {
       setView(current => current.name === 'thread' && current.thread.id === threadId
         ? { ...current, thread: update(current.thread) }
         : current);
-      setSuccess('已点赞');
+      setSuccess(result.liked ? '已点赞' : '已取消点赞');
     }
     catch (e) { setError((e as Error).message); }
+  }
+
+  async function loadConversations() {
+    try {
+      const page = await api.get<{ items: ChatConversation[] }>('/conversations?limit=50');
+      setConversations(page.items);
+      setActiveConversation(current => current
+        ? page.items.find(item => item.id === current.id) ?? current
+        : current);
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function markConversationRead(conversationId: string, messageId: string) {
+    const result = await api.post<{ item: ChatConversation }>(`/conversations/${conversationId}/read`, { message_id: messageId });
+    setConversations(current => current.map(item => item.id === conversationId ? result.item : item));
+    setActiveConversation(current => current?.id === conversationId ? result.item : current);
+  }
+
+  async function openConversation(conversation: ChatConversation) {
+    setActiveConversation(conversation);
+    setChatMessages([]);
+    setChatNextCursor(null);
+    setChatBusy(true);
+    try {
+      const page = await api.get<{
+        items: ChatMessage[];
+        next_cursor: string | null;
+        latest_message_id: string | null;
+      }>(`/conversations/${conversation.id}/messages?limit=50`);
+      setChatMessages([...page.items].reverse());
+      setChatNextCursor(page.next_cursor);
+      if (page.latest_message_id) await markConversationRead(conversation.id, page.latest_message_id);
+      setError('');
+    } catch (e) { setError((e as Error).message); }
+    finally { setChatBusy(false); }
+  }
+
+  async function startDirectMessage(userId: string) {
+    setChatBusy(true);
+    try {
+      const result = await api.post<{ item: ChatConversation }>('/conversations/direct', { user_id: userId });
+      await loadConversations();
+      await openConversation(result.item);
+      setError('');
+    } catch (e) { setError((e as Error).message); }
+    finally { setChatBusy(false); }
+  }
+
+  function closeConversation() {
+    setActiveConversation(null);
+    setChatMessages([]);
+    setChatNextCursor(null);
+    setChatDraft('');
+  }
+
+  async function loadOlderMessages() {
+    if (!activeConversation || !chatNextCursor || chatBusy) return;
+    setChatBusy(true);
+    try {
+      const page = await api.get<{ items: ChatMessage[]; next_cursor: string | null }>(
+        `/conversations/${activeConversation.id}/messages?limit=50&before=${encodeURIComponent(chatNextCursor)}`
+      );
+      setChatMessages(current => {
+        const known = new Set(current.map(item => item.id));
+        return [...page.items.reverse().filter(item => !known.has(item.id)), ...current];
+      });
+      setChatNextCursor(page.next_cursor);
+    } catch (e) { setError((e as Error).message); }
+    finally { setChatBusy(false); }
+  }
+
+  async function sendChatMessage(event: React.FormEvent) {
+    event.preventDefault();
+    const content = chatDraft.trim();
+    if (!activeConversation || !content || chatSending) return;
+    setChatSending(true);
+    try {
+      const result = await api.post<{ item: ChatMessage }>(`/conversations/${activeConversation.id}/messages`, {
+        client_id: crypto.randomUUID(),
+        content
+      });
+      setChatMessages(current => current.some(item => item.id === result.item.id) ? current : [...current, result.item]);
+      setChatDraft('');
+      await loadConversations();
+      setError('');
+    } catch (e) { setError((e as Error).message); }
+    finally { setChatSending(false); }
+  }
+
+  async function deleteChatMessage(messageId: string) {
+    if (!window.confirm('删除这条消息？删除后会保留审计占位。')) return;
+    try {
+      const result = await api.del<{ item: Partial<ChatMessage> }>(`/messages/${messageId}`);
+      setChatMessages(current => current.map(item => item.id === messageId
+        ? { ...item, ...result.item, status: 'deleted', content_markdown: '该消息已删除', content_html: '<p>该消息已删除</p>' }
+        : item));
+      await loadConversations();
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function reportChatMessage(messageId: string) {
+    const reason = window.prompt('举报原因（如：辱骂、隐私、广告等）');
+    if (!reason) return;
+    const details = window.prompt('补充说明（可选）') ?? '';
+    try {
+      await api.post('/reports', { target_type: 'message', target_id: messageId, reason, details });
+      setSuccess('举报已提交，监管者会查看该消息附近的有限上下文');
+      setError('');
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function toggleChatBlock(userId: string, blocked: boolean) {
+    try {
+      if (blocked) await api.del(`/users/${userId}/block`);
+      else await api.post(`/users/${userId}/block`, {});
+      const nextBlocked = !blocked;
+      setConversations(current => current.map(item => item.counterpart?.id === userId
+        ? { ...item, blocked_by_me: nextBlocked }
+        : item));
+      setActiveConversation(current => current?.counterpart?.id === userId
+        ? { ...current, blocked_by_me: nextBlocked }
+        : current);
+      setSuccess(nextBlocked ? '已屏蔽该用户' : '已取消屏蔽');
+      setError('');
+    } catch (e) { setError((e as Error).message); }
   }
 
   const activeBoard = view.name === 'board' ? view.board : null;
@@ -710,6 +889,7 @@ export default function App() {
   const openReports = useMemo(() => adminReports.filter(r => r.status === 'open' || r.status === 'in_review').length, [adminReports]);
   const unusedInvitations = useMemo(() => adminInvitations.filter(i => !i.used_by).length, [adminInvitations]);
   const totalReplies = useMemo(() => threads.reduce((sum, t) => sum + t.reply_count, 0), [threads]);
+  const chatUnreadCount = useMemo(() => conversations.reduce((sum, item) => sum + item.unread_count, 0), [conversations]);
 
   const forum: SkinContext = {
     site: {
@@ -729,7 +909,9 @@ export default function App() {
     session: { me, providers, isStaff, isAdmin, isOwner },
     data: {
       boards, threads, feed, feedCursor, feedBusy, bookmarks, searchResults, searchResultQuery, searchBusy,
-      posts, announcements, notifications, totalReplies,
+      posts, announcements, notifications,
+      conversations, activeConversation, chatMessages, chatNextCursor, chatBusy, chatSending, chatUnreadCount,
+      totalReplies,
       adminUsers, adminReports, adminInvitations, pendingCount, openReports, unusedInvitations,
       announcementAnchorId: ANNOUNCEMENT_ANCHOR
     },
@@ -737,7 +919,7 @@ export default function App() {
       username, setUsername, password, setPassword, regForm, setRegForm,
       profile, profileForm, setProfileForm,
       reply, setReply, newTitle, setNewTitle, newContent, setNewContent,
-      composeBoard, setComposeBoard, searchQuery, setSearchQuery,
+      composeBoard, setComposeBoard, searchQuery, setSearchQuery, chatDraft, setChatDraft,
       announcementForm, setAnnouncementForm, newBoardForm, setNewBoardForm,
       settings, settingsForm, setSettingsForm, siteConfig, setSiteConfig,
       diagnostics, diagnosticsBusy
@@ -748,6 +930,8 @@ export default function App() {
     },
     actions: {
       reloadBase: loadBase, loadMoreFeed, loadBookmarks, searchForum, toggleBookmark, likeThread,
+      loadConversations, startDirectMessage, openConversation, closeConversation,
+      loadOlderMessages, sendChatMessage, deleteChatMessage, reportChatMessage, toggleChatBlock,
       openThread, loadNotifications, login, logout, register, saveProfile,
       createThread, createReply, submitReport, loadAdmin, saveSettings, saveSiteConfig,
       runDiagnostics, resetSettingsPassword, activateUser, setUserStatus,

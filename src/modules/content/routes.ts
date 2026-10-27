@@ -15,7 +15,7 @@ interface ThreadRow {
   id: string; board_id: string; author_id: string; title: string; slug: string; status: string;
   is_pinned: number; view_count: number; reply_count: number; last_activity_at: string; created_at: string; updated_at: string;
   author_username?: string; author_real_name?: string; author_enrollment_year?: string; author_role?: string;
-  board_slug?: string; board_name?: string; preview_html?: string | null; like_count?: number;
+  board_slug?: string; board_name?: string; preview_html?: string | null; like_count?: number; liked_by_me?: number;
 }
 
 function boardJson(row: BoardRow) {
@@ -26,6 +26,7 @@ function threadJson(row: ThreadRow) {
     ...row,
     is_pinned: row.is_pinned === 1,
     like_count: Number(row.like_count ?? 0),
+    liked_by_me: row.liked_by_me === 1,
     author: row.author_username ? {
       id: row.author_id, username: row.author_username, real_name: row.author_real_name,
       enrollment_year: row.author_enrollment_year, role: row.author_role
@@ -38,6 +39,7 @@ export const contentRoutes = new Hono<{ Bindings: Env }>();
 // Chronological, cross-board timeline. The cursor follows the same
 // (created_at, id) ordering as the query, including tied timestamps.
 contentRoutes.get('/feed', async c => {
+  const viewer = await loadSession(c);
   const limit = Number(c.req.query('limit') ?? 20);
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw badRequest('分页大小无效');
   const cursor = c.req.query('cursor') ?? null;
@@ -48,6 +50,8 @@ contentRoutes.get('/feed', async c => {
             u.enrollment_year AS author_enrollment_year, u.role AS author_role,
             (SELECT COUNT(*) FROM reactions r
               WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
+            EXISTS(SELECT 1 FROM reactions r
+              WHERE r.user_id = ? AND r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS liked_by_me,
             (SELECT p.content_html FROM posts p
               WHERE p.thread_id = t.id AND p.floor_number = 1 AND p.status = 'published'
               LIMIT 1) AS preview_html
@@ -58,7 +62,7 @@ contentRoutes.get('/feed', async c => {
         AND (? IS NULL OR (t.created_at, t.id) <
           (SELECT created_at, id FROM threads WHERE id = ?))
       ORDER BY t.created_at DESC, t.id DESC LIMIT ?`
-  ).bind(cursor, cursor, limit + 1).all<ThreadRow>();
+  ).bind(viewer?.id ?? '', cursor, cursor, limit + 1).all<ThreadRow>();
   const page = (rows.results ?? []).slice(0, limit);
   return c.json({
     items: page.map(row => ({ ...threadJson(row), board: { slug: row.board_slug, name: row.board_name } })),
@@ -92,6 +96,7 @@ contentRoutes.post('/boards', async c => {
 });
 
 contentRoutes.get('/boards/:slug/threads', async c => {
+  const viewer = await loadSession(c);
   const slug = c.req.param('slug');
   const board = await c.env.DB.prepare('SELECT id FROM boards WHERE slug = ? AND is_active = 1').bind(slug).first<{ id: string }>();
   if (!board) throw notFound('板块不存在');
@@ -99,11 +104,12 @@ contentRoutes.get('/boards/:slug/threads', async c => {
   const cursor = c.req.query('cursor');
   const rows = await c.env.DB.prepare(
     `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
-            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count
+            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
+            EXISTS(SELECT 1 FROM reactions r WHERE r.user_id = ? AND r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS liked_by_me
        FROM threads t JOIN users u ON u.id = t.author_id
       WHERE t.board_id = ? AND t.status = 'published' AND (? IS NULL OR t.id < ?)
       ORDER BY t.is_pinned DESC, t.last_activity_at DESC, t.id DESC LIMIT ?`
-  ).bind(board.id, cursor ?? null, cursor ?? null, limit + 1).all<ThreadRow>();
+  ).bind(viewer?.id ?? '', board.id, cursor ?? null, cursor ?? null, limit + 1).all<ThreadRow>();
   const items = (rows.results ?? []).slice(0, limit).map(threadJson);
   const hasMore = (rows.results ?? []).length > limit;
   return c.json({ items, next_cursor: hasMore ? items[items.length - 1]?.id ?? null : null });
@@ -142,14 +148,15 @@ function slugifyTitle(title: string): string {
 
 contentRoutes.get('/threads/:id', async c => {
   const id = c.req.param('id');
+  const viewer = await loadSession(c);
   const row = await c.env.DB.prepare(
     `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
-            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count
+            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
+            EXISTS(SELECT 1 FROM reactions r WHERE r.user_id = ? AND r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS liked_by_me
        FROM threads t JOIN users u ON u.id = t.author_id WHERE t.id = ? AND t.status != 'deleted'`
-  ).bind(id).first<ThreadRow>();
+  ).bind(viewer?.id ?? '', id).first<ThreadRow>();
   if (!row) throw notFound('话题不存在');
   if (row.status === 'hidden') {
-    const viewer = await loadSession(c);
     if (!viewer || !canModerate(viewer)) throw new AppError('FORBIDDEN', '话题已隐藏');
   }
   const posts = await c.env.DB.prepare(
@@ -259,10 +266,11 @@ contentRoutes.get('/bookmarks', async c => {
   const actor = await requireUser(c);
   const rows = await c.env.DB.prepare(
     `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
-            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count
+            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
+            EXISTS(SELECT 1 FROM reactions r WHERE r.user_id = ? AND r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS liked_by_me
        FROM bookmarks b JOIN threads t ON t.id = b.thread_id JOIN users u ON u.id = t.author_id
       WHERE b.user_id = ? AND t.status != 'deleted' ORDER BY b.created_at DESC LIMIT 100`
-  ).bind(actor.id).all<ThreadRow>();
+  ).bind(actor.id, actor.id).all<ThreadRow>();
   return c.json({ items: (rows.results ?? []).map(threadJson) });
 });
 
@@ -289,7 +297,7 @@ contentRoutes.put('/reactions', async c => {
     `SELECT SUM(CASE WHEN reaction='like' THEN 1 ELSE 0 END) AS likes, SUM(CASE WHEN reaction='dislike' THEN 1 ELSE 0 END) AS dislikes
        FROM reactions WHERE target_type = ? AND target_id = ?`
   ).bind(targetType, targetId).first<{ likes: number | null; dislikes: number | null }>();
-  return c.json({ likes: counts?.likes ?? 0, dislikes: counts?.dislikes ?? 0 });
+  return c.json({ likes: counts?.likes ?? 0, dislikes: counts?.dislikes ?? 0, liked: reaction === 'like' });
 });
 
 contentRoutes.delete('/reactions', async c => {
@@ -299,19 +307,25 @@ contentRoutes.delete('/reactions', async c => {
   if (!['thread','post'].includes(targetType) || !targetId) throw badRequest('参数无效');
   await c.env.DB.prepare('DELETE FROM reactions WHERE user_id = ? AND target_type = ? AND target_id = ?')
     .bind(actor.id, targetType, targetId).run();
-  return c.json({ success: true });
+  const counts = await c.env.DB.prepare(
+    `SELECT SUM(CASE WHEN reaction='like' THEN 1 ELSE 0 END) AS likes, SUM(CASE WHEN reaction='dislike' THEN 1 ELSE 0 END) AS dislikes
+       FROM reactions WHERE target_type = ? AND target_id = ?`
+  ).bind(targetType, targetId).first<{ likes: number | null; dislikes: number | null }>();
+  return c.json({ success: true, likes: counts?.likes ?? 0, dislikes: counts?.dislikes ?? 0, liked: false });
 });
 
 contentRoutes.get('/search', async c => {
+  const viewer = await loadSession(c);
   const q = (c.req.query('q') ?? '').trim();
   if (q.length < 1 || q.length > 100) throw badRequest('搜索词必须为 1-100 字符');
   const pattern = `%${q}%`;
   const threads = await c.env.DB.prepare(
     `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
-            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count
+            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
+            EXISTS(SELECT 1 FROM reactions r WHERE r.user_id = ? AND r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS liked_by_me
        FROM threads t JOIN users u ON u.id = t.author_id
       WHERE t.status = 'published' AND t.title LIKE ? ORDER BY t.last_activity_at DESC LIMIT 20`
-  ).bind(pattern).all<ThreadRow>();
+  ).bind(viewer?.id ?? '', pattern).all<ThreadRow>();
   const posts = await c.env.DB.prepare(
     `SELECT p.id, p.thread_id, p.floor_number, p.created_at, t.title AS thread_title
        FROM posts p JOIN threads t ON t.id = p.thread_id
