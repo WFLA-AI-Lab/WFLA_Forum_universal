@@ -159,8 +159,12 @@ try {
   Assert-SelfHostPortAvailable -Port $port
 
   $publicIndex = Join-Path $script:Root 'public\index.html'
-  if (-not $NoBuild -and -not (Test-Path -LiteralPath $publicIndex)) {
-    Write-Host '没有找到构建后的前端，正在自动构建……' -ForegroundColor Yellow
+  # The checked-in frontend source may have changed after git pull while
+  # public/ still contains an older Vite build. Rebuild by default so the
+  # server never serves stale UI code; -NoBuild remains available when the
+  # operator intentionally wants to reuse an existing artifact.
+  if (-not $NoBuild) {
+    Write-Host '正在同步最新前端构建……' -ForegroundColor Yellow
     Build-Frontend
   }
   if (-not (Test-Path -LiteralPath $publicIndex)) { throw '前端仍未构建，请检查 frontend/dist 或 public/index.html。' }
