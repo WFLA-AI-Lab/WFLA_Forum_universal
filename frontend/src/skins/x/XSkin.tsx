@@ -127,7 +127,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
         </button>
         <footer>
           <button type="button" onClick={() => void actions.openThread(thread.id)} aria-label="查看回复"><Icon name="reply" size={19}/><span>{thread.reply_count}</span></button>
-          <button type="button" onClick={() => void actions.likeThread(thread.id)} aria-label="点赞"><Icon name="heart" size={19}/><span>赞</span></button>
+          <button type="button" onClick={() => void actions.likeThread(thread.id)} aria-label={`点赞，当前 ${thread.like_count} 个赞`}><Icon name="heart" size={19}/><span>{thread.like_count}</span></button>
           <button type="button" className={bookmarked ? 'active' : ''} onClick={() => void actions.toggleBookmark(thread.id, bookmarked)} aria-label={bookmarked ? '取消收藏' : '收藏'}><Icon name="bookmark" size={19}/></button>
           <span className="x-views">{thread.view_count} 浏览</span>
         </footer>

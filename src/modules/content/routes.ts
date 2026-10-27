@@ -15,7 +15,7 @@ interface ThreadRow {
   id: string; board_id: string; author_id: string; title: string; slug: string; status: string;
   is_pinned: number; view_count: number; reply_count: number; last_activity_at: string; created_at: string; updated_at: string;
   author_username?: string; author_real_name?: string; author_enrollment_year?: string; author_role?: string;
-  board_slug?: string; board_name?: string; preview_html?: string | null;
+  board_slug?: string; board_name?: string; preview_html?: string | null; like_count?: number;
 }
 
 function boardJson(row: BoardRow) {
@@ -25,6 +25,7 @@ function threadJson(row: ThreadRow) {
   return {
     ...row,
     is_pinned: row.is_pinned === 1,
+    like_count: Number(row.like_count ?? 0),
     author: row.author_username ? {
       id: row.author_id, username: row.author_username, real_name: row.author_real_name,
       enrollment_year: row.author_enrollment_year, role: row.author_role
@@ -45,6 +46,8 @@ contentRoutes.get('/feed', async c => {
     `SELECT t.*, b.slug AS board_slug, b.name AS board_name,
             u.username AS author_username, u.real_name AS author_real_name,
             u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            (SELECT COUNT(*) FROM reactions r
+              WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
             (SELECT p.content_html FROM posts p
               WHERE p.thread_id = t.id AND p.floor_number = 1 AND p.status = 'published'
               LIMIT 1) AS preview_html
@@ -95,7 +98,8 @@ contentRoutes.get('/boards/:slug/threads', async c => {
   const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 20), 1), 50);
   const cursor = c.req.query('cursor');
   const rows = await c.env.DB.prepare(
-    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
+    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count
        FROM threads t JOIN users u ON u.id = t.author_id
       WHERE t.board_id = ? AND t.status = 'published' AND (? IS NULL OR t.id < ?)
       ORDER BY t.is_pinned DESC, t.last_activity_at DESC, t.id DESC LIMIT ?`
@@ -139,7 +143,8 @@ function slugifyTitle(title: string): string {
 contentRoutes.get('/threads/:id', async c => {
   const id = c.req.param('id');
   const row = await c.env.DB.prepare(
-    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
+    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count
        FROM threads t JOIN users u ON u.id = t.author_id WHERE t.id = ? AND t.status != 'deleted'`
   ).bind(id).first<ThreadRow>();
   if (!row) throw notFound('话题不存在');
@@ -253,7 +258,8 @@ contentRoutes.delete('/threads/:id/bookmark', async c => {
 contentRoutes.get('/bookmarks', async c => {
   const actor = await requireUser(c);
   const rows = await c.env.DB.prepare(
-    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
+    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count
        FROM bookmarks b JOIN threads t ON t.id = b.thread_id JOIN users u ON u.id = t.author_id
       WHERE b.user_id = ? AND t.status != 'deleted' ORDER BY b.created_at DESC LIMIT 100`
   ).bind(actor.id).all<ThreadRow>();
@@ -301,7 +307,8 @@ contentRoutes.get('/search', async c => {
   if (q.length < 1 || q.length > 100) throw badRequest('搜索词必须为 1-100 字符');
   const pattern = `%${q}%`;
   const threads = await c.env.DB.prepare(
-    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
+    `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count
        FROM threads t JOIN users u ON u.id = t.author_id
       WHERE t.status = 'published' AND t.title LIKE ? ORDER BY t.last_activity_at DESC LIMIT 20`
   ).bind(pattern).all<ThreadRow>();
