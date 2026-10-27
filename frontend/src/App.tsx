@@ -243,21 +243,29 @@ export default function App() {
   }, [me?.id]);
 
   useEffect(() => {
-    if (!me || view.name !== 'community' || !activeConversation) return;
+    if (!me || view.name !== 'community') return;
     let cancelled = false;
     const poll = async () => {
-      const latest = chatMessagesRef.current[chatMessagesRef.current.length - 1];
-      if (!latest || document.hidden) return;
+      if (document.hidden) return;
       try {
+        if (!activeConversation) {
+          await loadConversations();
+          return;
+        }
+        const latest = chatMessagesRef.current[chatMessagesRef.current.length - 1];
+        const query = latest
+          ? `after=${encodeURIComponent(latest.id)}&limit=100`
+          : 'limit=100';
         const page = await api.get<{ items: ChatMessage[]; next_after: string | null }>(
-          `/conversations/${activeConversation.id}/messages?after=${encodeURIComponent(latest.id)}&limit=100`
+          `/conversations/${activeConversation.id}/messages?${query}`
         );
-        if (cancelled || page.items.length === 0) return;
+        if (cancelled) return;
+        const incoming = latest ? page.items : [...page.items].reverse();
         setChatMessages(current => {
           const known = new Set(current.map(item => item.id));
-          return [...current, ...page.items.filter(item => !known.has(item.id))];
+          return [...current, ...incoming.filter(item => !known.has(item.id))];
         });
-        const newest = page.items[page.items.length - 1];
+        const newest = incoming[incoming.length - 1];
         if (newest) await markConversationRead(activeConversation.id, newest.id);
         await loadConversations();
       } catch { /* Preserve the open conversation during transient polling failures. */ }
