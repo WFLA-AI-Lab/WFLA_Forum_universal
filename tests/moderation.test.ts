@@ -112,6 +112,32 @@ describe('moderation safety', () => {
     expect(notification?.id).toBeTruthy();
   });
 
+  it('publishes scheduled announcements, notifies members and honors guest-read policy', async () => {
+    const admin = await user('announcement-admin', 'announcement-admin', 'admin');
+    const member = await user('announcement-member', 'announcement-member', 'member');
+    const created = await app.request('/api/v1/announcements', {
+      method: 'POST',
+      headers: { ...cookie(admin), ...json({}) },
+      body: JSON.stringify({ title: '测试公告', content: '**公告正文** <script>alert(1)</script>', level: 'important' })
+    }, env);
+    expect(created.status).toBe(201);
+
+    const publicList = await app.request('/api/v1/announcements', {}, env);
+    expect(publicList.status).toBe(200);
+    const publicBody = await publicList.json() as { items: { title: string; content_html: string }[] };
+    expect(publicBody.items[0]).toMatchObject({ title: '测试公告' });
+    expect(publicBody.items[0]?.content_html).toContain('<strong>公告正文</strong>');
+    expect(publicBody.items[0]?.content_html).not.toContain('<script>');
+    const notification = await env.DB.prepare(
+      "SELECT id FROM notifications WHERE recipient_id = ? AND type = 'announcement'"
+    ).bind('announcement-member').first<{ id: string }>();
+    expect(notification?.id).toBeTruthy();
+
+    await env.DB.prepare("UPDATE app_settings SET value = 'false' WHERE key = 'guest_read_enabled'").run();
+    expect((await app.request('/api/v1/announcements', {}, env)).status).toBe(401);
+    expect((await app.request('/api/v1/announcements', { headers: cookie(member) }, env)).status).toBe(200);
+  });
+
   it('supports temporary sanctions and automatic expiry', async () => {
     const member = await user('member-temp', 'member-temp', 'member');
     const owner = await user('owner-temp', 'owner-temp', 'owner');

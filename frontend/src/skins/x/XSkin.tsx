@@ -251,6 +251,8 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   }
 
   function Body() {
+    const guestEntry = view.name === 'profile' || view.name === 'login' || view.name === 'register' || view.name === 'settings';
+    if (!me && !site.guest_read_enabled && !guestEntry) return AuthPanel();
     if (view.name === 'home') return Home();
     if (view.name === 'announcements') return Announcements();
     if (view.name === 'community') return Community();

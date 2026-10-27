@@ -175,7 +175,8 @@ chatRoutes.post('/conversations/:id/read', async c => {
        JOIN chat_members cm ON cm.last_read_message_id = m.id
       WHERE cm.conversation_id = ? AND cm.user_id = ? LIMIT 1`
   ).bind(conversation.id, actor.id).first<{ id: string; created_at: string }>();
-  if (!current || target.created_at > current.created_at) {
+  if (!current || target.created_at > current.created_at ||
+      (target.created_at === current.created_at && target.id > current.id)) {
     await c.env.DB.prepare(
       `UPDATE chat_members
           SET last_read_message_id = ?, last_read_at = ?

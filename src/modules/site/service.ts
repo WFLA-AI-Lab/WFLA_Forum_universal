@@ -40,6 +40,11 @@ export async function rawSiteSetting(env: Env, key: SiteSettingKey): Promise<str
   const map = await readSiteRows(env);
   return rawValue(map, key);
 }
+
+/** Returns whether unauthenticated visitors may read forum content. */
+export async function isGuestReadEnabled(env: Env): Promise<boolean> {
+  return parseBoolean(await rawSiteSetting(env, 'guest_read_enabled'), true);
+}
 export interface PublicSiteConfig {
   forum_name: string;
   tagline: string;

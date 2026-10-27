@@ -242,8 +242,8 @@ export async function conversationJson(
   const unread = member?.last_read_message_id
     ? await env.DB.prepare(
       `SELECT COUNT(*) AS total FROM chat_messages
-        WHERE conversation_id = ? AND created_at >
-          (SELECT created_at FROM chat_messages WHERE id = ?)
+        WHERE conversation_id = ? AND (created_at, id) >
+          (SELECT created_at, id FROM chat_messages WHERE id = ?)
           AND status = 'published' AND sender_id != ?`
     ).bind(conversation.id, member.last_read_message_id, viewerId).first<{ total: number }>()
     : await env.DB.prepare(

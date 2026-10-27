@@ -12,8 +12,12 @@ beforeEach(async () => {
   ({ env, mf } = await createTestEnv());
   const schema = readFileSync('src/migrations/0001_init.sql', 'utf8');
   const engagement = readFileSync('src/migrations/0004_engagement.sql', 'utf8');
+  const appSettings = readFileSync('src/migrations/0006_app_settings.sql', 'utf8');
+  const siteSettings = readFileSync('src/migrations/0007_site_settings.sql', 'utf8');
   const enrollment = readFileSync('src/migrations/0011_enrollment_year.sql', 'utf8');
-  for (const statement of (schema + ';' + engagement + ';' + enrollment).split(';').map(value => value.replace(/^\s*--.*$/gm, '').trim()).filter(value => value && !/^PRAGMA\b/i.test(value))) {
+  const migrations = (schema + ';' + engagement + ';' + appSettings + ';' + siteSettings + ';' + enrollment)
+    .replace(/^\s*--.*$/gm, '');
+  for (const statement of migrations.split(';').map(value => value.trim()).filter(value => value && !/^PRAGMA\b/i.test(value))) {
     await env.DB.prepare(statement).run();
   }
   const time = '2026-10-25T00:00:00.000Z';
@@ -78,5 +82,13 @@ describe('public feed', () => {
   it('rejects invalid pagination input', async () => {
     expect((await app.request('/api/v1/feed?limit=0', {}, env)).status).toBe(400);
     expect((await app.request('/api/v1/feed?cursor=not%20valid', {}, env)).status).toBe(400);
+  });
+
+  it('enforces the guest-read setting across public content routes', async () => {
+    await env.DB.prepare("UPDATE app_settings SET value = 'false' WHERE key = 'guest_read_enabled'").run();
+    for (const path of ['/feed', '/boards', '/boards/board-a/threads', '/threads/thread-a', '/search?q=thread', '/users/author']) {
+      expect((await app.request(`/api/v1${path}`, {}, env)).status, path).toBe(401);
+      expect((await app.request(`/api/v1${path}`, { headers: { Cookie: 'wfla_session=feed-token' } }, env)).status, path).toBe(200);
+    }
   });
 });

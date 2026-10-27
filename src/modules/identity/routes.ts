@@ -9,6 +9,7 @@ import { loadSession, newToken, requireUser, sessionCookieName, sha256 } from '.
 import { isAdmin, requireRole, ROLE_RANK } from '../access/service';
 import { insertAudit } from '../moderation/audit';
 import { enforceRateLimit } from './crypto';
+import { isGuestReadEnabled } from '../site/service';
 
 const bcryptHash = (password: string): Promise<string> => bcrypt.hash(password, 12);
 const bcryptCompare = (password: string, hash: string): Promise<boolean> => bcrypt.compare(password, hash);
@@ -160,6 +161,8 @@ identityRoutes.post('/users/:id/role', async c => {
   return c.json({ success: true });
 });
 identityRoutes.get('/users/:id', async c => {
+  const viewer = await loadSession(c);
+  if (!viewer && !(await isGuestReadEnabled(c.env))) throw unauthorized('请先登录后查看用户资料');
   const id = c.req.param('id');
   const row = await c.env.DB.prepare(
     'SELECT id, username, real_name, enrollment_year, role, status, created_at, updated_at FROM users WHERE id = ? AND status != ?'
