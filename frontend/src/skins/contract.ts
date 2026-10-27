@@ -67,6 +67,7 @@ export interface Thread {
   is_pinned: boolean;
   view_count: number;
   reply_count: number;
+  like_count: number;
   last_activity_at: string;
   created_at: string;
   author_id: string;

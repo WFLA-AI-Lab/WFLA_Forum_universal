@@ -448,7 +448,18 @@ export default function App() {
 
   async function likeThread(threadId: string) {
     if (!me) { setView({ name: 'settings' }); return; }
-    try { await api.put('/reactions', { target_type: 'thread', target_id: threadId, reaction: 'like' }); setSuccess('已点赞'); }
+    try {
+      const result = await api.put<{ likes: number }>('/reactions', { target_type: 'thread', target_id: threadId, reaction: 'like' });
+      const update = (thread: Thread): Thread => thread.id === threadId ? { ...thread, like_count: result.likes } : thread;
+      setFeed(current => current.map(update));
+      setThreads(current => current.map(update));
+      setBookmarks(current => current.map(update));
+      setSearchResults(current => current ? { ...current, threads: current.threads.map(update) } : current);
+      setView(current => current.name === 'thread' && current.thread.id === threadId
+        ? { ...current, thread: update(current.thread) }
+        : current);
+      setSuccess('已点赞');
+    }
     catch (e) { setError((e as Error).message); }
   }
 
