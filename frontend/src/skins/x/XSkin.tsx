@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Board, NotificationItem, SkinContext, Thread, View } from '../contract';
 import './x.css';
 
@@ -46,12 +46,17 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   const { site, session, data, forms, messages, actions, view, setView, helpers, ui } = forum;
   const { me, providers, isAdmin } = session;
   const [profileTab, setProfileTab] = useState<'posts' | 'saved'>('posts');
-  const [selectedContact, setSelectedContact] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
   const activeBoard = view.name === 'board' ? view.board : null;
   const activeThread = view.name === 'thread' ? view.thread : null;
   const bookmarkedIds = useMemo(() => new Set(data.bookmarks.map(item => item.id)), [data.bookmarks]);
   const ownThreads = useMemo(() => me ? data.feed.filter(item => item.author_id === me.id) : [], [data.feed, me]);
-  const clubBoards = useMemo(() => data.boards.filter(board => /社团|club|societ|协会|学生会/i.test(`${board.name} ${board.slug} ${board.description}`)), [data.boards]);
+  const directConversations = useMemo(() => data.conversations.filter(item => item.type === 'direct'), [data.conversations]);
+  const groupConversations = useMemo(() => data.conversations.filter(item => item.type === 'group'), [data.conversations]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [data.activeConversation?.id, data.chatMessages.length]);
 
   function go(next: View) {
     setView(next);
@@ -127,7 +132,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
         </button>
         <footer>
           <button type="button" onClick={() => void actions.openThread(thread.id)} aria-label="查看回复"><Icon name="reply" size={19}/><span>{thread.reply_count}</span></button>
-          <button type="button" onClick={() => void actions.likeThread(thread.id)} aria-label={`点赞，当前 ${thread.like_count} 个赞`}><Icon name="heart" size={19}/><span>{thread.like_count}</span></button>
+          <button type="button" className={thread.liked_by_me ? 'liked' : ''} aria-pressed={thread.liked_by_me} onClick={() => void actions.likeThread(thread.id)} aria-label={`${thread.liked_by_me ? '取消点赞' : '点赞'}，当前 ${thread.like_count} 个赞`}><Icon name="heart" size={19}/><span>{thread.like_count}</span></button>
           <button type="button" className={bookmarked ? 'active' : ''} onClick={() => void actions.toggleBookmark(thread.id, bookmarked)} aria-label={bookmarked ? '取消收藏' : '收藏'}><Icon name="bookmark" size={19}/></button>
           <span className="x-views">{thread.view_count} 浏览</span>
         </footer>
@@ -168,19 +173,32 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   function Community() {
     if (!me) return AuthPanel();
     const contacts = data.searchResults?.users.filter(user => user.id !== me.id) ?? [];
-    const selected = contacts.find(user => user.id === selectedContact);
+    const active = data.activeConversation;
+    const unavailable = active?.blocked_by_me || active?.blocked_me || active?.counterpart?.status === 'banned' || active?.counterpart?.status === 'deleted';
     return <><div className="x-page-intro"><div><span className="x-eyebrow">WFLA COMMUNITY</span><h1>社区</h1><p>在社团群组中交流，或查找一个联系人</p></div></div>
-      <div className="x-community">
+      <div className={active ? 'x-community has-active' : 'x-community'}>
         <section className="x-community-list">
-          <header><h2>社团群组</h2><span>{clubBoards.length}</span></header>
-          {clubBoards.length ? clubBoards.map(board => <button key={board.id} type="button" className="x-community-row" onClick={() => go({ name: 'board', board })}><span className="x-group-icon"><Icon name="group"/></span><span><b>{board.name}</b><small>{board.description || '社团成员交流区'}</small></span><i>进入</i></button>) : <div className="x-community-empty">暂无已启用的社团交流群</div>}
-          <header><h2>联系人</h2></header>
+          <header><h2>社团群组</h2><span>{groupConversations.length}</span></header>
+          {groupConversations.length ? groupConversations.map(item => <button key={item.id} type="button" className={active?.id === item.id ? 'x-community-row active' : 'x-community-row'} onClick={() => void actions.openConversation(item)}><span className="x-group-icon"><Icon name="group"/></span><span><b>{item.title}</b><small>{item.last_message?.content_markdown || item.description || '社团成员交流群'}</small></span>{item.unread_count > 0 && <i className="x-unread">{item.unread_count}</i>}</button>) : <div className="x-community-empty">暂无加入的社团群组</div>}
+          <header><h2>私信</h2><span>{directConversations.length}</span></header>
+          {directConversations.map(item => <button key={item.id} type="button" className={active?.id === item.id ? 'x-community-row active' : 'x-community-row'} onClick={() => void actions.openConversation(item)}><Avatar name={item.counterpart?.real_name || item.title} size={40}/><span><b>{item.title}</b><small>{item.last_message?.status === 'deleted' ? '该消息已删除' : item.last_message?.content_markdown || '开始对话'}</small></span>{item.unread_count > 0 && <i className="x-unread">{item.unread_count}</i>}</button>)}
+          {!directConversations.length && <div className="x-community-empty">还没有私信，搜索联系人开始对话</div>}
+          <header><h2>查找联系人</h2></header>
           <form className="x-contact-search" onSubmit={event => { event.preventDefault(); void actions.searchForum(forms.searchQuery).then(() => setView({ name: 'community' })); }}><Icon name="search" size={18}/><input value={forms.searchQuery} onChange={event => forms.setSearchQuery(event.target.value)} placeholder="搜索姓名或用户名"/><button type="submit">搜索</button></form>
-          {data.searchBusy ? <div className="x-community-empty">正在搜索…</div> : contacts.map(user => <button key={user.id} type="button" className={selectedContact === user.id ? 'x-community-row active' : 'x-community-row'} onClick={() => setSelectedContact(user.id)}><Avatar name={user.real_name} size={40}/><span><b>{user.real_name}</b><small>{user.enrollment_year} 入学 · {ui.roleLabel[user.role] || user.role}</small></span></button>)}
+          {data.searchBusy ? <div className="x-community-empty">正在搜索…</div> : contacts.map(user => <button key={user.id} type="button" className="x-community-row" onClick={() => void actions.startDirectMessage(user.id)}><Avatar name={user.real_name} size={40}/><span><b>{user.real_name}</b><small>{user.enrollment_year} 入学 · {ui.roleLabel[user.role] || user.role}</small></span><i>私信</i></button>)}
           {data.searchResultQuery && !data.searchBusy && !contacts.length && <div className="x-community-empty">未找到联系人</div>}
         </section>
         <section className="x-conversation">
-          {selected ? <><header><Avatar name={selected.real_name} size={38}/><div><b>{selected.real_name}</b><small>{selected.enrollment_year} 入学</small></div></header><Empty icon="send" title="尚未开始对话" body="私信接口开放后，对话内容会显示在这里。"/><div className="x-message-compose"><input disabled placeholder="私信功能等待后端接口"/><button disabled><Icon name="send" size={18}/></button></div></> : <Empty icon="community" title="选择一个联系人" body="搜索并选择联系人以打开交流窗口。"/>}
+          {active ? <>
+            <header><button type="button" className="x-chat-back" aria-label="返回会话列表" onClick={actions.closeConversation}><Icon name="back" size={20}/></button>{active.type === 'direct' ? <Avatar name={active.counterpart?.real_name || active.title} size={38}/> : <span className="x-group-icon"><Icon name="group"/></span>}<div><b>{active.title}</b><small>{active.type === 'direct' ? `${active.counterpart?.enrollment_year || ''} 入学` : active.description || '社团群组'}</small></div>{active.type === 'direct' && active.counterpart && <button type="button" className="x-chat-block" onClick={() => void actions.toggleChatBlock(active.counterpart!.id, active.blocked_by_me)}>{active.blocked_by_me ? '取消屏蔽' : '屏蔽'}</button>}</header>
+            <div className="x-message-list">
+              {data.chatNextCursor && <button type="button" className="x-load-older" disabled={data.chatBusy} onClick={() => void actions.loadOlderMessages()}>{data.chatBusy ? '正在加载…' : '加载更早消息'}</button>}
+              {data.chatBusy && data.chatMessages.length === 0 ? <div className="x-community-empty">正在加载消息…</div> : data.chatMessages.length === 0 ? <Empty icon="send" title="尚未开始对话" body="发送第一条消息吧。"/> : data.chatMessages.map(item => <article key={item.id} className={item.sender_id === me.id ? 'x-message own' : 'x-message'}><Avatar name={item.sender?.real_name || 'WFLAer'} size={32}/><div><header><b>{item.sender?.real_name || '已删除用户'}</b><time>{helpers.formatDate(item.created_at)}</time></header><div className={item.status === 'deleted' ? 'x-message-body deleted' : 'x-message-body'} dangerouslySetInnerHTML={{ __html: item.content_html }}/><footer>{item.sender_id === me.id && item.status === 'published' && <button type="button" onClick={() => void actions.deleteChatMessage(item.id)}>删除</button>}{item.sender_id !== me.id && item.status === 'published' && <button type="button" onClick={() => void actions.reportChatMessage(item.id)}>举报</button>}</footer></div></article>)}
+              <div ref={chatEndRef}/>
+            </div>
+            {unavailable && <div className="x-chat-unavailable">{active.blocked_by_me ? '你已屏蔽该用户，取消屏蔽后可继续发送。' : '当前无法向该用户发送消息。'}</div>}
+            <form className="x-message-compose" onSubmit={actions.sendChatMessage}><input value={forms.chatDraft} onChange={event => forms.setChatDraft(event.target.value)} maxLength={2000} disabled={Boolean(unavailable)} placeholder={unavailable ? '当前无法发送消息' : '发送私信'}/><span>{forms.chatDraft.length}/2000</span><button type="submit" disabled={Boolean(unavailable) || data.chatSending || !forms.chatDraft.trim()} aria-label="发送消息"><Icon name="send" size={18}/></button></form>
+          </> : <Empty icon="community" title="选择一个会话" body="打开已有私信，或搜索联系人开始对话。"/>}
         </section>
       </div>
     </>;
@@ -255,7 +273,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     <div className="x-shell">
       <aside className="x-rail">
         <button className="x-logo" type="button" onClick={() => go({ name: 'home' })}><img src="/wfla-school-logo.png" alt="WFLA 校徽"/></button>
-        <nav>{navItems.map(item => <a key={item.name} href="#" className={currentName === item.name ? 'active' : ''} onClick={nav({ name: item.name })}><Icon name={item.icon}/><span>{item.label}</span></a>)}</nav>
+        <nav>{navItems.map(item => <a key={item.name} href="#" className={currentName === item.name ? 'active' : ''} onClick={nav({ name: item.name })}><Icon name={item.icon}/><span>{item.label}</span>{item.name === 'community' && data.chatUnreadCount > 0 && <i className="x-nav-badge">{Math.min(data.chatUnreadCount, 99)}</i>}</a>)}</nav>
         {me && <button className="x-compose-button" type="button" onClick={() => go({ name: 'home' })}><Icon name="edit" size={19}/><span>发布动态</span></button>}
         <div className="x-account-mini">{me ? <><Avatar name={forms.profile?.nickname || me.real_name} src={forms.profile?.avatar_data_url} size={40}/><div><b>{forms.profile?.nickname || me.real_name}</b><span>@{me.username}</span></div><button type="button" aria-label="设置" onClick={() => go({ name: 'settings' })}><Icon name="more" size={20}/></button></> : <button className="x-signin-mini" type="button" onClick={() => go({ name: 'profile' })}>登录</button>}</div>
       </aside>
@@ -273,7 +291,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
         <footer>© 2026 WFLA · 校园社区</footer>
       </aside>
     </div>
-    <nav className="x-mobile-nav">{navItems.map(item => <button key={item.name} type="button" className={currentName === item.name ? 'active' : ''} aria-label={item.label} onClick={() => go({ name: item.name })}><Icon name={item.icon}/><span>{item.label}</span></button>)}</nav>
+    <nav className="x-mobile-nav">{navItems.map(item => <button key={item.name} type="button" className={currentName === item.name ? 'active' : ''} aria-label={item.label} onClick={() => go({ name: item.name })}><Icon name={item.icon}/><span>{item.label}</span>{item.name === 'community' && data.chatUnreadCount > 0 && <i className="x-nav-badge">{Math.min(data.chatUnreadCount, 99)}</i>}</button>)}</nav>
   </div>;
 }
 

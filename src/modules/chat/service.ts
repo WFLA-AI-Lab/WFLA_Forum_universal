@@ -214,12 +214,21 @@ export async function conversationJson(
     joined_at: string; left_at: string | null; last_read_message_id: string | null; last_read_at: string | null;
   }>();
   let counterpart = null;
+  let blockedByMe = false;
+  let blockedMe = false;
   if (conversation.type === 'direct') {
     counterpart = await env.DB.prepare(
       `SELECT u.id, u.username, u.real_name, u.enrollment_year, u.role, u.status
          FROM chat_members cm JOIN users u ON u.id = cm.user_id
         WHERE cm.conversation_id = ? AND cm.user_id != ? LIMIT 1`
     ).bind(conversation.id, viewerId).first();
+    if (counterpart && typeof counterpart === 'object' && 'id' in counterpart) {
+      const counterpartId = String(counterpart.id);
+      [blockedByMe, blockedMe] = await Promise.all([
+        isBlocked(env, viewerId, counterpartId),
+        isBlocked(env, counterpartId, viewerId)
+      ]);
+    }
   }
   let owner = null;
   if (conversation.type === 'group' && conversation.owner_user_id) {
@@ -247,6 +256,8 @@ export async function conversationJson(
     title: conversation.type === 'direct' ? counterpart?.real_name ?? '私聊' : conversation.name,
     description: conversation.description,
     counterpart,
+    blocked_by_me: blockedByMe,
+    blocked_me: blockedMe,
     owner,
     last_message: lastMessage,
     last_message_at: conversation.last_message_at,

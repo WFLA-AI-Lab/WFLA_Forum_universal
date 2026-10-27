@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import app from '../src/index';
 import type { Env } from '../src/env';
+import { sha256 } from '../src/modules/identity/session';
 import { createTestEnv } from './test-env';
 
 let env: Env;
@@ -35,6 +36,8 @@ beforeEach(async () => {
   }
   await env.DB.prepare("INSERT INTO reactions (id, user_id, target_type, target_id, reaction, created_at) VALUES (?, ?, 'thread', ?, 'like', ?)")
     .bind('reaction-thread-b', 'author', 'thread-b', time).run();
+  await env.DB.prepare('INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)')
+    .bind(await sha256('feed-token'), 'author', new Date(Date.now() + 3_600_000).toISOString(), time).run();
 });
 
 afterEach(async () => { await mf.dispose(); });
@@ -43,11 +46,12 @@ describe('public feed', () => {
   it('returns only published threads from active boards with stable pagination', async () => {
     const first = await app.request('/api/v1/feed?limit=1', {}, env);
     expect(first.status).toBe(200);
-    const firstPage = await first.json() as { items: { id: string; board: { slug: string }; preview_html: string; like_count: number }[]; next_cursor: string | null };
+    const firstPage = await first.json() as { items: { id: string; board: { slug: string }; preview_html: string; like_count: number; liked_by_me: boolean }[]; next_cursor: string | null };
     expect(firstPage.items.map(item => item.id)).toEqual(['thread-b']);
     expect(firstPage.items[0]?.board.slug).toBe('board-a');
     expect(firstPage.items[0]?.preview_html).toBe('<p>hello</p>');
     expect(firstPage.items[0]?.like_count).toBe(1);
+    expect(firstPage.items[0]?.liked_by_me).toBe(false);
     expect(firstPage.next_cursor).toBe('thread-b');
 
     const second = await app.request(`/api/v1/feed?limit=1&cursor=${firstPage.next_cursor}`, {}, env);
@@ -56,6 +60,19 @@ describe('public feed', () => {
     expect(secondPage.items.map(item => item.id)).toEqual(['thread-a']);
     expect(secondPage.items[0]?.like_count).toBe(0);
     expect(secondPage.next_cursor).toBeNull();
+  });
+
+  it('returns the current member reaction and supports toggling it off', async () => {
+    const authenticated = await app.request('/api/v1/feed?limit=1', {
+      headers: { Cookie: 'wfla_session=feed-token' }
+    }, env);
+    const page = await authenticated.json() as { items: { id: string; liked_by_me: boolean; like_count: number }[] };
+    expect(page.items[0]).toMatchObject({ id: 'thread-b', liked_by_me: true, like_count: 1 });
+
+    const removed = await app.request('/api/v1/reactions?target_type=thread&target_id=thread-b', {
+      method: 'DELETE', headers: { Cookie: 'wfla_session=feed-token' }
+    }, env);
+    expect(await removed.json()).toMatchObject({ liked: false, likes: 0 });
   });
 
   it('rejects invalid pagination input', async () => {

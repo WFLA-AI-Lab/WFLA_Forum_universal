@@ -68,6 +68,7 @@ export interface Thread {
   view_count: number;
   reply_count: number;
   like_count: number;
+  liked_by_me: boolean;
   last_activity_at: string;
   created_at: string;
   author_id: string;
@@ -91,6 +92,43 @@ export interface Post {
   created_at: string;
   author_id: string;
   author?: { username: string; real_name: string; enrollment_year: string; role: string };
+}
+
+export type ChatUser = Pick<User, 'id' | 'username' | 'real_name' | 'enrollment_year' | 'role' | 'status'>;
+
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  client_id: string;
+  content_markdown: string;
+  content_html: string;
+  status: 'published' | 'deleted';
+  created_at: string;
+  deleted_at: string | null;
+  sender: ChatUser | null;
+}
+
+export interface ChatConversation {
+  id: string;
+  type: 'direct' | 'group';
+  title: string;
+  description: string | null;
+  counterpart: ChatUser | null;
+  owner: ChatUser | null;
+  last_message: ChatMessage | null;
+  last_message_at: string | null;
+  unread_count: number;
+  blocked_by_me: boolean;
+  blocked_me: boolean;
+  member: {
+    joined_at: string;
+    left_at: string | null;
+    last_read_message_id: string | null;
+    last_read_at: string | null;
+  } | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Announcement {
@@ -118,7 +156,7 @@ export interface ReportItem {
   id: string;
   reporter_id: string;
   reporter_username?: string;
-  target_type: 'thread' | 'post' | 'user';
+  target_type: 'thread' | 'post' | 'user' | 'message';
   target_id: string;
   reason: string;
   details: string;
@@ -273,6 +311,13 @@ export interface SkinData {
   posts: Post[];
   announcements: Announcement[];
   notifications: NotificationItem[];
+  conversations: ChatConversation[];
+  activeConversation: ChatConversation | null;
+  chatMessages: ChatMessage[];
+  chatNextCursor: string | null;
+  chatBusy: boolean;
+  chatSending: boolean;
+  chatUnreadCount: number;
   /** Total replies across `threads`, pre-computed for stat strips. */
   totalReplies: number;
   adminUsers: User[];
@@ -339,6 +384,8 @@ export interface SkinForms {
   setComposeBoard: Setter<string>;
   searchQuery: string;
   setSearchQuery: Setter<string>;
+  chatDraft: string;
+  setChatDraft: Setter<string>;
   /* announcements + boards (admin) */
   announcementForm: AnnouncementFormState;
   setAnnouncementForm: Setter<AnnouncementFormState>;
@@ -371,6 +418,15 @@ export interface SkinActions {
   searchForum: (query: string) => Promise<void>;
   toggleBookmark: (threadId: string, bookmarked: boolean) => Promise<void>;
   likeThread: (threadId: string) => Promise<void>;
+  loadConversations: () => Promise<void>;
+  startDirectMessage: (userId: string) => Promise<void>;
+  openConversation: (conversation: ChatConversation) => Promise<void>;
+  closeConversation: () => void;
+  loadOlderMessages: () => Promise<void>;
+  sendChatMessage: (event: React.FormEvent) => Promise<void>;
+  deleteChatMessage: (messageId: string) => Promise<void>;
+  reportChatMessage: (messageId: string) => Promise<void>;
+  toggleChatBlock: (userId: string, blocked: boolean) => Promise<void>;
   openThread: (id: string) => Promise<void>;
   loadNotifications: () => Promise<void>;
   login: (event: React.FormEvent) => Promise<void>;
