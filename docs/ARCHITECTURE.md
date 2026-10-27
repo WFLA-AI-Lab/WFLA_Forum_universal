@@ -1,8 +1,8 @@
 # WFLA Wall 架构 / WFLA Wall Architecture
 
-> 本文档面向协作者（后端、前端、运维），描述现行 **v0.7.0** 的真实架构——
+> 本文档面向协作者（后端、前端、运维），描述现行 **v0.9.0** 的真实架构——
 > 不是早期设想，而是仓库里实际运行的东西。
-> This document describes the architecture as it actually ships in v0.7.0 —
+> This document describes the architecture as it actually ships in v0.9.0 —
 > not the early design sketch, but what the repository runs today.
 
 ---

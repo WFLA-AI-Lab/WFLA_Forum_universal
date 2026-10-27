@@ -22,7 +22,7 @@ export type UserStatus = 'pending' | 'active' | 'muted' | 'banned' | 'deleted';
 export type ThreadStatus = 'published' | 'hidden' | 'locked' | 'deleted';
 export type PostStatus = 'published' | 'hidden' | 'deleted';
 export type ReportStatus = 'open' | 'in_review' | 'resolved' | 'rejected';
-export type ReportTargetType = 'thread' | 'post' | 'user';
+export type ReportTargetType = 'thread' | 'post' | 'user' | 'message';
 
 export interface SessionUser {
   id: string;
@@ -40,6 +40,6 @@ export interface AuthContext {
 }
 
 export interface PaginationQuery {
-  limit?: number;
+  limit?: string;
   cursor?: string | null;
 }

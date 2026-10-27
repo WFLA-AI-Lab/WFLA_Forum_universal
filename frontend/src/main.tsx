@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import ChatTestPage from './ChatTestPage';
 import './skins/base.css';
 
 // First-paint guard for failures before App's skin error boundary exists.
@@ -11,6 +12,7 @@ function renderBootFallback(): void {
   }
 }
 window.addEventListener('error', renderBootFallback);
+const isChatTest = window.location.hash === '#/chat-test';
 
 /**
  * No skin stylesheet is imported here on purpose.
@@ -21,7 +23,7 @@ window.addEventListener('error', renderBootFallback);
  */
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    {isChatTest ? <ChatTestPage /> : <App />}
   </React.StrictMode>
 );
 

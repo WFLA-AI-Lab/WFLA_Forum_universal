@@ -59,6 +59,7 @@ export const SKIN_CONTRACT_VERSION = 3;      // 前端皮肤契约版本
 | `0010_admin_console.sql` | **10** | 管理备注、处置历史、邀请码吊销字段与管理查询索引 |
 | `0011_enrollment_year.sql` | **11** | 将 `users.graduation_year` 重命名为 `enrollment_year`，保留全部用户数据 |
 | `0012_invitation_roles.sql` | **12** | 邀请码增加目标角色：成员 / 监管者 / 管理员；旧邀请码默认为成员 |
+| `0014_chat.sql` | **14** | 私聊、后台管理群聊与消息举报 |
 | `0013_moderation_automation.sql` | **13** | 自动监管规则、风险事件、申诉与处罚到期字段 |
 
 ### 迁移铁律

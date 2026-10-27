@@ -17,6 +17,8 @@ import { settingsRoutes } from './modules/settings/routes';
 import { diagnosticsRoutes } from './modules/settings/diagnostics';
 import { siteRoutes } from './modules/site/routes';
 import { preferenceRoutes } from './modules/preferences/routes';
+import { chatRoutes } from './modules/chat/routes';
+import { chatAdminRoutes } from './modules/chat/admin.routes';
 import { healthRoutes } from './routes/health.routes';
 import { adminRoutes } from './modules/admin/routes';
 
@@ -54,6 +56,8 @@ app.route('/', settingsRoutes);
 app.route('/', diagnosticsRoutes);
 app.route('/', siteRoutes);
 app.route('/', preferenceRoutes);
+app.route('/', chatRoutes);
+app.route('/', chatAdminRoutes);
 
 app.notFound(c => c.json({ error: { code: 'NOT_FOUND', message: '接口不存在' } }, 404));
 app.onError((error, c) => {

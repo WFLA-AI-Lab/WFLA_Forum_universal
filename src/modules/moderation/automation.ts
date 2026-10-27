@@ -99,7 +99,7 @@ async function hidePost(env: Env, postId: string, reason: string, actorId: strin
 async function recordRiskEvent(
   env: Env,
   rule: ModerationRule | null,
-  targetType: 'thread' | 'post' | 'user',
+  targetType: 'thread' | 'post' | 'user' | 'message',
   targetId: string,
   actorId: string | null,
   score: number,
@@ -135,6 +135,15 @@ async function applyOutcome(
     );
   }
   return { matched: true, ruleId: rule?.id ?? null, action: hidden ? 'hidden' : 'none', reason };
+}
+
+async function notifyChatRisk(env: Env, rule: ModerationRule | null, reason: string, messageId: string, conversationId: string): Promise<void> {
+  await notifyModerators(
+    env,
+    `聊天自动监管：${rule?.name ?? '风险规则'}`,
+    `${reason} · 对象 message/${messageId}`,
+    `/admin/chat/groups/${conversationId}`
+  );
 }
 
 function stringList(value: unknown): string[] {
@@ -195,11 +204,71 @@ export async function applyPublicationRules(
   if (flood?.enabled) {
     const minutes = numberConfig(flood.config.window_minutes, 10);
     const since = new Date(Date.now() - minutes * 60_000).toISOString();
-    const row = await env.DB.prepare(
-      `SELECT COUNT(*) AS total FROM posts WHERE author_id = ? AND created_at >= ?`
-    ).bind(input.authorId, since).first<{ total: number }>();
+    const row = await env.DB.prepare(`SELECT COUNT(*) AS total FROM posts WHERE author_id = ? AND created_at >= ?`)
+      .bind(input.authorId, since).first<{ total: number }>();
     if (Number(row?.total ?? 0) > flood.threshold) {
       results.push(await applyOutcome(env, flood, input.targetType, input.targetId, input.threadId, input.authorId, `${minutes} 分钟内发布了 ${Number(row?.total ?? 0)} 条内容`, { count: Number(row?.total ?? 0), window_minutes: minutes }));
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Applies the same publication risks to chat messages. Chat content is never
+ * automatically hidden in v0.9.0; a matching message is recorded as a risk
+ * event and moderators are notified for human review.
+ */
+export async function applyChatRules(
+  env: Env,
+  input: { messageId: string; conversationId: string; senderId: string; content: string }
+): Promise<AutomationResult[]> {
+  const results: AutomationResult[] = [];
+  const lower = input.content.toLowerCase();
+
+  const sensitive = await readRule(env, 'sensitive_words');
+  if (sensitive?.enabled) {
+    const words = stringList(sensitive.config.words);
+    const hit = words.find(word => word && lower.includes(word.toLowerCase()));
+    if (hit) {
+      await recordRiskEvent(env, sensitive, 'message', input.messageId, input.senderId, 3, `聊天命中高风险词「${hit}」`, { word: hit, conversation_id: input.conversationId });
+      await notifyChatRisk(env, sensitive, `聊天命中高风险词「${hit}」`, input.messageId, input.conversationId);
+      results.push({ matched: true, ruleId: sensitive.id, action: 'none', reason: `命中高风险词「${hit}」` });
+    }
+  }
+
+  const links = (input.content.match(/https?:\/\/[^\s]+/gi) ?? []).length;
+  const linkRule = await readRule(env, 'high_link_density');
+  if (linkRule?.enabled && links >= linkRule.threshold) {
+    await recordRiskEvent(env, linkRule, 'message', input.messageId, input.senderId, 2, `聊天单条内容包含 ${links} 个链接`, { links, conversation_id: input.conversationId });
+    await notifyChatRisk(env, linkRule, `聊天单条内容包含 ${links} 个链接`, input.messageId, input.conversationId);
+    results.push({ matched: true, ruleId: linkRule.id, action: 'none', reason: `单条内容包含 ${links} 个链接` });
+  }
+
+  const duplicate = await readRule(env, 'duplicate_content');
+  if (duplicate?.enabled) {
+    const minutes = numberConfig(duplicate.config.window_minutes, 10);
+    const since = new Date(Date.now() - minutes * 60_000).toISOString();
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS total FROM chat_messages
+        WHERE sender_id = ? AND content_markdown = ? AND created_at >= ?`
+    ).bind(input.senderId, input.content, since).first<{ total: number }>();
+    if (Number(row?.total ?? 0) > duplicate.threshold) {
+      await recordRiskEvent(env, duplicate, 'message', input.messageId, input.senderId, 2, `聊天 ${minutes} 分钟内重复发送相同内容`, { count: Number(row?.total ?? 0), window_minutes: minutes, conversation_id: input.conversationId });
+      results.push({ matched: true, ruleId: duplicate.id, action: 'none', reason: `${minutes} 分钟内重复发布相同内容` });
+    }
+  }
+
+  const flood = await readRule(env, 'new_user_flood');
+  if (flood?.enabled) {
+    const minutes = numberConfig(flood.config.window_minutes, 10);
+    const since = new Date(Date.now() - minutes * 60_000).toISOString();
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS total FROM chat_messages WHERE sender_id = ? AND created_at >= ?`
+    ).bind(input.senderId, since).first<{ total: number }>();
+    if (Number(row?.total ?? 0) > flood.threshold) {
+      await recordRiskEvent(env, flood, 'message', input.messageId, input.senderId, 2, `聊天 ${minutes} 分钟内发送 ${Number(row?.total ?? 0)} 条消息`, { count: Number(row?.total ?? 0), window_minutes: minutes, conversation_id: input.conversationId });
+      results.push({ matched: true, ruleId: flood.id, action: 'none', reason: `${minutes} 分钟内发布了 ${Number(row?.total ?? 0)} 条内容` });
     }
   }
 
