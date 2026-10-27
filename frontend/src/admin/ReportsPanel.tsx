@@ -23,7 +23,11 @@ export function ReportsPanel({ notify }: { notify: Notify }) {
     catch (error) { notify('error', error instanceof Error ? error.message : '无法加载举报'); }
   }
   async function open(id: string) {
-    setDetail((await api.get<{ item: ReportItem }>(`/reports/${id}`)).item);
+    try {
+      setDetail((await api.get<{ item: ReportItem }>(`/reports/${id}`)).item);
+    } catch (error) {
+      notify('error', error instanceof Error ? error.message : '无法加载举报详情');
+    }
   }
   useEffect(() => { void load(); }, []);
   async function act(id: string, kind: 'resolve' | 'reject') {

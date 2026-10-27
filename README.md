@@ -9,7 +9,7 @@
 上海市世外中学校园论坛 —— 一个**可扩展、可监管、可交接**的校园社区平台，
 自托管（Node.js + SQLite），通过内网穿透提供公网访问。
 
-Current version: **v0.7.0** ｜ API: **v1** ｜ DB schema: **13** ｜ Skin contract: **3**
+Current version: **v0.8.0** ｜ API: **v1** ｜ DB schema: **13** ｜ Skin contract: **3**
 
 ---
 
@@ -46,7 +46,13 @@ Current version: **v0.7.0** ｜ API: **v1** ｜ DB schema: **13** ｜ Skin contr
 > 经内网穿透对外提供。仓库中残留的 `wrangler.toml` / D1 引用是兼容层的遗留接口，
 > 不会在本部署方案中运行；后续如不再需要会一并清理。
 
-### 目录结构
+#### 运行日志 / Operation logs
+
+自托管服务会把运行日志写入 `logs/wfla-YYYY-MM-DD.jsonl`。每次启动自动创建新文件；
+`WFLA_LOG_DIR` 可修改目录，`WFLA_LOG_RETENTION_DAYS` 控制保留天数，默认 14 天。
+排查 5xx、启动异常、未捕获异常和未处理 Promise 时，先查看当天 JSONL 文件。
+
+## 目录结构
 
 ```
 .

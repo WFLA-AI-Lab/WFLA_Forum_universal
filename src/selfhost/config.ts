@@ -6,6 +6,7 @@ export interface SelfHostConfig {
   host: string;
   dbPath: string;
   frontendDir: string;
+  logDir: string;
   environment: string;
   forumName: string;
   sessionTtlSeconds: string;
@@ -54,6 +55,7 @@ export function loadConfig(): SelfHostConfig {
     host: envValue('HOST') ?? '0.0.0.0',
     dbPath: envValue('WFLA_DB_PATH') ?? 'data/wfla-wall.sqlite',
     frontendDir: envValue('WFLA_FRONTEND_DIR') ?? 'public',
+    logDir: envValue('WFLA_LOG_DIR') ?? 'logs',
     environment,
     forumName: envValue('FORUM_NAME') ?? '世外墙 WFLA Wall',
     sessionTtlSeconds: envValue('SESSION_TTL_SECONDS') ?? '604800',
