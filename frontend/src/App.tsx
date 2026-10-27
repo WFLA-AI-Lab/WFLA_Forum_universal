@@ -520,7 +520,6 @@ export default function App() {
       setView(current => current.name === 'thread' && current.thread.id === threadId
         ? { ...current, thread: update(current.thread) }
         : current);
-      setSuccess(result.liked ? '已点赞' : '已取消点赞');
     }
     catch (e) { setError((e as Error).message); }
   }
