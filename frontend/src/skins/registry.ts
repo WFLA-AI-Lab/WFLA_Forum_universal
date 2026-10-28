@@ -13,6 +13,10 @@ export const SKIN_COMPONENTS: Record<string, SkinRegistration> = {
   x: {
     component: lazy(() => import('./x/XSkin')),
     bodyClass: 'x-body'
+  },
+  claude: {
+    component: lazy(() => import('./claude/ClaudeSkin')),
+    bodyClass: 'claude-body'
   }
 };
 
