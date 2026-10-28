@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { api } from './api';
+import { createClientId } from './client-id';
 
 interface User {
   id: string;
@@ -104,7 +105,7 @@ export default function ChatTestPage() {
     if (!selected || !content.trim()) return;
     try {
       const data = await api.post<{ item: Message }>(`/conversations/${selected.id}/messages`, {
-        client_id: crypto.randomUUID(),
+        client_id: createClientId(),
         content
       });
       setMessages(current => [data.item, ...current]);

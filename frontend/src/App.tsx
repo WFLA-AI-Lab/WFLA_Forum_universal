@@ -11,6 +11,7 @@
  */
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
+import { createClientId } from './client-id';
 import { FALLBACK_SKIN_ID, resolveSkin } from './skins/registry';
 import AdminConsole, { type AdminSection } from './admin/AdminConsole';
 import './splash.css';
@@ -608,7 +609,7 @@ export default function App() {
     setChatSending(true);
     try {
       const result = await api.post<{ item: ChatMessage }>(`/conversations/${activeConversation.id}/messages`, {
-        client_id: crypto.randomUUID(),
+        client_id: createClientId(),
         content
       });
       setChatMessages(current => current.some(item => item.id === result.item.id) ? current : [...current, result.item]);
@@ -761,6 +762,40 @@ export default function App() {
       setPosts(d.posts); setView({ name: 'thread', thread: d.item }); setReply(''); setSuccess('回复已发送'); setError('');
       const page = await api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20');
       setFeed(page.items); setFeedCursor(page.next_cursor);
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function deleteThread(threadId: string) {
+    if (!window.confirm('删除这条动态？动态正文和全部评论都会被删除。')) return;
+    try {
+      await api.del(`/threads/${threadId}`);
+      const keep = (thread: Thread) => thread.id !== threadId;
+      setFeed(current => current.filter(keep));
+      setThreads(current => current.filter(keep));
+      setBookmarks(current => current.filter(keep));
+      setSearchResults(current => current ? { ...current, threads: current.threads.filter(keep) } : current);
+      setView(current => current.name === 'thread' && current.thread.id === threadId ? { name: 'home' } : current);
+      setPosts([]);
+      setSuccess('动态已删除'); setError('');
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function deletePost(postId: string) {
+    if (!window.confirm('删除这条评论？此操作会从讨论中移除评论。')) return;
+    try {
+      const result = await api.del<{ success: boolean; thread_id: string; reply_count: number }>(`/posts/${postId}`);
+      setPosts(current => current.filter(post => post.id !== postId));
+      const update = (thread: Thread): Thread => thread.id === result.thread_id
+        ? { ...thread, reply_count: result.reply_count }
+        : thread;
+      setFeed(current => current.map(update));
+      setThreads(current => current.map(update));
+      setBookmarks(current => current.map(update));
+      setSearchResults(current => current ? { ...current, threads: current.threads.map(update) } : current);
+      setView(current => current.name === 'thread' && current.thread.id === result.thread_id
+        ? { ...current, thread: update(current.thread) }
+        : current);
+      setSuccess('评论已删除'); setError('');
     } catch (e) { setError((e as Error).message); }
   }
 
@@ -952,7 +987,7 @@ export default function App() {
       loadConversations, startDirectMessage, openConversation, closeConversation,
       loadOlderMessages, sendChatMessage, deleteChatMessage, reportChatMessage, toggleChatBlock,
       openThread, loadNotifications, login, logout, register, saveProfile,
-      createThread, createReply, submitReport, loadAdmin, saveSettings, saveSiteConfig,
+      createThread, createReply, deleteThread, deletePost, submitReport, loadAdmin, saveSettings, saveSiteConfig,
       runDiagnostics, resetSettingsPassword, activateUser, setUserStatus,
       resolveReport, rejectReport, createInvitation, createAnnouncement, createBoard,
       markAllNotificationsRead, markNotificationRead,

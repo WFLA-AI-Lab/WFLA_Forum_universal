@@ -14,8 +14,9 @@ beforeEach(async () => {
   const engagement = readFileSync('src/migrations/0004_engagement.sql', 'utf8');
   const appSettings = readFileSync('src/migrations/0006_app_settings.sql', 'utf8');
   const siteSettings = readFileSync('src/migrations/0007_site_settings.sql', 'utf8');
+  const userProfiles = readFileSync('src/migrations/0009_user_profiles.sql', 'utf8');
   const enrollment = readFileSync('src/migrations/0011_enrollment_year.sql', 'utf8');
-  const migrations = (schema + ';' + engagement + ';' + appSettings + ';' + siteSettings + ';' + enrollment)
+  const migrations = (schema + ';' + engagement + ';' + appSettings + ';' + siteSettings + ';' + userProfiles + ';' + enrollment)
     .replace(/^\s*--.*$/gm, '');
   for (const statement of migrations.split(';').map(value => value.trim()).filter(value => value && !/^PRAGMA\b/i.test(value))) {
     await env.DB.prepare(statement).run();

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Board, NotificationItem, SkinContext, Thread, View } from '../contract';
 import './x.css';
 
-type IconName = 'home' | 'notice' | 'community' | 'user' | 'search' | 'settings' | 'bell' | 'bookmark' | 'reply' | 'heart' | 'more' | 'back' | 'send' | 'group' | 'edit' | 'shield' | 'logout';
+type IconName = 'home' | 'notice' | 'community' | 'user' | 'search' | 'settings' | 'bell' | 'bookmark' | 'reply' | 'heart' | 'more' | 'back' | 'send' | 'group' | 'edit' | 'shield' | 'logout' | 'trash';
 
 function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -22,7 +22,8 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
     group: <><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></>,
     edit: <><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></>,
     shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-5"/></>,
-    logout: <><path d="M10 4H4v16h6M14 8l4 4-4 4M18 12H8"/></>
+    logout: <><path d="M10 4H4v16h6M14 8l4 4-4 4M18 12H8"/></>,
+    trash: <><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></>
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
@@ -44,7 +45,7 @@ function Empty({ icon, title, body }: { icon: IconName; title: string; body: str
 
 export default function XSkin({ forum }: { forum: SkinContext }) {
   const { site, session, data, forms, messages, actions, view, setView, helpers, ui } = forum;
-  const { me, providers, isAdmin } = session;
+  const { me, providers, isAdmin, isStaff } = session;
   const [profileTab, setProfileTab] = useState<'posts' | 'saved'>('posts');
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const activeBoard = view.name === 'board' ? view.board : null;
@@ -114,11 +115,13 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   }
 
   function FeedCard({ thread }: { thread: Thread }) {
-    const name = thread.author?.real_name || thread.author?.username || 'WFLAer';
+    const ownProfile = thread.author_id === me?.id ? forms.profile : null;
+    const name = ownProfile?.nickname || thread.author?.nickname || thread.author?.real_name || thread.author?.username || 'WFLAer';
+    const avatar = ownProfile?.avatar_data_url || thread.author?.avatar_data_url;
     const verified = ['owner', 'admin', 'moderator'].includes(thread.author?.role || '');
     const bookmarked = bookmarkedIds.has(thread.id);
     return <article className="x-post" key={thread.id}>
-      <Avatar name={name}/>
+      <Avatar name={name} src={avatar}/>
       <div className="x-post-content">
         <header>
           <b>{name}</b>{verified && <span className="x-verified" title="认证账号"><Icon name="shield" size={15}/></span>}
@@ -134,6 +137,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
           <button type="button" onClick={() => void actions.openThread(thread.id)} aria-label="查看回复"><Icon name="reply" size={19}/><span>{thread.reply_count}</span></button>
           <button type="button" className={thread.liked_by_me ? 'liked' : ''} aria-pressed={thread.liked_by_me} onClick={() => void actions.likeThread(thread.id)} aria-label={`${thread.liked_by_me ? '取消点赞' : '点赞'}，当前 ${thread.like_count} 个赞`}><Icon name="heart" size={19}/><span>{thread.like_count}</span></button>
           <button type="button" className={bookmarked ? 'active' : ''} onClick={() => void actions.toggleBookmark(thread.id, bookmarked)} aria-label={bookmarked ? '取消收藏' : '收藏'}><Icon name="bookmark" size={19}/></button>
+          {me && (thread.author_id === me.id || isStaff) && <button type="button" className="x-delete-action" onClick={() => void actions.deleteThread(thread.id)} aria-label="删除动态"><Icon name="trash" size={18}/><span>删除</span></button>}
           <span className="x-views">{thread.view_count} 浏览</span>
         </footer>
       </div>
@@ -228,7 +232,8 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   function ThreadPage() {
     if (!activeThread) return null;
     const threadBoard = activeThread.board?.slug ? data.boards.find(board => board.slug === activeThread.board?.slug) : undefined;
-    return <><button className="x-thread-back" type="button" onClick={() => go(threadBoard ? { name: 'board', board: threadBoard } : { name: 'home' })}><Icon name="back"/>返回</button><article className="x-thread-head"><h1>{activeThread.title}</h1><p>{activeThread.author?.real_name} · {helpers.formatDate(activeThread.created_at)} · {activeThread.view_count} 浏览</p></article>{data.posts.map(post => <article key={post.id} className="x-reply"><Avatar name={post.author?.real_name}/><div><header><b>{post.author?.real_name || 'WFLAer'}</b><span>#{post.floor_number} · {helpers.formatDate(post.created_at)}</span></header><div className="x-rich" dangerouslySetInnerHTML={{ __html: post.content_html }}/>{me && post.author_id !== me.id && <button type="button" onClick={() => void actions.submitReport('post', post.id)}>举报</button>}</div></article>)}{me ? <form className="x-reply-form" onSubmit={actions.createReply}><textarea rows={3} value={forms.reply} onChange={event => forms.setReply(event.target.value)} placeholder="回复这条动态…" required/><button className="x-primary" type="submit">回复</button></form> : <div className="x-soft-note">登录后参与讨论。</div>}</>;
+    const canDeleteThread = Boolean(me && (activeThread.author_id === me.id || isStaff));
+    return <><button className="x-thread-back" type="button" onClick={() => go(threadBoard ? { name: 'board', board: threadBoard } : { name: 'home' })}><Icon name="back"/>返回</button><article className="x-thread-head"><div className="x-thread-title-row"><h1>{activeThread.title}</h1>{canDeleteThread && <button type="button" className="x-delete-button" onClick={() => void actions.deleteThread(activeThread.id)}><Icon name="trash" size={17}/>删除动态</button>}</div><p>{activeThread.author?.nickname || activeThread.author?.real_name} · {helpers.formatDate(activeThread.created_at)} · {activeThread.view_count} 浏览</p></article>{data.posts.map(post => { const ownProfile = post.author_id === me?.id ? forms.profile : null; const authorName = ownProfile?.nickname || post.author?.nickname || post.author?.real_name || 'WFLAer'; const avatar = ownProfile?.avatar_data_url || post.author?.avatar_data_url; return <article key={post.id} className="x-reply"><Avatar name={authorName} src={avatar}/><div><header><b>{authorName}</b><span>#{post.floor_number} · {helpers.formatDate(post.created_at)}</span></header><div className="x-rich" dangerouslySetInnerHTML={{ __html: post.content_html }}/>{me && ((post.floor_number > 1 && (post.author_id === me.id || isStaff)) || post.author_id !== me.id) && <div className="x-reply-actions">{post.floor_number > 1 && (post.author_id === me.id || isStaff) && <button type="button" className="danger" onClick={() => void actions.deletePost(post.id)}>删除</button>}{post.author_id !== me.id && <button type="button" onClick={() => void actions.submitReport('post', post.id)}>举报</button>}</div>}</div></article>; })}{me ? <form className="x-reply-form" onSubmit={actions.createReply}><textarea rows={3} value={forms.reply} onChange={event => forms.setReply(event.target.value)} placeholder="回复这条动态…" required/><button className="x-primary" type="submit">回复</button></form> : <div className="x-soft-note">登录后参与讨论。</div>}</>;
   }
 
   function SearchPage() {
@@ -281,8 +286,6 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
       </aside>
       <main className="x-main">
         <header className="x-topbar"><h1>{pageTitle()}</h1><div><button type="button" aria-label="搜索" onClick={() => go({ name: 'search' })}><Icon name="search" size={20}/></button>{me && <button type="button" aria-label="通知" className="x-bell-button" onClick={openNotifications}><Icon name="bell" size={20}/>{data.notifications.some(item => !item.is_read) && <i/>}</button>}<button type="button" aria-label="设置" onClick={() => go({ name: 'settings' })}><Icon name="settings" size={20}/></button></div></header>
-        {messages.error && <div className="x-flash error">{messages.error}<button type="button" onClick={() => messages.setError('')}>×</button></div>}
-        {messages.success && <div className="x-flash success">{messages.success}<button type="button" onClick={() => messages.setSuccess('')}>×</button></div>}
         {Body()}
       </main>
       <aside className="x-aside">
