@@ -15,8 +15,14 @@ $root = (Resolve-Path $InstallRoot).ProviderPath
 if (-not (Test-Path (Join-Path $root 'package.json'))) { throw "package.json not found in $root" }
 
 # Copy production frontend output to the expected public directory.
-New-Item -ItemType Directory -Force (Join-Path $root 'public') | Out-Null
-Copy-Item (Join-Path $root 'frontend\dist\*') (Join-Path $root 'public') -Recurse -Force
+# Get-ChildItem + Copy-Item avoids the Windows PowerShell quirk where
+# Copy-Item -LiteralPath does not expand a trailing wildcard.
+$frontendDist = Join-Path $root 'frontend\dist'
+$publicDir = Join-Path $root 'public'
+if (-not (Test-Path -LiteralPath $frontendDist)) { throw "frontend/dist not found: $frontendDist. Build the frontend before installing." }
+New-Item -ItemType Directory -Force -Path $publicDir | Out-Null
+Get-ChildItem -LiteralPath $publicDir -Force | Remove-Item -Recurse -Force
+Get-ChildItem -LiteralPath $frontendDist -Force | Copy-Item -Destination $publicDir -Recurse -Force
 Write-Host 'public/ updated from frontend/dist'
 
 # Register a scheduled task running under the current user at logon.
