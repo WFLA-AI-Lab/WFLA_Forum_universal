@@ -235,15 +235,65 @@ contentRoutes.patch('/posts/:id', async c => {
   return c.json({ success: true });
 });
 
+contentRoutes.delete('/threads/:id', async c => {
+  const actor = await requireUser(c);
+  const id = c.req.param('id');
+  const thread = await c.env.DB.prepare(
+    `SELECT id, author_id, status FROM threads WHERE id = ?`
+  ).bind(id).first<{ id: string; author_id: string; status: string }>();
+  if (!thread || thread.status === 'deleted') throw notFound('话题不存在');
+  if (thread.author_id !== actor.id && !canModerate(actor)) throw new AppError('FORBIDDEN', '没有权限删除该动态');
+
+  const timestamp = nowIso();
+  await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE threads SET status = 'deleted', updated_at = ? WHERE id = ?`).bind(timestamp, id),
+    c.env.DB.prepare(`UPDATE posts SET status = 'deleted', updated_at = ? WHERE thread_id = ? AND status != 'deleted'`).bind(timestamp, id)
+  ]);
+  await insertAudit(
+    c.env,
+    actor.id,
+    'thread.delete',
+    'thread',
+    id,
+    thread.author_id === actor.id ? '作者删除动态' : '监管者删除他人动态',
+    {}
+  );
+  return c.json({ success: true });
+});
+
 contentRoutes.delete('/posts/:id', async c => {
   const actor = await requireUser(c);
   const id = c.req.param('id');
-  const post = await c.env.DB.prepare('SELECT id, author_id FROM posts WHERE id = ?').bind(id).first<{ id: string; author_id: string }>();
-  if (!post) throw notFound('帖子不存在');
-  if (post.author_id !== actor.id && !isAdmin(actor)) throw new AppError('FORBIDDEN', '没有权限删除帖子');
-  await c.env.DB.prepare(`UPDATE posts SET status = 'deleted', updated_at = ? WHERE id = ?`).bind(nowIso(), id).run();
-  await insertAudit(c.env, actor.id, 'post.delete', 'post', id, post.author_id === actor.id ? '作者删除帖子' : '管理员删除他人帖子', {});
-  return c.json({ success: true });
+  const post = await c.env.DB.prepare(
+    'SELECT id, thread_id, author_id, floor_number, status FROM posts WHERE id = ?'
+  ).bind(id).first<{ id: string; thread_id: string; author_id: string; floor_number: number; status: string }>();
+  if (!post || post.status === 'deleted') throw notFound('评论不存在');
+  if (post.floor_number === 1) throw badRequest('首帖属于动态正文，请删除整条动态');
+  if (post.author_id !== actor.id && !canModerate(actor)) throw new AppError('FORBIDDEN', '没有权限删除该评论');
+
+  const timestamp = nowIso();
+  await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE posts SET status = 'deleted', updated_at = ? WHERE id = ?`).bind(timestamp, id),
+    c.env.DB.prepare(
+      `UPDATE threads
+          SET reply_count = (SELECT COUNT(*) FROM posts WHERE thread_id = ? AND floor_number > 1 AND status != 'deleted'),
+              last_activity_at = COALESCE((SELECT MAX(created_at) FROM posts WHERE thread_id = ? AND status != 'deleted'), created_at),
+              updated_at = ?
+        WHERE id = ?`
+    ).bind(post.thread_id, post.thread_id, timestamp, post.thread_id)
+  ]);
+  await insertAudit(
+    c.env,
+    actor.id,
+    'post.delete',
+    'post',
+    id,
+    post.author_id === actor.id ? '作者删除评论' : '监管者删除他人评论',
+    { thread_id: post.thread_id }
+  );
+  const thread = await c.env.DB.prepare('SELECT reply_count FROM threads WHERE id = ?')
+    .bind(post.thread_id).first<{ reply_count: number }>();
+  return c.json({ success: true, thread_id: post.thread_id, reply_count: Number(thread?.reply_count ?? 0) });
 });
 
 contentRoutes.post('/threads/:id/view', async c => {

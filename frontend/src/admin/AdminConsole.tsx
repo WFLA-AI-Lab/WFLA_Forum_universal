@@ -37,7 +37,7 @@ const ACTION_LABEL: Record<string, string> = {
   'user.create': '创建账号', 'user.activate': '激活账号', 'user.role_change': '变更角色', 'user.status_change': '变更状态',
   'user.password_reset': '重置密码', 'user.sessions_revoke': '撤销会话', 'user.note_create': '添加备注',
   'invitation.create': '生成邀请码', 'invitation.revoke': '吊销邀请码', 'report.resolve': '处理举报', 'report.reject': '驳回举报',
-  'report.assign': '分配举报', 'thread.status_change': '变更话题状态', 'post.status_change': '变更回复状态', 'post.edit': '编辑回复', 'post.delete': '删除回复',
+  'report.assign': '分配举报', 'thread.status_change': '变更话题状态', 'thread.delete': '删除动态', 'post.status_change': '变更回复状态', 'post.edit': '编辑回复', 'post.delete': '删除评论',
   'announcement.create': '发布公告', 'announcement.delete': '删除公告', 'board.create': '创建板块',
   'settings.update': '更新高级设置', 'site.config_update': '更新站点配置', 'moderation.rule_update': '更新自动规则', 'risk.dismiss': '忽略风险事件', 'appeal.create': '提交申诉', 'appeal.approve': '通过申诉', 'appeal.reject': '驳回申诉'
 };

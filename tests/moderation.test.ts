@@ -112,6 +112,43 @@ describe('moderation safety', () => {
     expect(notification?.id).toBeTruthy();
   });
 
+  it('lets authors delete their own dynamics and comments while moderators can remove any content', async () => {
+    const author = await user('delete-author', 'delete-author', 'member');
+    const commenter = await user('delete-commenter', 'delete-commenter', 'member');
+    const moderator = await user('delete-moderator', 'delete-moderator', 'moderator');
+    const now = new Date().toISOString();
+    await env.DB.prepare('INSERT INTO boards (id, slug, name, description, position, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)')
+      .bind('board-delete', 'board-delete', 'Delete Board', '', 0, now, now).run();
+    await env.DB.prepare('INSERT INTO threads (id, board_id, author_id, title, slug, status, is_pinned, view_count, reply_count, last_activity_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 1, ?, ?, ?)')
+      .bind('thread-delete', 'board-delete', 'delete-author', 'Delete me', 'delete-me', 'published', now, now, now).run();
+    await env.DB.prepare('INSERT INTO posts (id, thread_id, author_id, parent_post_id, content_markdown, content_html, status, edit_count, floor_number, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, ?, ?, 0, ?, ?, ?)')
+      .bind('post-delete-root', 'thread-delete', 'delete-author', 'root', '<p>root</p>', 'published', 1, now, now).run();
+    await env.DB.prepare('INSERT INTO posts (id, thread_id, author_id, parent_post_id, content_markdown, content_html, status, edit_count, floor_number, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, ?, ?, 0, ?, ?, ?)')
+      .bind('post-delete-reply', 'thread-delete', 'delete-commenter', 'reply', '<p>reply</p>', 'published', 2, now, now).run();
+
+    expect((await app.request('/api/v1/threads/thread-delete', { method: 'DELETE', headers: cookie(commenter) }, env)).status).toBe(403);
+    expect((await app.request('/api/v1/posts/post-delete-reply', { method: 'DELETE', headers: cookie(author) }, env)).status).toBe(403);
+
+    const deletedReply = await app.request('/api/v1/posts/post-delete-reply', { method: 'DELETE', headers: cookie(commenter) }, env);
+    expect(deletedReply.status).toBe(200);
+    expect(await deletedReply.json()).toMatchObject({ success: true, thread_id: 'thread-delete', reply_count: 0 });
+    expect((await env.DB.prepare('SELECT status FROM posts WHERE id = ?').bind('post-delete-reply').first<{ status: string }>())?.status).toBe('deleted');
+    expect((await env.DB.prepare('SELECT reply_count FROM threads WHERE id = ?').bind('thread-delete').first<{ reply_count: number }>())?.reply_count).toBe(0);
+    expect((await app.request('/api/v1/posts/post-delete-root', { method: 'DELETE', headers: cookie(author) }, env)).status).toBe(400);
+
+    const deletedThread = await app.request('/api/v1/threads/thread-delete', { method: 'DELETE', headers: cookie(author) }, env);
+    expect(deletedThread.status).toBe(200);
+    expect((await env.DB.prepare('SELECT status FROM threads WHERE id = ?').bind('thread-delete').first<{ status: string }>())?.status).toBe('deleted');
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM posts WHERE thread_id = ? AND status != 'deleted'").bind('thread-delete').first<{ count: number }>())?.count).toBe(0);
+
+    await env.DB.prepare('INSERT INTO threads (id, board_id, author_id, title, slug, status, is_pinned, view_count, reply_count, last_activity_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?)')
+      .bind('thread-delete-moderated', 'board-delete', 'delete-author', 'Moderated', 'moderated', 'published', now, now, now).run();
+    expect((await app.request('/api/v1/threads/thread-delete-moderated', { method: 'DELETE', headers: cookie(moderator) }, env)).status).toBe(200);
+    const audit = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_logs WHERE action IN ('thread.delete', 'post.delete')")
+      .first<{ count: number }>();
+    expect(audit?.count).toBe(3);
+  });
+
   it('publishes scheduled announcements, notifies members and honors guest-read policy', async () => {
     const admin = await user('announcement-admin', 'announcement-admin', 'admin');
     const member = await user('announcement-member', 'announcement-member', 'member');

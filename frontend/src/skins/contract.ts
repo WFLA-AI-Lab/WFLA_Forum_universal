@@ -435,6 +435,8 @@ export interface SkinActions {
   saveProfile: (event: React.FormEvent) => Promise<void>;
   createThread: (event: React.FormEvent) => Promise<void>;
   createReply: (event: React.FormEvent) => Promise<void>;
+  deleteThread: (threadId: string) => Promise<void>;
+  deletePost: (postId: string) => Promise<void>;
   submitReport: (targetType: 'thread' | 'post' | 'user', targetId: string) => Promise<void>;
   loadAdmin: (tab: AdminTab) => Promise<void>;
   saveSettings: (event: React.FormEvent) => Promise<void>;
