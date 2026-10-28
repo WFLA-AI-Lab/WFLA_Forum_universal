@@ -10,9 +10,9 @@
 所有版本号集中在 **`src/version.ts`**，不要在别处硬编码：
 
 ```ts
-export const APP_VERSION = '0.4.1';          // 应用（产品）版本
+export const APP_VERSION = '0.10.0';         // 应用（产品）版本
 export const API_VERSION = 'v1';             // HTTP 契约版本
-export const SCHEMA_VERSION = 13;             // 数据库结构版本（= 最高迁移序号）
+export const SCHEMA_VERSION = 14;             // 数据库结构版本（= 最高迁移序号）
 export const SKIN_CONTRACT_VERSION = 3;      // 前端皮肤契约版本
 ```
 
@@ -81,7 +81,7 @@ npm run selfhost:migrate
 
 ## 4. 发版流程（Release Checklist）
 
-以发布 `v0.1.0` 为例：
+以发布 `v0.10.0` 为例：
 
 1. **确认版本号**：改 `src/version.ts`、`package.json`、`frontend/package.json` 三处一致。
 2. **确认迁移**：若新增了迁移，`SCHEMA_VERSION` 已同步，本文档表格已更新。
@@ -102,19 +102,19 @@ npm --prefix frontend run build
 
 ```bash
 git add -A
-git commit -m "release: v0.1.0"
-git tag -a v0.1.0 -m "WFLA Wall v0.1.0"
+git commit -m "release: v0.10.0"
+git tag -a v0.10.0 -m "WFLA Wall v0.10.0"
 git push origin main --follow-tags
 ```
 
 7. **部署**：按 `docs/RELEASE_AND_ARCHIVE.md` 第 6 节的部署步骤同步到服务器，并执行迁移。
-8. **线上核对**：`curl <站点>/api/v1/health`，确认 `version` 与刚发布的版本一致。
+8. **文档版号核对**：README、API、ARCHITECTURE、CHAT_API、皮肤指南等面向协作者的文档，不得再出现旧的当前版号；历史版本只允许出现在 CHANGELOG 与 archive/releases。
 
 ### 版本回滚
 
 - 代码回滚：`git checkout v<上一个版本>`（或 revert 对应提交）。
 - **数据库不做自动回滚**：迁移是单向的。若新迁移有破坏性，必须先备份、再写一个「向前修复」的
-  新迁移（`0009_...`），而不是删除旧迁移。
+  新迁移（`0015_...`），而不是删除旧迁移。
 - 因此：**任何含迁移的发布，部署前必须先备份**（见下节）。
 
 ---
@@ -157,7 +157,7 @@ npm run selfhost:backup
 ### 5.3 代码存档
 
 - `main` 分支 = 可发布状态；所有面向协作者的内容（README、`docs/API.md`、皮肤指南）必须同步更新。
-- 每次发版打 **附注 tag**（`git tag -a v0.1.0`），tag 就是不可变的存档点。
+- 每次发版打 **附注 tag**（`git tag -a v0.10.0`），tag 就是不可变的存档点。
 - 历史被安全重写过（如清理过泄露的密钥）之后，任何旧克隆都必须**重新克隆**，不能 merge 旧历史。
 
 ---
@@ -170,7 +170,7 @@ npm run selfhost:backup
 2. `npm install`（必要时 `npm --prefix frontend install`）。
 3. 执行迁移：`npm run selfhost:migrate`。
 4. 构建前端：`npm run selfhost:build`。
-5. 同步前端产物到 `public/`：**先拷 `assets/`，最后替换 `index.html`**（避免出现「新 HTML 指向不存在资源」的中间态）。
+5. 同步前端产物到 `public/`：使用当前一键脚本的**整目录替换**（先清空 `public/`，再从 `frontend/dist` 完整复制），避免旧 chunk 残留。
 6. **改动了后端 `.ts` → 必须重启进程**；只改前端 → 无需停机（每请求读盘 + 内容哈希文件名）。
 7. 启动：`scripts/一键启动.cmd`（服务器上）。
 8. 线上核对 `GET /api/v1/health` 的 `version`。
@@ -179,7 +179,7 @@ npm run selfhost:backup
 
 ## 7. 每次发版的固定产出
 
-- [ ] `src/version.ts`、两个 `package.json` 版本一致
+- [ ] `src/version.ts`、两个 `package.json`、两个 lockfile 与前端 fallback 版本一致
 - [ ] `docs/CHANGELOG.md` 新条目
 - [ ] `SCHEMA_VERSION` 与迁移表一致（如本次有迁移）
 - [ ] 全量检查通过（type-check / lint / test / frontend build）

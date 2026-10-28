@@ -1,5 +1,38 @@
 # Changelog
 
+本项目所有值得记录的变更都写在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
+版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
+
+---
+
+## [0.10.0] - 2026-10-28
+
+### Added
+
+- 动态与评论删除：作者可删除自己的动态/评论，监管者可删除任意内容；删除动态会软删除全部评论，删除评论会重算回复数，敏感操作写入审计日志。
+- 私信的会话列表、会话标题和消息历史现在展示用户保存的昵称与头像；群成员接口同步返回资料信息。
+- 发布归档新增 `archive/releases/v0.10.0`，记录版本、commit、契约、检查项与回滚目标。
+
+### Fixed
+
+- 修复 Windows PowerShell 下一键启动、一键配置和开机安装脚本同步 `frontend/dist -> public/` 失败的问题（`Copy-Item -LiteralPath "...\*"` 不展开通配符）。
+- 安装脚本在 `frontend/dist` 缺失时明确报错，并在复制前清理 `public/`，避免旧 chunk 与新 `index.html` 混用。
+- 同步所有面向协作者文档的当前版本号、Schema 版本和 API 示例，避免 README/API/架构/聊天文档继续显示历史版本。
+- 修复前端离线兜底站点配置仍显示旧版 `0.1.0` 的问题；运行时兜底、package、lockfile 与 `APP_VERSION` 统一到 `0.10.0`。
+
+### Changed
+
+- 一键脚本的前端产物同步改为 `Get-ChildItem | Copy-Item` 管道实现，兼容 Windows PowerShell 5.1 与 PowerShell 7。
+- 发布检查新增“所有文档中的当前版号与 `src/version.ts` 一致”的要求。
+
+### Compatibility
+
+- API：`v1`（不变）
+- 数据库 schema：`14`（不变，本次无迁移）
+- 皮肤契约：`3`（不变）
+
+---
+
 ## [0.9.0] - 2026-10-27
 
 ### 新增

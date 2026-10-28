@@ -1,6 +1,6 @@
-# WFLA Wall Chat API（v0.9.0）
+# WFLA Wall Chat API（v0.10.0）
 
-> 适用版本：`v0.9.0` ｜ API：`v1` ｜ Schema：`14`。本文档给 Zx_ 实现正式前端使用。
+> 适用版本：`v0.10.0` ｜ API：`v1` ｜ Schema：`14`。本文档给 Zx_ 实现正式前端使用。
 > 仅验收自托管 Node.js + SQLite；聊天实时方案为 HTTP 分页 + 5 秒增量轮询。
 
 ## 核心规则

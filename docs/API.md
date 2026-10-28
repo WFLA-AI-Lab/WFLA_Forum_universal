@@ -1,6 +1,6 @@
 # WFLA Wall API 接口文档
 
-> 适用版本：**v0.9.0** ｜ API 版本：**v1** ｜ 皮肤契约：**3** ｜ 数据库结构：**14**
+> 适用版本：**v0.10.0** ｜ API 版本：**v1** ｜ 皮肤契约：**3** ｜ 数据库结构：**14**
 
 本文件是给前端 / 移动端 / 第三方集成开发者看的接口契约。所有接口都挂在基础路径
 `/api/v1` 之下；若站点公开地址是 `https://wflawall.zh.kg`，则完整地址是
@@ -72,9 +72,9 @@
 {
   "status": "ok",
   "time": "2026-10-25T04:00:00.000Z",
-  "version": "0.7.0",
+  "version": "0.10.0",
   "api_version": "v1",
-  "schema_version": 13
+  "schema_version": 14
 }
 ```
 
@@ -86,7 +86,7 @@
 {
   "forum_name": "世外墙 WFLA Wall",
   "tagline": "世外中学校园论坛",
-  "version": "0.7.0",
+  "version": "0.10.0",
   "api_version": "v1",
   "skin_contract_version": 3,
   "default_skin": "x",

@@ -1,0 +1,38 @@
+{
+  "version": "v0.10.0",
+  "tag": "v0.10.0",
+  "commit": "ffbf10479934b1b079082cd3e77d1792426b16d1",
+  "release_date": "2026-10-28",
+  "contract": {
+    "schema": 14,
+    "api": "v1",
+    "skin": 3
+  },
+  "migration": {
+    "file": null,
+    "applied": false,
+    "notes": "schema_version=14; no database migration in this release"
+  },
+  "checks": [
+    "backend type-check/lint",
+    "frontend type-check/build",
+    "targeted chat tests (including private-message avatar assertions)",
+    "PowerShell 5.1 and PowerShell 7 frontend artifact sync regression",
+    "one-click self-host end-to-end build/sync/start verification"
+  ],
+  "backup": {
+    "ref": "backups/wfla-wall-2026-10-28T13-46-54Z.sqlite",
+    "notes": "database backup required before deployment; no schema migration",
+    "created_at": "2026-10-28T13:46:54Z"
+  },
+  "rollback": {
+    "database": "no schema change; no database rollback required",
+    "target_tag": "v0.9.0",
+    "code": "git checkout v0.9.0"
+  },
+  "artifacts": {
+    "frontend_dist": "frontend/dist",
+    "public": "public",
+    "build_command": "npm run frontend:build"
+  }
+}
