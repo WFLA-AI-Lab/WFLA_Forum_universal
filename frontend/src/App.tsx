@@ -112,7 +112,8 @@ const FALLBACK_SITE: SiteConfig = {
   skin_contract_version: 3,
   default_skin: 'x',
   skins: [
-    { id: 'x', name: 'WFLA X', description: '响应式校园实时信息流', status: 'stable' }
+    { id: 'x', name: 'WFLA X', description: '响应式校园实时信息流', status: 'stable' },
+    { id: 'claude', name: 'WFLA Claude UI', description: '温暖米白、衬线标题与专注内容的响应式界面', status: 'stable' }
   ],
   guest_read_enabled: true,
   registration_enabled: true

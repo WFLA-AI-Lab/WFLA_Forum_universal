@@ -26,6 +26,12 @@ export const SKIN_REGISTRY: readonly SkinDescriptor[] = [
     name: 'WFLA X',
     description: '为 WFLA 校园社区设计的响应式实时信息流界面。',
     status: 'stable'
+  },
+  {
+    id: 'claude',
+    name: 'WFLA Claude UI',
+    description: '温暖米白、衬线标题与专注内容的响应式界面。',
+    status: 'stable'
   }
 ];
 

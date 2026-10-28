@@ -46,7 +46,7 @@ beforeEach(async () => {
   const testEnv = await createTestEnv();
   env = testEnv.env;
   mf = testEnv.mf;
-  await migrate(['0001_init.sql', '0006_app_settings.sql', '0007_site_settings.sql', '0008_user_preferences.sql', '0011_enrollment_year.sql']);
+  await migrate(['0001_init.sql', '0006_app_settings.sql', '0007_site_settings.sql', '0008_user_preferences.sql', '0011_enrollment_year.sql', '0015_claude_skin.sql']);
 });
 
 afterEach(async () => {
@@ -54,13 +54,14 @@ afterEach(async () => {
 });
 
 describe('per-account preferences', () => {
-  it('publishes the v3 skin contract for the responsive X skin', async () => {
+  it('publishes both complete v3 skins and keeps X as the default', async () => {
     const response = await app.request('/api/v1/site/config', {}, env);
     expect(response.status).toBe(200);
-    const config = await response.json() as { skin_contract_version: number; skins: { id: string }[] };
+    const config = await response.json() as { skin_contract_version: number; default_skin: string; skins: { id: string }[] };
     expect(SKIN_CONTRACT_VERSION).toBe(3);
     expect(config.skin_contract_version).toBe(3);
-    expect(config.skins.map(skin => skin.id)).toEqual(expect.arrayContaining(['x']));
+    expect(config.default_skin).toBe('x');
+    expect(config.skins.map(skin => skin.id)).toEqual(expect.arrayContaining(['x', 'claude']));
   });
 
   it('requires a session', async () => {
@@ -107,6 +108,22 @@ describe('per-account preferences', () => {
     expect(row?.n).toBe(1);
   });
 
+  it('stores the Claude UI choice and returns it as the effective skin', async () => {
+    const token = await createSessionUser('u-claude', 'claude-user', 'member');
+    const saved = await app.request('/api/v1/me/preferences/skin', {
+      method: 'PUT',
+      headers: { Cookie: cookie(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ skin_id: 'claude' })
+    }, env);
+    expect(saved.status).toBe(200);
+    expect((await saved.json() as { preference: { skin_id: string } }).preference.skin_id).toBe('claude');
+
+    const effective = await app.request('/api/v1/me/preferences/effective-skin?default=x', {
+      headers: { Cookie: cookie(token) }
+    }, env);
+    expect((await effective.json() as { skin_id: string }).skin_id).toBe('claude');
+  });
+
   it('rejects unknown skins and ids the site does not offer', async () => {
     const token = await createSessionUser('u3', 'member3', 'member');
 
@@ -117,9 +134,6 @@ describe('per-account preferences', () => {
     }, env);
     expect(unknown.status).toBe(400);
 
-    // While only one production skin is registered, the allow-list has no second
-    // member to disable. The generic isKnownSkin + allow-list check remains in
-    // preferences/service.ts and will be exercised again when another UI lands.
     const saved = await app.request('/api/v1/me/preferences/skin', {
       method: 'PUT',
       headers: { Cookie: cookie(token), 'Content-Type': 'application/json' },

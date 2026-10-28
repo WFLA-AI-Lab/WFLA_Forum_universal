@@ -217,9 +217,29 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
 
   function Settings() {
     if (!me) return AuthPanel();
+    const preferenceLabel = site.skin_preference_status === 'saving'
+      ? '正在同步…'
+      : site.skin_preference_status === 'error'
+        ? '已在本机应用，云端同步失败'
+        : site.skin_preference_status === 'saved'
+          ? '已保存到账号'
+          : '正在使用默认主题';
     return <div className="x-settings">
       <section><header><span><Icon name="user"/></span><div><h2>个人资料</h2><p>修改社区中展示的头像与昵称</p></div></header><form className="x-form" onSubmit={actions.saveProfile}><div className="x-avatar-editor"><Avatar name={forms.profileForm.nickname || me.real_name} src={forms.profileForm.avatar_data_url} size={72}/><label className="x-file">选择头像<input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 256 * 1024) { messages.setError('头像文件不能超过 256KB'); return; } const reader = new FileReader(); reader.onload = () => forms.setProfileForm(current => ({ ...current, avatar_data_url: String(reader.result) })); reader.readAsDataURL(file); }}/></label></div><label><span>昵称</span><input maxLength={24} value={forms.profileForm.nickname} onChange={event => forms.setProfileForm(current => ({ ...current, nickname: event.target.value }))} required/></label><div className="x-settings-actions"><button type="submit" className="x-primary">保存修改</button>{forms.profileForm.avatar_data_url && <button type="button" onClick={() => forms.setProfileForm(current => ({ ...current, avatar_data_url: null }))}>移除头像</button>}</div></form></section>
-      <section><header><span><Icon name="settings"/></span><div><h2>偏好设置</h2><p>当前账号的界面与内容偏好</p></div></header><div className="x-preference-row"><div><b>界面样式</b><small>WFLA X · 自动适配手机和电脑</small></div><span className="x-badge">已启用</span></div><div className="x-preference-row"><div><b>动态刷新</b><small>页面可见时每 15 秒同步最新内容</small></div><span className="x-badge live">实时</span></div></section>
+      <section><header><span><Icon name="settings"/></span><div><h2>偏好设置</h2><p>当前账号的界面与内容偏好</p></div></header>
+        <div className="x-theme-heading"><div><b>界面主题</b><small>选择后立即应用，并跟随你的账号</small></div><span className={`x-badge ${site.skin_preference_status === 'error' ? 'error' : ''}`}>{preferenceLabel}</span></div>
+        <div className="x-theme-grid" role="radiogroup" aria-label="界面主题">
+          {site.skins.map(skin => {
+            const selected = site.active_skin === skin.id;
+            return <button key={skin.id} type="button" role="radio" aria-checked={selected} className={`x-theme-option ${selected ? 'active' : ''}`} onClick={() => site.setSkin(skin.id)}>
+              <span className={`x-theme-preview ${skin.id === 'claude' ? 'claude' : 'x'}`} aria-hidden="true"><i/><i/><i/></span>
+              <span><b>{skin.name}</b><small>{skin.description}</small></span>
+              <em>{selected ? '已启用' : '切换'}</em>
+            </button>;
+          })}
+        </div>
+        <div className="x-preference-row"><div><b>动态刷新</b><small>页面可见时每 15 秒同步最新内容</small></div><span className="x-badge live">实时</span></div>
+      </section>
       <section><header><span><Icon name="shield"/></span><div><h2>账号</h2><p>{me.real_name} · {me.enrollment_year} 入学 · {ui.roleLabel[me.role] || me.role}</p></div></header><button type="button" className="x-danger-button" onClick={() => void actions.logout()}><Icon name="logout" size={18}/>退出登录</button></section>
     </div>;
   }
