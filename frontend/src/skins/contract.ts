@@ -94,7 +94,10 @@ export interface Post {
   author?: { username: string; real_name: string; enrollment_year: string; role: string; nickname?: string; avatar_data_url?: string | null };
 }
 
-export type ChatUser = Pick<User, 'id' | 'username' | 'real_name' | 'enrollment_year' | 'role' | 'status'>;
+export type ChatUser = Pick<User, 'id' | 'username' | 'real_name' | 'enrollment_year' | 'role' | 'status'> & {
+  nickname?: string | null;
+  avatar_data_url?: string | null;
+};
 
 export interface ChatMessage {
   id: string;
