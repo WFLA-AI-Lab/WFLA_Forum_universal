@@ -1,14 +1,14 @@
 import { Hono } from 'hono';
 import type { Env } from '../../env';
-import { AppError, badRequest, notFound } from '../../core/errors';
+import { AppError, badRequest, notFound, unauthorized } from '../../core/errors';
 import { createId, nowIso } from '../../core/utils';
-import { requireUser } from '../identity/session';
+import { loadSession, requireUser } from '../identity/session';
 import { canModerate, isAdmin, requireRole } from '../access/service';
-import { loadSession } from '../identity/session';
 import { renderMarkdown } from './markdown';
 import { applyPublicationRules } from '../moderation/automation';
 import { insertAudit } from '../moderation/audit';
 import { titleSchema, contentSchema } from '../../core/validation';
+import { isGuestReadEnabled } from '../site/service';
 
 interface BoardRow { id: string; slug: string; name: string; description: string; position: number; is_active: number; created_at: string; updated_at: string }
 interface ThreadRow {
@@ -36,10 +36,15 @@ function threadJson(row: ThreadRow) {
 
 export const contentRoutes = new Hono<{ Bindings: Env }>();
 
+async function assertReadAccess(env: Env, viewer: Awaited<ReturnType<typeof loadSession>>): Promise<void> {
+  if (!viewer && !(await isGuestReadEnabled(env))) throw unauthorized('请先登录后查看论坛内容');
+}
+
 // Chronological, cross-board timeline. The cursor follows the same
 // (created_at, id) ordering as the query, including tied timestamps.
 contentRoutes.get('/feed', async c => {
   const viewer = await loadSession(c);
+  await assertReadAccess(c.env, viewer);
   const limit = Number(c.req.query('limit') ?? 20);
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw badRequest('分页大小无效');
   const cursor = c.req.query('cursor') ?? null;
@@ -71,6 +76,8 @@ contentRoutes.get('/feed', async c => {
 });
 
 contentRoutes.get('/boards', async c => {
+  const viewer = await loadSession(c);
+  await assertReadAccess(c.env, viewer);
   const rows = await c.env.DB.prepare(
     'SELECT id, slug, name, description, position, is_active, created_at, updated_at FROM boards WHERE is_active = 1 ORDER BY position, name'
   ).all<BoardRow>();
@@ -97,6 +104,7 @@ contentRoutes.post('/boards', async c => {
 
 contentRoutes.get('/boards/:slug/threads', async c => {
   const viewer = await loadSession(c);
+  await assertReadAccess(c.env, viewer);
   const slug = c.req.param('slug');
   const board = await c.env.DB.prepare('SELECT id FROM boards WHERE slug = ? AND is_active = 1').bind(slug).first<{ id: string }>();
   if (!board) throw notFound('板块不存在');
@@ -149,6 +157,7 @@ function slugifyTitle(title: string): string {
 contentRoutes.get('/threads/:id', async c => {
   const id = c.req.param('id');
   const viewer = await loadSession(c);
+  await assertReadAccess(c.env, viewer);
   const row = await c.env.DB.prepare(
     `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
             (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
@@ -316,6 +325,7 @@ contentRoutes.delete('/reactions', async c => {
 
 contentRoutes.get('/search', async c => {
   const viewer = await loadSession(c);
+  await assertReadAccess(c.env, viewer);
   const q = (c.req.query('q') ?? '').trim();
   if (q.length < 1 || q.length > 100) throw badRequest('搜索词必须为 1-100 字符');
   const pattern = `%${q}%`;

@@ -86,8 +86,8 @@ export default function ChatTestPage() {
   const search = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
-      const data = await api.get<{ items: SearchResults }>(`/search?q=${encodeURIComponent(query)}`);
-      setUsers(data.items.users.filter(user => user.id !== me?.id));
+      const data = await api.get<SearchResults>(`/search?q=${encodeURIComponent(query)}`);
+      setUsers(data.users.filter(user => user.id !== me?.id));
     } catch (error) { setMessage((error as Error).message); }
   };
 

@@ -93,6 +93,7 @@ interface Conversation {
   unread_count: number;
   blocked_by_me: boolean;
   blocked_me: boolean;
+  member?: { last_read_message_id: string | null } | null;
   counterpart?: { id: string } | null;
   last_message?: { id: string; content_markdown: string } | null;
 }
@@ -186,6 +187,32 @@ describe('direct chat', () => {
     await env.DB.prepare(`UPDATE users SET status = 'muted' WHERE id = 'chat-user-c'`).run();
     const muted = await post(`/conversations/${id}/messages`, { client_id: 'muted', content: 'no' }, a);
     expect(muted.status).toBe(403);
+  });
+
+  it('tracks unread messages correctly when timestamps are identical', async () => {
+    const sender = await user('chat-tie-sender', 'chat-tie-sender', 'member');
+    const reader = await user('chat-tie-reader', 'chat-tie-reader', 'member');
+    const conversation = await post<{ item: Conversation }>('/conversations/direct', { user_id: 'chat-tie-reader' }, sender);
+    const first = await post<{ item: Message }>(`/conversations/${conversation.body.item.id}/messages`, {
+      client_id: 'tie-1', content: '同一时间消息 1'
+    }, sender);
+    const second = await post<{ item: Message }>(`/conversations/${conversation.body.item.id}/messages`, {
+      client_id: 'tie-2', content: '同一时间消息 2'
+    }, sender);
+    const tiedAt = '2026-10-28T00:00:00.000Z';
+    await env.DB.prepare('UPDATE chat_messages SET created_at = ? WHERE id IN (?, ?)')
+      .bind(tiedAt, first.body.item.id, second.body.item.id).run();
+    const [earlierId, laterId] = [first.body.item.id, second.body.item.id].sort();
+
+    const firstRead = await post<{ item: Conversation }>(`/conversations/${conversation.body.item.id}/read`, {
+      message_id: earlierId
+    }, reader);
+    expect(firstRead.body.item.unread_count).toBe(1);
+    const secondRead = await post<{ item: Conversation }>(`/conversations/${conversation.body.item.id}/read`, {
+      message_id: laterId
+    }, reader);
+    expect(secondRead.body.item.unread_count).toBe(0);
+    expect(secondRead.body.item.member?.last_read_message_id).toBe(laterId);
   });
 });
 

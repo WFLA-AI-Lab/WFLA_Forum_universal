@@ -54,11 +54,12 @@
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "hono": "^4.13.13",
+    "marked": "^16.4.2",
     "sanitize-html": "^2.18.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0",
     "vitest": "^5.0.5",
-    "wrangler": "^4.151.3",
+    "wrangler": "^4.154.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -66,7 +67,7 @@
     "@types/node": "^26.6.5",
     "@types/sanitize-html": "^2.16.2",
     "better-sqlite3": "^13.0.3",
-    "miniflare": "^5.20261019.1-beta",
+    "miniflare": "^5.20261023.1-beta",
     "tsx": "^4.23.15"
   }
 }

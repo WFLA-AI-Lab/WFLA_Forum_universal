@@ -280,6 +280,7 @@ export default function App() {
   // loaded later pages, merge updates into the existing list instead of
   // resetting it to page one.
   useEffect(() => {
+    if (!me && !site.guest_read_enabled) return;
     let cancelled = false;
     const refreshLiveData = async () => {
       if (document.hidden) return;
@@ -311,7 +312,7 @@ export default function App() {
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, []);
+  }, [me?.id, site.guest_read_enabled]);
 
   /**
    * Publishes the active skin to the document. Page-level styling (body
@@ -387,6 +388,15 @@ export default function App() {
     return chosen;
   }
 
+  async function loadForumContent() {
+    try { const d = await api.get<{ items: Board[] }>('/boards'); setBoards(d.items); } catch { setBoards([]); }
+    try {
+      const d = await api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20');
+      setFeed(d.items); setFeedCursor(d.next_cursor);
+    } catch (e) { setError((e as Error).message); }
+    try { const d = await api.get<{ items: Announcement[] }>('/announcements'); setAnnouncements(d.items); } catch { setAnnouncements([]); }
+  }
+
   async function loadBase() {
     let config: SiteConfig & { skin_registry?: SkinDescriptor[] } = FALLBACK_SITE;
     try {
@@ -438,12 +448,10 @@ export default function App() {
       setProfile(null);
       setProfileForm({ nickname: '', avatar_data_url: null });
     }
-    try { const d = await api.get<{ items: Board[] }>('/boards'); setBoards(d.items); } catch { setBoards([]); }
-    try {
-      const d = await api.get<{ items: Thread[]; next_cursor: string | null }>('/feed?limit=20');
-      setFeed(d.items); setFeedCursor(d.next_cursor);
-    } catch (e) { setError((e as Error).message); }
-    try { const d = await api.get<{ items: Announcement[] }>('/announcements'); setAnnouncements(d.items); } catch { setAnnouncements([]); }
+    if (user || config.guest_read_enabled) await loadForumContent();
+    else {
+      setBoards([]); setFeed([]); setFeedCursor(null); setAnnouncements([]);
+    }
     try {
       const d = await api.get<Provider>('/auth/providers');
       setProviders(d);
@@ -681,6 +689,7 @@ export default function App() {
       setUsername(''); setPassword('');
       await loadProfile(d.user);
       await adoptAccountSkin();
+      await loadForumContent();
     } catch (e) { setError((e as Error).message); }
   }
 
@@ -689,6 +698,9 @@ export default function App() {
     setMe(null); setView({ name: 'home' }); setSuccess(''); setError('');
     setProfile(null); setProfileForm({ nickname: '', avatar_data_url: null });
     setActiveSkin(FALLBACK_SKIN_ID);
+    if (!site.guest_read_enabled) {
+      setBoards([]); setFeed([]); setFeedCursor(null); setAnnouncements([]);
+    }
     try { window.localStorage.removeItem(SKIN_STORAGE_KEY); } catch { /* storage may be unavailable */ }
     setSkinPreferenceStatus('guest');
   }

@@ -1,13 +1,15 @@
 import { Hono } from 'hono';
 import type { Env, SessionUser, ReportStatus } from '../../env';
-import { badRequest, notFound } from '../../core/errors';
-import { reportTargetTypeSchema } from '../../core/validation';
+import { badRequest, notFound, unauthorized } from '../../core/errors';
+import { contentSchema, reportTargetTypeSchema, titleSchema } from '../../core/validation';
 import { createId, nowIso } from '../../core/utils';
-import { requireUser } from '../identity/session';
+import { loadSession, requireUser } from '../identity/session';
 import { requireRole } from '../access/service';
 import { enforceRateLimit } from '../identity/crypto';
 import { insertAudit } from './audit';
 import { applyReportThreshold } from './automation';
+import { renderMarkdown } from '../content/markdown';
+import { isGuestReadEnabled } from '../site/service';
 
 const REPORT_STATUSES: ReportStatus[] = ['open', 'in_review', 'resolved', 'rejected'];
 
@@ -351,4 +353,44 @@ moderationRoutes.post('/moderation/sanctions/expire', async c => {
     await c.env.DB.prepare(`UPDATE sanctions SET resolved_at = ? WHERE id = ? AND resolved_at IS NULL`).bind(timestamp, item.id).run();
   }
   return c.json({ success: true, expired: expired.results?.length ?? 0 });
+});
+
+moderationRoutes.post('/announcements', async c => {
+  const actor = await requireUser(c);
+  requireRole(actor, 'admin');
+  const body = await c.req.json().catch(() => null);
+  const title = titleSchema.parse(body?.title);
+  const content = contentSchema.parse(body?.content);
+  const level = ['normal', 'important', 'urgent'].includes(String(body?.level)) ? String(body?.level) : 'normal';
+  const startsAt = new Date(body?.starts_at ?? Date.now());
+  if (Number.isNaN(startsAt.getTime())) throw badRequest('开始时间无效');
+  const endsAt = body?.ends_at ? new Date(body.ends_at) : null;
+  if (endsAt && (Number.isNaN(endsAt.getTime()) || endsAt <= startsAt)) throw badRequest('结束时间无效');
+  const id = createId();
+  const timestamp = nowIso();
+  await c.env.DB.prepare(
+    `INSERT INTO announcements (id, author_id, title, content_markdown, content_html, level, starts_at, ends_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, actor.id, title, content, renderMarkdown(content), level, startsAt.toISOString(), endsAt?.toISOString() ?? null, timestamp, timestamp).run();
+  const recipients = await c.env.DB.prepare(`SELECT id FROM users WHERE status = 'active'`).all<{ id: string }>();
+  for (const recipient of recipients.results ?? []) {
+    await c.env.DB.prepare(
+      'INSERT INTO notifications (id, recipient_id, type, title, body, link, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)'
+    ).bind(createId(), recipient.id, 'announcement', title, content.slice(0, 160), `/announcements/${id}`, timestamp).run();
+  }
+  await insertAudit(c.env, actor.id, 'announcement.create', 'announcement', id, '管理员发布全站公告', { level });
+  return c.json({ item: { id } }, 201);
+});
+
+moderationRoutes.get('/announcements', async c => {
+  const viewer = await loadSession(c);
+  if (!viewer && !(await isGuestReadEnabled(c.env))) throw unauthorized('请先登录后查看论坛内容');
+  const now = nowIso();
+  const rows = await c.env.DB.prepare(
+    `SELECT a.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year
+       FROM announcements a JOIN users u ON u.id = a.author_id
+      WHERE a.starts_at <= ? AND (a.ends_at IS NULL OR a.ends_at > ?)
+      ORDER BY CASE a.level WHEN 'urgent' THEN 0 WHEN 'important' THEN 1 ELSE 2 END, a.starts_at DESC LIMIT 100`
+  ).bind(now, now).all();
+  return c.json({ items: rows.results ?? [] });
 });
