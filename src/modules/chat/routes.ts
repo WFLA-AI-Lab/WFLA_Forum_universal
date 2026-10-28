@@ -99,8 +99,10 @@ chatRoutes.get('/conversations/:id/messages', async c => {
   const rows = await c.env.DB.prepare(
     `SELECT m.*, u.id AS sender_user_id, u.username AS sender_username,
             u.real_name AS sender_real_name, u.enrollment_year AS sender_enrollment_year,
-            u.role AS sender_role, u.status AS sender_status
+            u.role AS sender_role, u.status AS sender_status,
+            up.nickname AS sender_nickname, up.avatar_data_url AS sender_avatar_data_url
        FROM chat_messages m LEFT JOIN users u ON u.id = m.sender_id
+       LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE m.conversation_id = ?
         AND (? IS NULL OR (m.created_at, m.id) <
           (SELECT created_at, id FROM chat_messages WHERE id = ?))
@@ -112,6 +114,7 @@ chatRoutes.get('/conversations/:id/messages', async c => {
     .all<MessageWithSender & {
       sender_user_id: string | null; sender_username: string | null; sender_real_name: string | null;
       sender_enrollment_year: string | null; sender_role: string | null; sender_status: string | null;
+      sender_nickname: string | null; sender_avatar_data_url: string | null;
     }>();
   const all = (rows.results ?? []).slice(0, limit).map(row => ({
     ...row,
@@ -119,6 +122,8 @@ chatRoutes.get('/conversations/:id/messages', async c => {
       id: row.sender_user_id,
       username: row.sender_username ?? '',
       real_name: row.sender_real_name ?? '',
+      nickname: row.sender_nickname ?? row.sender_real_name ?? '',
+      avatar_data_url: row.sender_avatar_data_url ?? null,
       enrollment_year: row.sender_enrollment_year ?? '',
       role: row.sender_role ?? 'member',
       status: row.sender_status ?? 'deleted'

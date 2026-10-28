@@ -36,6 +36,8 @@ export interface MessageSenderRow {
   id: string;
   username: string;
   real_name: string;
+  nickname: string | null;
+  avatar_data_url: string | null;
   enrollment_year: string;
   role: SessionUser['role'];
   status: SessionUser['status'];
@@ -134,8 +136,10 @@ export async function getMessageWithSender(env: Env, messageId: string): Promise
   const row = await env.DB.prepare(
     `SELECT m.*, u.id AS sender_user_id, u.username AS sender_username,
             u.real_name AS sender_real_name, u.enrollment_year AS sender_enrollment_year,
-            u.role AS sender_role, u.status AS sender_status
+            u.role AS sender_role, u.status AS sender_status,
+            up.nickname AS sender_nickname, up.avatar_data_url AS sender_avatar_data_url
        FROM chat_messages m LEFT JOIN users u ON u.id = m.sender_id
+       LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE m.id = ? LIMIT 1`
   ).bind(messageId).first<MessageRow & {
     sender_user_id: string | null;
@@ -144,12 +148,16 @@ export async function getMessageWithSender(env: Env, messageId: string): Promise
     sender_enrollment_year: string | null;
     sender_role: SessionUser['role'] | null;
     sender_status: SessionUser['status'] | null;
+    sender_nickname: string | null;
+    sender_avatar_data_url: string | null;
   }>();
   if (!row) return null;
   const sender = row.sender_user_id ? {
     id: row.sender_user_id,
     username: row.sender_username ?? '',
     real_name: row.sender_real_name ?? '',
+    nickname: row.sender_nickname ?? row.sender_real_name ?? '',
+    avatar_data_url: row.sender_avatar_data_url ?? null,
     enrollment_year: row.sender_enrollment_year ?? '',
     role: row.sender_role ?? 'member',
     status: row.sender_status ?? 'deleted'
@@ -218,8 +226,10 @@ export async function conversationJson(
   let blockedMe = false;
   if (conversation.type === 'direct') {
     counterpart = await env.DB.prepare(
-      `SELECT u.id, u.username, u.real_name, u.enrollment_year, u.role, u.status
+      `SELECT u.id, u.username, u.real_name, u.enrollment_year, u.role, u.status,
+              up.nickname, up.avatar_data_url
          FROM chat_members cm JOIN users u ON u.id = cm.user_id
+         LEFT JOIN user_profiles up ON up.user_id = u.id
         WHERE cm.conversation_id = ? AND cm.user_id != ? LIMIT 1`
     ).bind(conversation.id, viewerId).first();
     if (counterpart && typeof counterpart === 'object' && 'id' in counterpart) {
@@ -233,7 +243,9 @@ export async function conversationJson(
   let owner = null;
   if (conversation.type === 'group' && conversation.owner_user_id) {
     owner = await env.DB.prepare(
-      'SELECT id, username, real_name, enrollment_year, role, status FROM users WHERE id = ?'
+      `SELECT u.id, u.username, u.real_name, u.enrollment_year, u.role, u.status,
+              up.nickname, up.avatar_data_url
+         FROM users u LEFT JOIN user_profiles up ON up.user_id = u.id WHERE u.id = ?`
     ).bind(conversation.owner_user_id).first();
   }
   const lastMessage = conversation.last_message_id
@@ -253,7 +265,7 @@ export async function conversationJson(
   return {
     id: conversation.id,
     type: conversation.type,
-    title: conversation.type === 'direct' ? counterpart?.real_name ?? '私聊' : conversation.name,
+    title: conversation.type === 'direct' ? counterpart?.nickname ?? counterpart?.real_name ?? '私聊' : conversation.name,
     description: conversation.description,
     counterpart,
     blocked_by_me: blockedByMe,
@@ -280,8 +292,10 @@ export async function listMembers(
 ): Promise<Array<MessageSenderRow & { user_id: string; joined_at: string; left_at: string | null }>> {
   const rows = await env.DB.prepare(
     `SELECT u.id, u.username, u.real_name, u.enrollment_year, u.role, u.status,
+            up.nickname, up.avatar_data_url,
             cm.user_id, cm.joined_at, cm.left_at
        FROM chat_members cm JOIN users u ON u.id = cm.user_id
+       LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE cm.conversation_id = ? ${includeLeft ? '' : 'AND cm.left_at IS NULL'}
       ORDER BY cm.joined_at ASC, cm.user_id ASC`
   ).bind(conversationId).all<MessageSenderRow & { user_id: string; joined_at: string; left_at: string | null }>();

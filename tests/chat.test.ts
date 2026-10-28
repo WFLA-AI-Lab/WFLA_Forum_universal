@@ -94,7 +94,7 @@ interface Conversation {
   blocked_by_me: boolean;
   blocked_me: boolean;
   member?: { last_read_message_id: string | null } | null;
-  counterpart?: { id: string } | null;
+  counterpart?: { id: string; nickname?: string; avatar_data_url?: string | null } | null;
   last_message?: { id: string; content_markdown: string } | null;
 }
 
@@ -108,7 +108,7 @@ interface Message {
   status: string;
   created_at: string;
   deleted_at?: string | null;
-  sender?: { id: string; real_name: string; status: string } | null;
+  sender?: { id: string; real_name: string; nickname?: string; avatar_data_url?: string | null; status: string } | null;
 }
 
 beforeEach(async () => {
@@ -121,12 +121,21 @@ describe('direct chat', () => {
   it('creates one unique direct conversation and sends idempotently', async () => {
     const a = await user('chat-user-a', 'chat-user-a', 'member');
     const b = await user('chat-user-b', 'chat-user-b', 'member');
+    const avatarA = 'data:image/png;base64,YQ==';
+    const avatarB = 'data:image/png;base64,Yg==';
+    const now = new Date().toISOString();
+    await env.DB.prepare('INSERT INTO user_profiles (user_id, nickname, avatar_data_url, updated_at) VALUES (?, ?, ?, ?)')
+      .bind('chat-user-a', '聊天用户 A', avatarA, now).run();
+    await env.DB.prepare('INSERT INTO user_profiles (user_id, nickname, avatar_data_url, updated_at) VALUES (?, ?, ?, ?)')
+      .bind('chat-user-b', '聊天用户 B', avatarB, now).run();
     const first = await post<{ item: Conversation }>('/conversations/direct', { user_id: 'chat-user-b' }, a);
     expect(first.status).toBe(201);
     const second = await post<{ item: Conversation }>('/conversations/direct', { user_id: 'chat-user-a' }, b);
     expect(second.status).toBe(201);
     expect(second.body.item.id).toBe(first.body.item.id);
     expect(first.body.item.type).toBe('direct');
+    expect(first.body.item.title).toBe('聊天用户 B');
+    expect(first.body.item.counterpart).toMatchObject({ nickname: '聊天用户 B', avatar_data_url: avatarB });
 
     const sent1 = await post<{ item: Message }>('/conversations/direct', {}, a);
     expect(sent1.status).toBe(422);
@@ -135,6 +144,7 @@ describe('direct chat', () => {
     }, a);
     expect(sent.status).toBe(201);
     expect(sent.body.item.content_html).toContain('WFLA');
+    expect(sent.body.item.sender).toMatchObject({ nickname: '聊天用户 A', avatar_data_url: avatarA });
     const retry = await post<{ item: Message }>(`/conversations/${first.body.item.id}/messages`, {
       client_id: 'client-1', content: '你好 **WFLA**'
     }, a);
@@ -147,6 +157,10 @@ describe('direct chat', () => {
     expect(list.body.items[0]?.id).toBe(first.body.item.id);
     expect(list.body.items[0]?.unread_count).toBe(1);
     expect(list.body.items[0]?.last_message?.content_markdown).toBe('你好 **WFLA**');
+    expect(list.body.items[0]?.counterpart).toMatchObject({ nickname: '聊天用户 A', avatar_data_url: avatarA });
+
+    const history = await get<{ items: Message[] }>(`/conversations/${first.body.item.id}/messages`, b);
+    expect(history.body.items[0]?.sender).toMatchObject({ nickname: '聊天用户 A', avatar_data_url: avatarA });
 
     const read = await post<{ item: Conversation }>(`/conversations/${first.body.item.id}/read`, {
       message_id: sent.body.item.id
