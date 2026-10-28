@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Board, NotificationItem, SkinContext, Thread, View } from '../contract';
+import type { Board, ChatUser, NotificationItem, SkinContext, Thread, View } from '../contract';
 import './x.css';
 
 type IconName = 'home' | 'notice' | 'community' | 'user' | 'search' | 'settings' | 'bell' | 'bookmark' | 'reply' | 'heart' | 'more' | 'back' | 'send' | 'group' | 'edit' | 'shield' | 'logout' | 'trash';
@@ -47,6 +47,15 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   const { site, session, data, forms, messages, actions, view, setView, helpers, ui } = forum;
   const { me, providers, isAdmin, isStaff } = session;
   const [profileTab, setProfileTab] = useState<'posts' | 'saved'>('posts');
+  const [groupDialog, setGroupDialog] = useState<'create' | 'info' | null>(null);
+  const [groupName, setGroupName] = useState('');
+  const [groupDescription, setGroupDescription] = useState('');
+  const [groupAnnouncement, setGroupAnnouncement] = useState('');
+  const [groupNickname, setGroupNickname] = useState('');
+  const [groupSearch, setGroupSearch] = useState('');
+  const [groupCandidates, setGroupCandidates] = useState<ChatUser[]>([]);
+  const [selectedGroupUsers, setSelectedGroupUsers] = useState<string[]>([]);
+  const [groupSearchBusy, setGroupSearchBusy] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const activeBoard = view.name === 'board' ? view.board : null;
   const activeThread = view.name === 'thread' ? view.thread : null;
@@ -58,6 +67,14 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [data.activeConversation?.id, data.chatMessages.length]);
+
+  useEffect(() => {
+    if (groupDialog !== 'info' || data.activeConversation?.type !== 'group') return;
+    setGroupName(data.activeConversation.title);
+    setGroupDescription(data.activeConversation.description || '');
+    setGroupAnnouncement(data.activeConversation.announcement || '');
+    setGroupNickname(data.activeConversation.member?.group_nickname || '');
+  }, [groupDialog, data.activeConversation?.id]);
 
   function go(next: View) {
     setView(next);
@@ -179,11 +196,66 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
     const contacts = data.searchResults?.users.filter(user => user.id !== me.id) ?? [];
     const active = data.activeConversation;
     const unavailable = active?.blocked_by_me || active?.blocked_me || active?.counterpart?.status === 'banned' || active?.counterpart?.status === 'deleted';
-    return <><div className="x-page-intro"><div><span className="x-eyebrow">WFLA COMMUNITY</span><h1>社区</h1><p>在社团群组中交流，或查找一个联系人</p></div></div>
+    const myGroupRole = active?.type === 'group' ? active.member?.role : null;
+    const canManageGroup = myGroupRole === 'owner' || myGroupRole === 'admin';
+    const isGroupOwner = myGroupRole === 'owner';
+    const activeMemberIds = new Set(active?.members?.map(member => member.user_id) ?? []);
+
+    function resetGroupPicker() {
+      setGroupSearch('');
+      setGroupCandidates([]);
+      setSelectedGroupUsers([]);
+    }
+
+    function openCreateGroup() {
+      setGroupName('');
+      setGroupDescription('');
+      setGroupAnnouncement('');
+      resetGroupPicker();
+      setGroupDialog('create');
+    }
+
+    async function findGroupUsers(event?: React.FormEvent) {
+      event?.preventDefault();
+      setGroupSearchBusy(true);
+      const found = await actions.searchChatUsers(groupSearch);
+      setGroupCandidates(current => {
+        const merged = new Map(current.map(user => [user.id, user]));
+        found.forEach(user => merged.set(user.id, user));
+        return [...merged.values()];
+      });
+      setGroupSearchBusy(false);
+    }
+
+    function toggleGroupUser(userId: string) {
+      setSelectedGroupUsers(current => current.includes(userId)
+        ? current.filter(id => id !== userId)
+        : [...current, userId]);
+    }
+
+    async function submitCreateGroup(event: React.FormEvent) {
+      event.preventDefault();
+      const ok = await actions.createGroup({
+        name: groupName,
+        description: groupDescription,
+        member_ids: selectedGroupUsers
+      });
+      if (ok) { setGroupDialog(null); resetGroupPicker(); }
+    }
+
+    async function inviteSelectedMembers() {
+      const ids = selectedGroupUsers.filter(id => !activeMemberIds.has(id));
+      if (!ids.length) return;
+      const ok = await actions.addGroupMembers(ids);
+      if (ok) resetGroupPicker();
+    }
+
+    const roleLabel = { owner: '群主', admin: '管理员', member: '成员' } as const;
+    return <><div className="x-page-intro"><div><span className="x-eyebrow">WFLA COMMUNITY</span><h1>社区</h1><p>像 QQ 一样创建群聊、邀请同学并实时交流</p></div><button type="button" className="x-create-group" onClick={openCreateGroup}>＋ 创建群聊</button></div>
       <div className={active ? 'x-community has-active' : 'x-community'}>
         <section className="x-community-list">
-          <header><h2>社团群组</h2><span>{groupConversations.length}</span></header>
-          {groupConversations.length ? groupConversations.map(item => <button key={item.id} type="button" className={active?.id === item.id ? 'x-community-row active' : 'x-community-row'} onClick={() => void actions.openConversation(item)}><span className="x-group-icon"><Icon name="group"/></span><span><b>{item.title}</b><small>{item.last_message?.content_markdown || item.description || '社团成员交流群'}</small></span>{item.unread_count > 0 && <i className="x-unread">{item.unread_count}</i>}</button>) : <div className="x-community-empty">暂无加入的社团群组</div>}
+          <header><h2>群聊</h2><span>{groupConversations.length}</span></header>
+          {groupConversations.length ? groupConversations.map(item => <button key={item.id} type="button" className={active?.id === item.id ? 'x-community-row active' : 'x-community-row'} onClick={() => void actions.openConversation(item)}><span className="x-group-icon"><Icon name="group"/></span><span><b>{item.title}</b><small>{item.last_message?.status === 'deleted' ? '该消息已删除' : item.last_message?.content_markdown || item.description || '群成员交流'}</small></span>{item.unread_count > 0 && <i className="x-unread">{item.unread_count}</i>}</button>) : <div className="x-community-empty">暂无群聊，创建一个并邀请同学加入</div>}
           <header><h2>私信</h2><span>{directConversations.length}</span></header>
           {directConversations.map(item => <button key={item.id} type="button" className={active?.id === item.id ? 'x-community-row active' : 'x-community-row'} onClick={() => void actions.openConversation(item)}><Avatar name={item.counterpart?.nickname || item.counterpart?.real_name || item.title} src={item.counterpart?.avatar_data_url} size={40}/><span><b>{item.title}</b><small>{item.last_message?.status === 'deleted' ? '该消息已删除' : item.last_message?.content_markdown || '开始对话'}</small></span>{item.unread_count > 0 && <i className="x-unread">{item.unread_count}</i>}</button>)}
           {!directConversations.length && <div className="x-community-empty">还没有私信，搜索联系人开始对话</div>}
@@ -194,18 +266,26 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
         </section>
         <section className="x-conversation">
           {active ? <>
-            <header><button type="button" className="x-chat-back" aria-label="返回会话列表" onClick={actions.closeConversation}><Icon name="back" size={20}/></button>{active.type === 'direct' ? <Avatar name={active.counterpart?.nickname || active.counterpart?.real_name || active.title} src={active.counterpart?.avatar_data_url} size={38}/> : <span className="x-group-icon"><Icon name="group"/></span>}<div><b>{active.title}</b><small>{active.type === 'direct' ? `${active.counterpart?.enrollment_year || ''} 入学` : active.description || '社团群组'}</small></div>{active.type === 'direct' && active.counterpart && <button type="button" className="x-chat-block" onClick={() => void actions.toggleChatBlock(active.counterpart!.id, active.blocked_by_me)}>{active.blocked_by_me ? '取消屏蔽' : '屏蔽'}</button>}</header>
+            <header><button type="button" className="x-chat-back" aria-label="返回会话列表" onClick={actions.closeConversation}><Icon name="back" size={20}/></button>{active.type === 'direct' ? <Avatar name={active.counterpart?.nickname || active.counterpart?.real_name || active.title} src={active.counterpart?.avatar_data_url} size={38}/> : <span className="x-group-icon"><Icon name="group"/></span>}<div><b>{active.title}</b><small>{active.type === 'direct' ? `${active.counterpart?.enrollment_year || ''} 入学` : `${active.members?.length ?? 0} 位成员 · ${active.description || '群聊'}`}</small></div>{active.type === 'direct' && active.counterpart && <button type="button" className="x-chat-block" onClick={() => void actions.toggleChatBlock(active.counterpart!.id, active.blocked_by_me)}>{active.blocked_by_me ? '取消屏蔽' : '屏蔽'}</button>}{active.type === 'group' && <button type="button" className="x-chat-block" onClick={() => { resetGroupPicker(); setGroupDialog('info'); }}>群资料</button>}</header>
+            {active.type === 'group' && active.announcement && <button type="button" className="x-group-announcement" onClick={() => setGroupDialog('info')}><b>群公告</b><span>{active.announcement}</span></button>}
             <div className="x-message-list">
               {data.chatNextCursor && <button type="button" className="x-load-older" disabled={data.chatBusy} onClick={() => void actions.loadOlderMessages()}>{data.chatBusy ? '正在加载…' : '加载更早消息'}</button>}
-              {data.chatBusy && data.chatMessages.length === 0 ? <div className="x-community-empty">正在加载消息…</div> : data.chatMessages.length === 0 ? <Empty icon="send" title="尚未开始对话" body="发送第一条消息吧。"/> : data.chatMessages.map(item => { const ownProfile = item.sender_id === me.id ? forms.profile : null; const senderName = ownProfile?.nickname || item.sender?.nickname || item.sender?.real_name || '已删除用户'; const senderAvatar = ownProfile?.avatar_data_url || item.sender?.avatar_data_url; return <article key={item.id} className={item.sender_id === me.id ? 'x-message own' : 'x-message'}><Avatar name={senderName} src={senderAvatar} size={32}/><div><header><b>{senderName}</b><time>{helpers.formatDate(item.created_at)}</time></header><div className={item.status === 'deleted' ? 'x-message-body deleted' : 'x-message-body'} dangerouslySetInnerHTML={{ __html: item.content_html }}/><footer>{item.sender_id === me.id && item.status === 'published' && <button type="button" onClick={() => void actions.deleteChatMessage(item.id)}>删除</button>}{item.sender_id !== me.id && item.status === 'published' && <button type="button" onClick={() => void actions.reportChatMessage(item.id)}>举报</button>}</footer></div></article>; })}
+              {data.chatBusy && data.chatMessages.length === 0 ? <div className="x-community-empty">正在加载消息…</div> : data.chatMessages.length === 0 ? <Empty icon="send" title="尚未开始对话" body="发送第一条消息吧。"/> : data.chatMessages.map(item => { const groupMember = active.type === 'group' ? active.members?.find(member => member.user_id === item.sender_id) : null; const ownProfile = item.sender_id === me.id ? forms.profile : null; const senderName = groupMember?.group_nickname || ownProfile?.nickname || item.sender?.nickname || item.sender?.real_name || '已删除用户'; const senderAvatar = ownProfile?.avatar_data_url || item.sender?.avatar_data_url; return <article key={item.id} className={item.sender_id === me.id ? 'x-message own' : 'x-message'}><Avatar name={senderName} src={senderAvatar} size={32}/><div><header><b>{senderName}</b>{groupMember?.group_role !== 'member' && <em className="x-group-role">{roleLabel[groupMember?.group_role || 'member']}</em>}<time>{helpers.formatDate(item.created_at)}</time></header><div className={item.status === 'deleted' ? 'x-message-body deleted' : 'x-message-body'} dangerouslySetInnerHTML={{ __html: item.content_html }}/><footer>{item.sender_id === me.id && item.status === 'published' && <button type="button" onClick={() => void actions.deleteChatMessage(item.id)}>删除</button>}{item.sender_id !== me.id && item.status === 'published' && <button type="button" onClick={() => void actions.reportChatMessage(item.id)}>举报</button>}</footer></div></article>; })}
               <div ref={chatEndRef}/>
             </div>
             {unavailable && <div className="x-chat-unavailable">{active.blocked_by_me ? '你已屏蔽该用户，取消屏蔽后可继续发送。' : '当前无法向该用户发送消息。'}</div>}
-            <form className="x-message-compose" onSubmit={actions.sendChatMessage}><input value={forms.chatDraft} onChange={event => forms.setChatDraft(event.target.value)} maxLength={2000} disabled={Boolean(unavailable)} placeholder={unavailable ? '当前无法发送消息' : '发送私信'}/><span>{forms.chatDraft.length}/2000</span><button type="submit" disabled={Boolean(unavailable) || data.chatSending || !forms.chatDraft.trim()} aria-label="发送消息"><Icon name="send" size={18}/></button></form>
+            <form className="x-message-compose" onSubmit={actions.sendChatMessage}><input value={forms.chatDraft} onChange={event => forms.setChatDraft(event.target.value)} maxLength={2000} disabled={Boolean(unavailable)} placeholder={unavailable ? '当前无法发送消息' : active.type === 'group' ? `发送到 ${active.title}` : '发送私信'}/><span>{forms.chatDraft.length}/2000</span><button type="submit" disabled={Boolean(unavailable) || data.chatSending || !forms.chatDraft.trim()} aria-label="发送消息"><Icon name="send" size={18}/></button></form>
           </> : <Empty icon="community" title="选择一个会话" body="打开已有私信，或搜索联系人开始对话。"/>}
         </section>
       </div>
+      {groupDialog === 'create' && <div className="x-group-modal-backdrop" onMouseDown={event => { if (event.currentTarget === event.target) setGroupDialog(null); }}><section className="x-group-modal" role="dialog" aria-modal="true" aria-labelledby="x-create-group-title"><header><div><small>NEW GROUP</small><h2 id="x-create-group-title">创建群聊</h2></div><button type="button" onClick={() => setGroupDialog(null)}>×</button></header><form onSubmit={submitCreateGroup}><label><span>群名称</span><input value={groupName} onChange={event => setGroupName(event.target.value)} minLength={2} maxLength={80} required placeholder="例如：机器人社项目组"/></label><label><span>群简介</span><textarea value={groupDescription} onChange={event => setGroupDescription(event.target.value)} maxLength={500} rows={2} placeholder="介绍这个群聊的用途"/></label><GroupUserPicker/><footer><span>已选择 {selectedGroupUsers.length} 人</span><button type="button" onClick={() => setGroupDialog(null)}>取消</button><button type="submit" className="x-primary" disabled={data.chatBusy || selectedGroupUsers.length === 0}>{data.chatBusy ? '创建中…' : '创建群聊'}</button></footer></form></section></div>}
+      {groupDialog === 'info' && active?.type === 'group' && <div className="x-group-modal-backdrop" onMouseDown={event => { if (event.currentTarget === event.target) setGroupDialog(null); }}><section className="x-group-modal x-group-info" role="dialog" aria-modal="true" aria-labelledby="x-group-info-title"><header><div><small>GROUP PROFILE</small><h2 id="x-group-info-title">{active.title}</h2><p>{active.members?.length ?? 0} 位成员 · 我是{myGroupRole ? roleLabel[myGroupRole] : '成员'}</p></div><button type="button" onClick={() => setGroupDialog(null)}>×</button></header><div className="x-group-modal-scroll">{canManageGroup ? <section className="x-group-settings"><h3>群资料</h3><label><span>群名称</span><input value={groupName} onChange={event => setGroupName(event.target.value)} minLength={2} maxLength={80}/></label><label><span>群简介</span><textarea value={groupDescription} onChange={event => setGroupDescription(event.target.value)} maxLength={500} rows={2}/></label><label><span>群公告</span><textarea value={groupAnnouncement} onChange={event => setGroupAnnouncement(event.target.value)} maxLength={1000} rows={3} placeholder="发布群规则、活动时间或重要通知"/></label><button type="button" className="x-primary" onClick={() => void actions.updateGroup({ name: groupName, description: groupDescription, announcement: groupAnnouncement })}>保存群资料</button></section> : active.announcement && <section className="x-group-settings"><h3>群公告</h3><p>{active.announcement}</p></section>}<section className="x-group-settings"><h3>我的群昵称</h3><div className="x-group-inline"><input value={groupNickname} onChange={event => setGroupNickname(event.target.value)} maxLength={24} placeholder={forms.profile?.nickname || me.real_name}/><button type="button" onClick={() => void actions.updateMyGroupNickname(groupNickname)}>保存</button></div></section>{canManageGroup && <section className="x-group-settings"><h3>邀请成员</h3><GroupUserPicker excludeMembers/><button type="button" className="x-primary" disabled={!selectedGroupUsers.some(id => !activeMemberIds.has(id))} onClick={() => void inviteSelectedMembers()}>邀请已选成员</button></section>}<section className="x-group-settings"><h3>群成员 <span>{active.members?.length ?? 0}/200</span></h3><div className="x-group-member-list">{active.members?.map(member => { const canRemove = canManageGroup && member.group_role !== 'owner' && member.user_id !== me.id && !(myGroupRole === 'admin' && member.group_role === 'admin'); return <article key={member.user_id}><Avatar name={member.group_nickname || member.nickname || member.real_name} src={member.avatar_data_url} size={38}/><div><b>{member.group_nickname || member.nickname || member.real_name}</b><small>@{member.username} · {roleLabel[member.group_role]}</small></div>{isGroupOwner && member.user_id !== me.id && member.group_role !== 'owner' && <button type="button" onClick={() => void actions.setGroupMemberRole(member.user_id, member.group_role === 'admin' ? 'member' : 'admin')}>{member.group_role === 'admin' ? '取消管理' : '设为管理'}</button>}{isGroupOwner && member.user_id !== me.id && <button type="button" onClick={() => void actions.transferGroupOwnership(member.user_id)}>转让群主</button>}{canRemove && <button type="button" className="danger" onClick={() => void actions.removeGroupMember(member.user_id)}>移出</button>}</article>; })}</div></section><section className="x-group-danger">{isGroupOwner ? <button type="button" onClick={() => void actions.dissolveGroup().then(ok => { if (ok) setGroupDialog(null); })}>解散群聊</button> : <button type="button" onClick={() => void actions.leaveGroup().then(ok => { if (ok) setGroupDialog(null); })}>退出群聊</button>}</section></div></section></div>}
     </>;
+
+    function GroupUserPicker({ excludeMembers = false }: { excludeMembers?: boolean }) {
+      const visible = groupCandidates.filter(user => !excludeMembers || !activeMemberIds.has(user.id));
+      return <div className="x-group-picker"><span>搜索并选择成员</span><div className="x-group-picker-search"><input value={groupSearch} onChange={event => setGroupSearch(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void findGroupUsers(); } }} placeholder="姓名、昵称或用户名"/><button type="button" onClick={() => void findGroupUsers()} disabled={groupSearchBusy || !groupSearch.trim()}>{groupSearchBusy ? '搜索中…' : '搜索'}</button></div>{visible.length > 0 && <div className="x-group-candidates">{visible.map(user => <label key={user.id}><input type="checkbox" checked={selectedGroupUsers.includes(user.id)} onChange={() => toggleGroupUser(user.id)}/><Avatar name={user.nickname || user.real_name} src={user.avatar_data_url} size={34}/><span><b>{user.nickname || user.real_name}</b><small>@{user.username} · {user.enrollment_year} 入学</small></span></label>)}</div>}{groupSearch && !groupSearchBusy && visible.length === 0 && <small className="x-group-picker-empty">未找到可选择的成员</small>}</div>;
+    }
   }
 
   function UserPage() {

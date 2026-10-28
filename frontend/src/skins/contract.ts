@@ -99,6 +99,16 @@ export type ChatUser = Pick<User, 'id' | 'username' | 'real_name' | 'enrollment_
   avatar_data_url?: string | null;
 };
 
+export type GroupMemberRole = 'owner' | 'admin' | 'member';
+
+export interface GroupMember extends ChatUser {
+  user_id: string;
+  group_role: GroupMemberRole;
+  group_nickname: string | null;
+  joined_at: string;
+  left_at: string | null;
+}
+
 export interface ChatMessage {
   id: string;
   conversation_id: string;
@@ -117,6 +127,7 @@ export interface ChatConversation {
   type: 'direct' | 'group';
   title: string;
   description: string | null;
+  announcement: string;
   counterpart: ChatUser | null;
   owner: ChatUser | null;
   last_message: ChatMessage | null;
@@ -125,11 +136,14 @@ export interface ChatConversation {
   blocked_by_me: boolean;
   blocked_me: boolean;
   member: {
+    role: GroupMemberRole;
+    group_nickname: string | null;
     joined_at: string;
     left_at: string | null;
     last_read_message_id: string | null;
     last_read_at: string | null;
   } | null;
+  members?: GroupMember[];
   created_at: string;
   updated_at: string;
 }
@@ -422,6 +436,16 @@ export interface SkinActions {
   toggleBookmark: (threadId: string, bookmarked: boolean) => Promise<void>;
   likeThread: (threadId: string) => Promise<void>;
   loadConversations: () => Promise<void>;
+  searchChatUsers: (query: string) => Promise<ChatUser[]>;
+  createGroup: (input: { name: string; description: string; member_ids: string[] }) => Promise<boolean>;
+  updateGroup: (input: { name: string; description: string; announcement: string }) => Promise<boolean>;
+  addGroupMembers: (userIds: string[]) => Promise<boolean>;
+  removeGroupMember: (userId: string) => Promise<boolean>;
+  setGroupMemberRole: (userId: string, role: 'admin' | 'member') => Promise<boolean>;
+  updateMyGroupNickname: (nickname: string) => Promise<boolean>;
+  transferGroupOwnership: (userId: string) => Promise<boolean>;
+  leaveGroup: () => Promise<boolean>;
+  dissolveGroup: () => Promise<boolean>;
   startDirectMessage: (userId: string) => Promise<void>;
   openConversation: (conversation: ChatConversation) => Promise<void>;
   closeConversation: () => void;
