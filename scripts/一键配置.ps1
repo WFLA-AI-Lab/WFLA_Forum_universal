@@ -187,7 +187,7 @@ function Invoke-FrontendBuild {
   New-Item -ItemType Directory -Force -Path $public | Out-Null
   # Replace the whole artifact set so stale skin chunks cannot linger.
   Get-ChildItem -LiteralPath $public -Force | Remove-Item -Recurse -Force
-  Copy-Item -LiteralPath (Join-Path $dist '*') -Destination $public -Recurse -Force
+  Get-ChildItem -LiteralPath $dist -Force | Copy-Item -Destination $public -Recurse -Force
 }
 function Test-FrontendArtifact {
   $publicIndex = Join-Path $script:Root 'public\index.html'

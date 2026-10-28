@@ -127,7 +127,7 @@ function Build-Frontend {
     # A complete sync prevents stale chunks (especially lazy skin bundles) from
     # surviving in public/ while a fresh index.html references new filenames.
     Get-ChildItem -LiteralPath $public -Force | Remove-Item -Recurse -Force
-    Copy-Item -LiteralPath (Join-Path $dist '*') -Destination $public -Recurse -Force
+    Get-ChildItem -LiteralPath $dist -Force | Copy-Item -Destination $public -Recurse -Force
   } else {
     Invoke-NativeStep '构建前端（自托管包）' { & $script:Npm --prefix $script:Root run selfhost:build }
   }
