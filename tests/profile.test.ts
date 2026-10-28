@@ -32,6 +32,7 @@ beforeEach(async () => {
   env = testEnv.env;
   mf = testEnv.mf;
   await migrate('0001_init.sql');
+  await migrate('0004_engagement.sql');
   await migrate('0009_user_profiles.sql');
   await migrate('0011_enrollment_year.sql');
 });
@@ -69,5 +70,31 @@ describe('member profile', () => {
       body: JSON.stringify({ nickname: 'Tester', avatar_data_url: 'https://example.test/avatar.svg' })
     }, env);
     expect(response.status).toBe(400);
+  });
+
+  it('returns the saved nickname and avatar for thread and comment authors', async () => {
+    const cookie = await memberSession();
+    const avatar = 'data:image/png;base64,iVBORw0KGgo=';
+    await app.request('/api/v1/me/profile', {
+      method: 'PATCH',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: 'Avatar Tester', avatar_data_url: avatar })
+    }, env);
+    const now = new Date().toISOString();
+    await env.DB.prepare('INSERT INTO boards (id, slug, name, description, position, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)')
+      .bind('profile-board', 'profile-board', 'Profile Board', '', 0, now, now).run();
+    await env.DB.prepare('INSERT INTO threads (id, board_id, author_id, title, slug, status, is_pinned, view_count, reply_count, last_activity_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?)')
+      .bind('profile-thread', 'profile-board', 'profile-user', 'Profile Thread', 'profile-thread', 'published', now, now, now).run();
+    await env.DB.prepare('INSERT INTO posts (id, thread_id, author_id, parent_post_id, content_markdown, content_html, status, edit_count, floor_number, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, ?, ?, 0, 1, ?, ?)')
+      .bind('profile-post', 'profile-thread', 'profile-user', 'hello', '<p>hello</p>', 'published', now, now).run();
+
+    const response = await app.request('/api/v1/threads/profile-thread', { headers: { Cookie: cookie } }, env);
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      item: { author: { nickname: string; avatar_data_url: string } };
+      posts: { author: { nickname: string; avatar_data_url: string } }[];
+    };
+    expect(body.item.author).toMatchObject({ nickname: 'Avatar Tester', avatar_data_url: avatar });
+    expect(body.posts[0]?.author).toMatchObject({ nickname: 'Avatar Tester', avatar_data_url: avatar });
   });
 });

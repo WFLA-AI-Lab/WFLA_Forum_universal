@@ -15,6 +15,7 @@ interface ThreadRow {
   id: string; board_id: string; author_id: string; title: string; slug: string; status: string;
   is_pinned: number; view_count: number; reply_count: number; last_activity_at: string; created_at: string; updated_at: string;
   author_username?: string; author_real_name?: string; author_enrollment_year?: string; author_role?: string;
+  author_nickname?: string | null; author_avatar_data_url?: string | null;
   board_slug?: string; board_name?: string; preview_html?: string | null; like_count?: number; liked_by_me?: number;
 }
 
@@ -29,7 +30,9 @@ function threadJson(row: ThreadRow) {
     liked_by_me: row.liked_by_me === 1,
     author: row.author_username ? {
       id: row.author_id, username: row.author_username, real_name: row.author_real_name,
-      enrollment_year: row.author_enrollment_year, role: row.author_role
+      enrollment_year: row.author_enrollment_year, role: row.author_role,
+      nickname: row.author_nickname ?? row.author_real_name,
+      avatar_data_url: row.author_avatar_data_url ?? null
     } : undefined
   };
 }
@@ -53,6 +56,7 @@ contentRoutes.get('/feed', async c => {
     `SELECT t.*, b.slug AS board_slug, b.name AS board_name,
             u.username AS author_username, u.real_name AS author_real_name,
             u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            up.nickname AS author_nickname, up.avatar_data_url AS author_avatar_data_url,
             (SELECT COUNT(*) FROM reactions r
               WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
             EXISTS(SELECT 1 FROM reactions r
@@ -63,6 +67,7 @@ contentRoutes.get('/feed', async c => {
        FROM threads t
        JOIN boards b ON b.id = t.board_id
        JOIN users u ON u.id = t.author_id
+       LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE b.is_active = 1 AND t.status = 'published'
         AND (? IS NULL OR (t.created_at, t.id) <
           (SELECT created_at, id FROM threads WHERE id = ?))
@@ -112,9 +117,10 @@ contentRoutes.get('/boards/:slug/threads', async c => {
   const cursor = c.req.query('cursor');
   const rows = await c.env.DB.prepare(
     `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            up.nickname AS author_nickname, up.avatar_data_url AS author_avatar_data_url,
             (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
             EXISTS(SELECT 1 FROM reactions r WHERE r.user_id = ? AND r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS liked_by_me
-       FROM threads t JOIN users u ON u.id = t.author_id
+       FROM threads t JOIN users u ON u.id = t.author_id LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE t.board_id = ? AND t.status = 'published' AND (? IS NULL OR t.id < ?)
       ORDER BY t.is_pinned DESC, t.last_activity_at DESC, t.id DESC LIMIT ?`
   ).bind(viewer?.id ?? '', board.id, cursor ?? null, cursor ?? null, limit + 1).all<ThreadRow>();
@@ -160,17 +166,20 @@ contentRoutes.get('/threads/:id', async c => {
   await assertReadAccess(c.env, viewer);
   const row = await c.env.DB.prepare(
     `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            up.nickname AS author_nickname, up.avatar_data_url AS author_avatar_data_url,
             (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
             EXISTS(SELECT 1 FROM reactions r WHERE r.user_id = ? AND r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS liked_by_me
-       FROM threads t JOIN users u ON u.id = t.author_id WHERE t.id = ? AND t.status != 'deleted'`
+       FROM threads t JOIN users u ON u.id = t.author_id LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE t.id = ? AND t.status != 'deleted'`
   ).bind(viewer?.id ?? '', id).first<ThreadRow>();
   if (!row) throw notFound('话题不存在');
   if (row.status === 'hidden') {
     if (!viewer || !canModerate(viewer)) throw new AppError('FORBIDDEN', '话题已隐藏');
   }
   const posts = await c.env.DB.prepare(
-    `SELECT p.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role
-       FROM posts p JOIN users u ON u.id = p.author_id
+    `SELECT p.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            up.nickname AS author_nickname, up.avatar_data_url AS author_avatar_data_url
+       FROM posts p JOIN users u ON u.id = p.author_id LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE p.thread_id = ? AND p.status = 'published' ORDER BY p.floor_number LIMIT 200`
   ).bind(id).all<ThreadRow & { content_markdown: string; content_html: string; floor_number: number }>();
   return c.json({
@@ -178,7 +187,9 @@ contentRoutes.get('/threads/:id', async c => {
     posts: (posts.results ?? []).map(post => ({
       ...post, author: {
         id: post.author_id, username: post.author_username, real_name: post.author_real_name,
-        enrollment_year: post.author_enrollment_year, role: post.author_role
+        enrollment_year: post.author_enrollment_year, role: post.author_role,
+        nickname: post.author_nickname ?? post.author_real_name,
+        avatar_data_url: post.author_avatar_data_url ?? null
       }
     }))
   });
@@ -325,9 +336,11 @@ contentRoutes.get('/bookmarks', async c => {
   const actor = await requireUser(c);
   const rows = await c.env.DB.prepare(
     `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            up.nickname AS author_nickname, up.avatar_data_url AS author_avatar_data_url,
             (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
             EXISTS(SELECT 1 FROM reactions r WHERE r.user_id = ? AND r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS liked_by_me
        FROM bookmarks b JOIN threads t ON t.id = b.thread_id JOIN users u ON u.id = t.author_id
+       LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE b.user_id = ? AND t.status != 'deleted' ORDER BY b.created_at DESC LIMIT 100`
   ).bind(actor.id, actor.id).all<ThreadRow>();
   return c.json({ items: (rows.results ?? []).map(threadJson) });
@@ -381,9 +394,10 @@ contentRoutes.get('/search', async c => {
   const pattern = `%${q}%`;
   const threads = await c.env.DB.prepare(
     `SELECT t.*, u.username AS author_username, u.real_name AS author_real_name, u.enrollment_year AS author_enrollment_year, u.role AS author_role,
+            up.nickname AS author_nickname, up.avatar_data_url AS author_avatar_data_url,
             (SELECT COUNT(*) FROM reactions r WHERE r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS like_count,
             EXISTS(SELECT 1 FROM reactions r WHERE r.user_id = ? AND r.target_type = 'thread' AND r.target_id = t.id AND r.reaction = 'like') AS liked_by_me
-       FROM threads t JOIN users u ON u.id = t.author_id
+       FROM threads t JOIN users u ON u.id = t.author_id LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE t.status = 'published' AND t.title LIKE ? ORDER BY t.last_activity_at DESC LIMIT 20`
   ).bind(viewer?.id ?? '', pattern).all<ThreadRow>();
   const posts = await c.env.DB.prepare(

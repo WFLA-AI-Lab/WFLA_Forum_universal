@@ -72,7 +72,7 @@ export interface Thread {
   last_activity_at: string;
   created_at: string;
   author_id: string;
-  author?: { username: string; real_name: string; enrollment_year: string; role: string };
+  author?: { username: string; real_name: string; enrollment_year: string; role: string; nickname?: string; avatar_data_url?: string | null };
   board?: { slug: string; name: string };
   preview_html?: string | null;
 }
@@ -91,7 +91,7 @@ export interface Post {
   content_html: string;
   created_at: string;
   author_id: string;
-  author?: { username: string; real_name: string; enrollment_year: string; role: string };
+  author?: { username: string; real_name: string; enrollment_year: string; role: string; nickname?: string; avatar_data_url?: string | null };
 }
 
 export type ChatUser = Pick<User, 'id' | 'username' | 'real_name' | 'enrollment_year' | 'role' | 'status'>;
