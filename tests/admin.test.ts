@@ -10,7 +10,7 @@ let env: Env;
 let mf: Awaited<ReturnType<typeof createTestEnv>>['mf'];
 
 async function migrate() {
-  const files = ['0001_init.sql', '0002_invitations_external_auth.sql', '0003_microsoft_oauth.sql', '0004_engagement.sql', '0005_oauth_providers.sql', '0006_app_settings.sql', '0007_site_settings.sql', '0008_user_preferences.sql', '0009_user_profiles.sql', '0010_admin_console.sql', '0011_enrollment_year.sql', '0012_invitation_roles.sql', '0013_moderation_automation.sql', '0014_chat.sql'];
+  const files = ['0001_init.sql', '0002_invitations_external_auth.sql', '0003_microsoft_oauth.sql', '0004_engagement.sql', '0005_oauth_providers.sql', '0006_app_settings.sql', '0007_site_settings.sql', '0008_user_preferences.sql', '0009_user_profiles.sql', '0010_admin_console.sql', '0011_enrollment_year.sql', '0012_invitation_roles.sql', '0013_moderation_automation.sql', '0014_chat.sql', '0015_claude_skin.sql', '0016_group_chat_management.sql'];
   for (const file of files) {
     const sql = readFileSync(`src/migrations/${file}`, 'utf8');
     for (const statement of sql.split(/;\s*(?:\r?\n|$)/).map(value => value.replace(/^\s*--.*$/gm, '').trim()).filter(value => value && !/^PRAGMA\b/i.test(value))) {

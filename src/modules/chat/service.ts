@@ -10,6 +10,7 @@ export interface ConversationRow {
   direct_key: string | null;
   name: string | null;
   description: string | null;
+  announcement: string;
   owner_user_id: string | null;
   last_message_id: string | null;
   last_message_at: string | null;
@@ -18,6 +19,19 @@ export interface ConversationRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+export type GroupMemberRole = 'owner' | 'admin' | 'member';
+
+export interface GroupMemberRow {
+  conversation_id: string;
+  user_id: string;
+  role: GroupMemberRole;
+  group_nickname: string | null;
+  joined_at: string;
+  left_at: string | null;
+  last_read_message_id: string | null;
+  last_read_at: string | null;
 }
 
 export interface MessageRow {
@@ -104,6 +118,33 @@ export async function ensureMembership(env: Env, conversationId: string, userId:
   ).bind(conversationId, userId).first<{ left_at: string | null }>();
   if (existing && existing.left_at === null) return;
   throw forbidden('你不是该会话的有效成员');
+}
+
+export async function getGroupMembership(
+  env: Env,
+  conversationId: string,
+  userId: string
+): Promise<GroupMemberRow | null> {
+  return await env.DB.prepare(
+    `SELECT conversation_id, user_id, role, group_nickname, joined_at, left_at,
+            last_read_message_id, last_read_at
+       FROM chat_members
+      WHERE conversation_id = ? AND user_id = ? LIMIT 1`
+  ).bind(conversationId, userId).first<GroupMemberRow>();
+}
+
+export async function requireGroupManager(
+  env: Env,
+  conversationId: string,
+  userId: string,
+  ownerOnly = false
+): Promise<GroupMemberRow> {
+  const member = await getGroupMembership(env, conversationId, userId);
+  if (!member || member.left_at !== null) throw forbidden('你不是该群聊的有效成员');
+  if (ownerOnly ? member.role !== 'owner' : member.role === 'member') {
+    throw forbidden(ownerOnly ? '只有群主可以执行此操作' : '需要群主或管理员权限');
+  }
+  return member;
 }
 
 export async function requireConversation(
@@ -217,9 +258,10 @@ export async function conversationJson(
   viewerId: string
 ): Promise<Record<string, unknown>> {
   const member = await env.DB.prepare(
-    'SELECT joined_at, left_at, last_read_message_id, last_read_at FROM chat_members WHERE conversation_id = ? AND user_id = ?'
+    'SELECT role, group_nickname, joined_at, left_at, last_read_message_id, last_read_at FROM chat_members WHERE conversation_id = ? AND user_id = ?'
   ).bind(conversation.id, viewerId).first<{
-    joined_at: string; left_at: string | null; last_read_message_id: string | null; last_read_at: string | null;
+    role: GroupMemberRole; group_nickname: string | null; joined_at: string; left_at: string | null;
+    last_read_message_id: string | null; last_read_at: string | null;
   }>();
   let counterpart = null;
   let blockedByMe = false;
@@ -267,6 +309,7 @@ export async function conversationJson(
     type: conversation.type,
     title: conversation.type === 'direct' ? counterpart?.nickname ?? counterpart?.real_name ?? '私聊' : conversation.name,
     description: conversation.description,
+    announcement: conversation.type === 'group' ? conversation.announcement : '',
     counterpart,
     blocked_by_me: blockedByMe,
     blocked_me: blockedMe,
@@ -275,6 +318,8 @@ export async function conversationJson(
     last_message_at: conversation.last_message_at,
     unread_count: Number(unread?.total ?? 0),
     member: member ? {
+      role: member.role,
+      group_nickname: member.group_nickname,
       joined_at: member.joined_at,
       left_at: member.left_at,
       last_read_message_id: member.last_read_message_id,
@@ -289,16 +334,29 @@ export async function listMembers(
   env: Env,
   conversationId: string,
   includeLeft = false
-): Promise<Array<MessageSenderRow & { user_id: string; joined_at: string; left_at: string | null }>> {
+): Promise<Array<MessageSenderRow & {
+  user_id: string;
+  group_role: GroupMemberRole;
+  group_nickname: string | null;
+  joined_at: string;
+  left_at: string | null;
+}>> {
   const rows = await env.DB.prepare(
     `SELECT u.id, u.username, u.real_name, u.enrollment_year, u.role, u.status,
             up.nickname, up.avatar_data_url,
-            cm.user_id, cm.joined_at, cm.left_at
+            cm.user_id, cm.role AS group_role, cm.group_nickname, cm.joined_at, cm.left_at
        FROM chat_members cm JOIN users u ON u.id = cm.user_id
        LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE cm.conversation_id = ? ${includeLeft ? '' : 'AND cm.left_at IS NULL'}
-      ORDER BY cm.joined_at ASC, cm.user_id ASC`
-  ).bind(conversationId).all<MessageSenderRow & { user_id: string; joined_at: string; left_at: string | null }>();
+      ORDER BY CASE cm.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
+               cm.joined_at ASC, cm.user_id ASC`
+  ).bind(conversationId).all<MessageSenderRow & {
+    user_id: string;
+    group_role: GroupMemberRole;
+    group_nickname: string | null;
+    joined_at: string;
+    left_at: string | null;
+  }>();
   return rows.results ?? [];
 }
 

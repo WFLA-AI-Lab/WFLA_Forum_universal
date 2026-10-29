@@ -22,6 +22,8 @@ import type {
   AnnouncementFormState,
   Board,
   ChatConversation,
+  ChatUser,
+  GroupMember,
   ChatMessage,
   Diagnostics,
   InvitationItem,
@@ -538,16 +540,20 @@ export default function App() {
     try {
       const page = await api.get<{ items: ChatConversation[] }>('/conversations?limit=50');
       setConversations(page.items);
-      setActiveConversation(current => current
-        ? page.items.find(item => item.id === current.id) ?? current
-        : current);
+      setActiveConversation(current => {
+        if (!current) return current;
+        const updated = page.items.find(item => item.id === current.id);
+        return updated ? { ...current, ...updated, members: current.members } : current;
+      });
     } catch (e) { setError((e as Error).message); }
   }
 
   async function markConversationRead(conversationId: string, messageId: string) {
     const result = await api.post<{ item: ChatConversation }>(`/conversations/${conversationId}/read`, { message_id: messageId });
     setConversations(current => current.map(item => item.id === conversationId ? result.item : item));
-    setActiveConversation(current => current?.id === conversationId ? result.item : current);
+    setActiveConversation(current => current?.id === conversationId
+      ? { ...current, ...result.item, members: current.members }
+      : current);
   }
 
   async function openConversation(conversation: ChatConversation) {
@@ -556,11 +562,15 @@ export default function App() {
     setChatNextCursor(null);
     setChatBusy(true);
     try {
-      const page = await api.get<{
-        items: ChatMessage[];
-        next_cursor: string | null;
-        latest_message_id: string | null;
-      }>(`/conversations/${conversation.id}/messages?limit=50`);
+      const [detail, page] = await Promise.all([
+        api.get<{ item: ChatConversation }>(`/conversations/${conversation.id}`),
+        api.get<{
+          items: ChatMessage[];
+          next_cursor: string | null;
+          latest_message_id: string | null;
+        }>(`/conversations/${conversation.id}/messages?limit=50`)
+      ]);
+      setActiveConversation(detail.item);
       setChatMessages([...page.items].reverse());
       setChatNextCursor(page.next_cursor);
       if (page.latest_message_id) await markConversationRead(conversation.id, page.latest_message_id);
@@ -657,6 +667,134 @@ export default function App() {
       setSuccess(nextBlocked ? '已屏蔽该用户' : '已取消屏蔽');
       setError('');
     } catch (e) { setError((e as Error).message); }
+  }
+
+  async function searchChatUsers(query: string): Promise<ChatUser[]> {
+    const value = query.trim();
+    if (!value) return [];
+    try {
+      const result = await api.get<{ items: ChatUser[] }>(`/chat/users?q=${encodeURIComponent(value)}`);
+      return result.items;
+    } catch (e) {
+      setError((e as Error).message);
+      return [];
+    }
+  }
+
+  async function createGroup(input: { name: string; description: string; member_ids: string[] }): Promise<boolean> {
+    setChatBusy(true);
+    try {
+      const result = await api.post<{ item: ChatConversation }>('/groups', input);
+      await loadConversations();
+      await openConversation(result.item);
+      setSuccess('群聊已创建');
+      setError('');
+      return true;
+    } catch (e) {
+      setError((e as Error).message);
+      return false;
+    } finally { setChatBusy(false); }
+  }
+
+  async function updateGroup(input: { name: string; description: string; announcement: string }): Promise<boolean> {
+    if (!activeConversation || activeConversation.type !== 'group') return false;
+    try {
+      const result = await api.patch<{ item: ChatConversation }>(`/groups/${activeConversation.id}`, input);
+      setActiveConversation(result.item);
+      setConversations(current => current.map(item => item.id === result.item.id ? { ...item, ...result.item } : item));
+      setSuccess('群资料已更新');
+      setError('');
+      return true;
+    } catch (e) { setError((e as Error).message); return false; }
+  }
+
+  function applyGroupMembers(members: GroupMember[]) {
+    setActiveConversation(current => current ? { ...current, members } : current);
+  }
+
+  async function addGroupMembers(userIds: string[]): Promise<boolean> {
+    if (!activeConversation || activeConversation.type !== 'group') return false;
+    try {
+      const result = await api.post<{ members: GroupMember[] }>(`/groups/${activeConversation.id}/members`, { user_ids: userIds });
+      applyGroupMembers(result.members);
+      setSuccess('成员已加入群聊');
+      setError('');
+      return true;
+    } catch (e) { setError((e as Error).message); return false; }
+  }
+
+  async function removeGroupMember(userId: string): Promise<boolean> {
+    if (!activeConversation || activeConversation.type !== 'group') return false;
+    if (!window.confirm('将该成员移出群聊？')) return false;
+    try {
+      const result = await api.del<{ members: GroupMember[] }>(`/groups/${activeConversation.id}/members/${userId}`);
+      applyGroupMembers(result.members);
+      setSuccess('成员已移出群聊');
+      setError('');
+      return true;
+    } catch (e) { setError((e as Error).message); return false; }
+  }
+
+  async function setGroupMemberRole(userId: string, role: 'admin' | 'member'): Promise<boolean> {
+    if (!activeConversation || activeConversation.type !== 'group') return false;
+    try {
+      const result = await api.patch<{ members: GroupMember[] }>(`/groups/${activeConversation.id}/members/${userId}`, { role });
+      applyGroupMembers(result.members);
+      setSuccess(role === 'admin' ? '已设为群管理员' : '已取消群管理员');
+      setError('');
+      return true;
+    } catch (e) { setError((e as Error).message); return false; }
+  }
+
+  async function updateMyGroupNickname(nickname: string): Promise<boolean> {
+    if (!activeConversation || activeConversation.type !== 'group' || !me) return false;
+    try {
+      const result = await api.patch<{ members: GroupMember[] }>(`/groups/${activeConversation.id}/members/${me.id}`, { group_nickname: nickname });
+      applyGroupMembers(result.members);
+      setActiveConversation(current => current?.member ? { ...current, member: { ...current.member, group_nickname: nickname.trim() || null } } : current);
+      setSuccess('我的群昵称已更新');
+      setError('');
+      return true;
+    } catch (e) { setError((e as Error).message); return false; }
+  }
+
+  async function transferGroupOwnership(userId: string): Promise<boolean> {
+    if (!activeConversation || activeConversation.type !== 'group') return false;
+    if (!window.confirm('确认转让群主？转让后你将成为群管理员。')) return false;
+    try {
+      const result = await api.post<{ item: ChatConversation }>(`/groups/${activeConversation.id}/transfer`, { user_id: userId });
+      setActiveConversation(result.item);
+      setConversations(current => current.map(item => item.id === result.item.id ? { ...item, ...result.item } : item));
+      setSuccess('群主已转让');
+      setError('');
+      return true;
+    } catch (e) { setError((e as Error).message); return false; }
+  }
+
+  async function leaveGroup(): Promise<boolean> {
+    if (!activeConversation || activeConversation.type !== 'group') return false;
+    if (!window.confirm('确认退出该群聊？退出后将无法查看群消息。')) return false;
+    try {
+      await api.del(`/conversations/${activeConversation.id}/membership`);
+      closeConversation();
+      await loadConversations();
+      setSuccess('已退出群聊');
+      setError('');
+      return true;
+    } catch (e) { setError((e as Error).message); return false; }
+  }
+
+  async function dissolveGroup(): Promise<boolean> {
+    if (!activeConversation || activeConversation.type !== 'group') return false;
+    if (!window.confirm(`确认解散“${activeConversation.title}”？此操作会关闭所有成员的群聊。`)) return false;
+    try {
+      await api.del(`/groups/${activeConversation.id}`);
+      closeConversation();
+      await loadConversations();
+      setSuccess('群聊已解散');
+      setError('');
+      return true;
+    } catch (e) { setError((e as Error).message); return false; }
   }
 
   const activeBoard = view.name === 'board' ? view.board : null;
@@ -985,7 +1123,9 @@ export default function App() {
     },
     actions: {
       reloadBase: loadBase, loadMoreFeed, loadBookmarks, searchForum, toggleBookmark, likeThread,
-      loadConversations, startDirectMessage, openConversation, closeConversation,
+      loadConversations, searchChatUsers, createGroup, updateGroup, addGroupMembers, removeGroupMember,
+      setGroupMemberRole, updateMyGroupNickname, transferGroupOwnership, leaveGroup, dissolveGroup,
+      startDirectMessage, openConversation, closeConversation,
       loadOlderMessages, sendChatMessage, deleteChatMessage, reportChatMessage, toggleChatBlock,
       openThread, loadNotifications, login, logout, register, saveProfile,
       createThread, createReply, deleteThread, deletePost, submitReport, loadAdmin, saveSettings, saveSiteConfig,

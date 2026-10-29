@@ -2,17 +2,20 @@ import { Hono } from 'hono';
 import type { Env } from '../../env';
 import { badRequest, forbidden, notFound } from '../../core/errors';
 import { chatClientSchema, chatMessageSchema, idSchema } from '../../core/validation';
-import { nowIso } from '../../core/utils';
+import { createId, nowIso } from '../../core/utils';
 import { requireUser } from '../identity/session';
 import {
   assertCanSendDirect,
   conversationJson,
   createMessage,
   ensureDirectConversation,
+  getGroupMembership,
   listMembers,
+  requireGroupManager,
   requireConversation,
   getMessageWithSender
 } from './service';
+import { insertAudit } from '../moderation/audit';
 import { applyChatRules } from '../moderation/automation';
 import type { ConversationRow, MessageWithSender } from './service';
 
@@ -39,6 +42,35 @@ async function cursorMessageExists(env: Env, id: string): Promise<void> {
 
 export const chatRoutes = new Hono<{ Bindings: Env }>();
 
+function groupName(value: unknown): string {
+  const name = String(value ?? '').trim();
+  if (name.length < 2 || name.length > 80) throw badRequest('群名称长度必须在 2-80 之间');
+  return name;
+}
+
+function groupDescription(value: unknown): string {
+  const description = String(value ?? '').trim();
+  if (description.length > 500) throw badRequest('群简介不能超过 500 字');
+  return description;
+}
+
+function groupAnnouncement(value: unknown): string {
+  const announcement = String(value ?? '').trim();
+  if (announcement.length > 1000) throw badRequest('群公告不能超过 1000 字');
+  return announcement;
+}
+
+async function activeChatUsers(env: Env, ids: string[]): Promise<string[]> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return [];
+  if (unique.length > 199) throw badRequest('单个群聊最多 200 人');
+  const rows = await env.DB.prepare(
+    `SELECT id FROM users WHERE status = 'active' AND id IN (${unique.map(() => '?').join(',')})`
+  ).bind(...unique).all<{ id: string }>();
+  if ((rows.results ?? []).length !== unique.length) throw badRequest('成员列表包含不存在或不可用的用户');
+  return unique;
+}
+
 chatRoutes.post('/conversations/direct', async c => {
   const actor = await requireUser(c);
   if (actor.status !== 'active') throw forbidden('当前账号状态不能发起私聊');
@@ -46,6 +78,208 @@ chatRoutes.post('/conversations/direct', async c => {
   const targetId = idSchema.parse(body?.user_id);
   const conversation = await ensureDirectConversation(c.env, actor, targetId);
   return c.json({ item: await conversationJson(c.env, conversation, actor.id) }, conversation.last_message_at ? 200 : 201);
+});
+
+chatRoutes.get('/chat/users', async c => {
+  const actor = await requireUser(c);
+  const query = String(c.req.query('q') ?? '').trim();
+  if (query.length < 1) return c.json({ items: [] });
+  const like = `%${query.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
+  const rows = await c.env.DB.prepare(
+    `SELECT u.id, u.username, u.real_name, u.enrollment_year, u.role, u.status,
+            up.nickname, up.avatar_data_url
+       FROM users u LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE u.status = 'active' AND u.id != ?
+        AND (u.username LIKE ? ESCAPE '\\' OR u.real_name LIKE ? ESCAPE '\\'
+             OR COALESCE(up.nickname, '') LIKE ? ESCAPE '\\')
+      ORDER BY u.real_name ASC, u.username ASC LIMIT 30`
+  ).bind(actor.id, like, like, like).all();
+  return c.json({ items: rows.results ?? [] });
+});
+
+chatRoutes.post('/groups', async c => {
+  const actor = await requireUser(c);
+  if (actor.status !== 'active') throw forbidden('当前账号状态不能创建群聊');
+  const body = await c.req.json().catch(() => null);
+  const name = groupName(body?.name);
+  const description = groupDescription(body?.description);
+  const memberIds = Array.isArray(body?.member_ids)
+    ? body.member_ids.map((value: unknown) => idSchema.parse(value)).filter((id: string) => id !== actor.id)
+    : [];
+  const activeIds = await activeChatUsers(c.env, memberIds);
+  if (activeIds.length < 1) throw badRequest('创建群聊时至少选择 1 位成员');
+  const id = createId();
+  const timestamp = nowIso();
+  await c.env.DB.prepare(
+    `INSERT INTO chat_conversations
+       (id, type, direct_key, name, description, owner_user_id, last_message_id,
+        last_message_at, status, created_by, created_at, updated_at, deleted_at, announcement)
+     VALUES (?, 'group', NULL, ?, ?, ?, NULL, NULL, 'active', ?, ?, ?, NULL, '')`
+  ).bind(id, name, description, actor.id, actor.id, timestamp, timestamp).run();
+  await c.env.DB.prepare(
+    `INSERT INTO chat_members
+       (conversation_id, user_id, role, group_nickname, joined_at, left_at, last_read_message_id, last_read_at)
+     VALUES (?, ?, 'owner', NULL, ?, NULL, NULL, NULL)`
+  ).bind(id, actor.id, timestamp).run();
+  for (const userId of activeIds) {
+    await c.env.DB.prepare(
+      `INSERT INTO chat_members
+         (conversation_id, user_id, role, group_nickname, joined_at, left_at, last_read_message_id, last_read_at)
+       VALUES (?, ?, 'member', NULL, ?, NULL, NULL, NULL)`
+    ).bind(id, userId, timestamp).run();
+  }
+  await insertAudit(c.env, actor.id, 'chat.group_create', 'conversation', id, '用户创建群聊', {
+    name, member_ids: activeIds
+  });
+  const conversation = await requireConversation(c.env, id, actor.id);
+  return c.json({ item: { ...await conversationJson(c.env, conversation, actor.id), members: await listMembers(c.env, id) } }, 201);
+});
+
+chatRoutes.patch('/groups/:id', async c => {
+  const actor = await requireUser(c);
+  const id = c.req.param('id');
+  const conversation = await requireConversation(c.env, id, actor.id);
+  if (conversation.type !== 'group') throw badRequest('该会话不是群聊');
+  await requireGroupManager(c.env, id, actor.id);
+  const body = await c.req.json().catch(() => null);
+  const name = body?.name === undefined ? conversation.name : groupName(body.name);
+  const description = body?.description === undefined ? conversation.description : groupDescription(body.description);
+  const announcement = body?.announcement === undefined ? conversation.announcement : groupAnnouncement(body.announcement);
+  await c.env.DB.prepare(
+    'UPDATE chat_conversations SET name = ?, description = ?, announcement = ?, updated_at = ? WHERE id = ?'
+  ).bind(name, description, announcement, nowIso(), id).run();
+  await insertAudit(c.env, actor.id, 'chat.group_update', 'conversation', id, '群主或管理员更新群资料', {
+    name, description, announcement_changed: announcement !== conversation.announcement
+  });
+  const updated = await requireConversation(c.env, id, actor.id);
+  return c.json({ item: { ...await conversationJson(c.env, updated, actor.id), members: await listMembers(c.env, id) } });
+});
+
+chatRoutes.post('/groups/:id/members', async c => {
+  const actor = await requireUser(c);
+  const id = c.req.param('id');
+  const conversation = await requireConversation(c.env, id, actor.id);
+  if (conversation.type !== 'group') throw badRequest('该会话不是群聊');
+  await requireGroupManager(c.env, id, actor.id);
+  const body = await c.req.json().catch(() => null);
+  const requested = Array.isArray(body?.user_ids)
+    ? body.user_ids.map((value: unknown) => idSchema.parse(value))
+    : [idSchema.parse(body?.user_id)];
+  const activeIds = await activeChatUsers(c.env, requested);
+  if (activeIds.length === 0) throw badRequest('请至少选择 1 位成员');
+  const count = await c.env.DB.prepare(
+    'SELECT COUNT(*) AS total FROM chat_members WHERE conversation_id = ? AND left_at IS NULL'
+  ).bind(id).first<{ total: number }>();
+  const existing = await c.env.DB.prepare(
+    `SELECT user_id FROM chat_members WHERE conversation_id = ? AND left_at IS NULL
+      AND user_id IN (${activeIds.map(() => '?').join(',')})`
+  ).bind(id, ...activeIds).all<{ user_id: string }>();
+  const existingIds = new Set((existing.results ?? []).map(item => item.user_id));
+  if (Number(count?.total ?? 0) + activeIds.filter(userId => !existingIds.has(userId)).length > 200) {
+    throw badRequest('单个群聊最多 200 人');
+  }
+  const timestamp = nowIso();
+  for (const userId of activeIds) {
+    await c.env.DB.prepare(
+      `INSERT INTO chat_members
+         (conversation_id, user_id, role, group_nickname, joined_at, left_at, last_read_message_id, last_read_at)
+       VALUES (?, ?, 'member', NULL, ?, NULL, NULL, NULL)
+       ON CONFLICT(conversation_id, user_id) DO UPDATE SET
+         role = 'member', left_at = NULL, joined_at = excluded.joined_at,
+         last_read_message_id = NULL, last_read_at = NULL`
+    ).bind(id, userId, timestamp).run();
+  }
+  await insertAudit(c.env, actor.id, 'chat.member_add', 'conversation', id, '群主或管理员邀请群成员', { user_ids: activeIds });
+  return c.json({ members: await listMembers(c.env, id) });
+});
+
+chatRoutes.patch('/groups/:id/members/:user_id', async c => {
+  const actor = await requireUser(c);
+  const id = c.req.param('id');
+  const targetId = idSchema.parse(c.req.param('user_id'));
+  const conversation = await requireConversation(c.env, id, actor.id);
+  if (conversation.type !== 'group') throw badRequest('该会话不是群聊');
+  const body = await c.req.json().catch(() => null);
+  const target = await getGroupMembership(c.env, id, targetId);
+  if (!target || target.left_at !== null) throw notFound('群成员不存在');
+  if (body?.group_nickname !== undefined) {
+    if (targetId !== actor.id) await requireGroupManager(c.env, id, actor.id);
+    const nickname = String(body.group_nickname ?? '').trim();
+    if (nickname.length > 24) throw badRequest('群昵称不能超过 24 字');
+    await c.env.DB.prepare(
+      'UPDATE chat_members SET group_nickname = ? WHERE conversation_id = ? AND user_id = ?'
+    ).bind(nickname || null, id, targetId).run();
+  }
+  if (body?.role !== undefined) {
+    await requireGroupManager(c.env, id, actor.id, true);
+    if (target.role === 'owner') throw badRequest('不能直接修改群主角色，请使用转让群主');
+    const role = String(body.role);
+    if (!['admin', 'member'].includes(role)) throw badRequest('群成员角色无效');
+    await c.env.DB.prepare(
+      'UPDATE chat_members SET role = ? WHERE conversation_id = ? AND user_id = ?'
+    ).bind(role, id, targetId).run();
+    await insertAudit(c.env, actor.id, 'chat.member_role', 'conversation', id, '群主调整群成员角色', {
+      user_id: targetId, role
+    });
+  }
+  return c.json({ members: await listMembers(c.env, id) });
+});
+
+chatRoutes.delete('/groups/:id/members/:user_id', async c => {
+  const actor = await requireUser(c);
+  const id = c.req.param('id');
+  const targetId = idSchema.parse(c.req.param('user_id'));
+  const conversation = await requireConversation(c.env, id, actor.id);
+  if (conversation.type !== 'group') throw badRequest('该会话不是群聊');
+  const manager = await requireGroupManager(c.env, id, actor.id);
+  const target = await getGroupMembership(c.env, id, targetId);
+  if (!target || target.left_at !== null) throw notFound('群成员不存在');
+  if (target.role === 'owner') throw badRequest('不能移除群主');
+  if (manager.role === 'admin' && target.role !== 'member') throw forbidden('管理员只能移除普通成员');
+  await c.env.DB.prepare(
+    'UPDATE chat_members SET left_at = ? WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL'
+  ).bind(nowIso(), id, targetId).run();
+  await insertAudit(c.env, actor.id, 'chat.member_remove', 'conversation', id, '群主或管理员移除群成员', { user_id: targetId });
+  return c.json({ members: await listMembers(c.env, id) });
+});
+
+chatRoutes.post('/groups/:id/transfer', async c => {
+  const actor = await requireUser(c);
+  const id = c.req.param('id');
+  const conversation = await requireConversation(c.env, id, actor.id);
+  if (conversation.type !== 'group') throw badRequest('该会话不是群聊');
+  await requireGroupManager(c.env, id, actor.id, true);
+  const body = await c.req.json().catch(() => null);
+  const targetId = idSchema.parse(body?.user_id);
+  if (targetId === actor.id) throw badRequest('你已经是群主');
+  const target = await getGroupMembership(c.env, id, targetId);
+  if (!target || target.left_at !== null) throw badRequest('新群主必须是当前群成员');
+  await c.env.DB.prepare(
+    "UPDATE chat_members SET role = 'admin' WHERE conversation_id = ? AND user_id = ?"
+  ).bind(id, actor.id).run();
+  await c.env.DB.prepare(
+    "UPDATE chat_members SET role = 'owner' WHERE conversation_id = ? AND user_id = ?"
+  ).bind(id, targetId).run();
+  await c.env.DB.prepare(
+    'UPDATE chat_conversations SET owner_user_id = ?, updated_at = ? WHERE id = ?'
+  ).bind(targetId, nowIso(), id).run();
+  await insertAudit(c.env, actor.id, 'chat.group_transfer', 'conversation', id, '群主转让群聊', { user_id: targetId });
+  const updated = await requireConversation(c.env, id, actor.id);
+  return c.json({ item: { ...await conversationJson(c.env, updated, actor.id), members: await listMembers(c.env, id) } });
+});
+
+chatRoutes.delete('/groups/:id', async c => {
+  const actor = await requireUser(c);
+  const id = c.req.param('id');
+  const conversation = await requireConversation(c.env, id, actor.id);
+  if (conversation.type !== 'group') throw badRequest('该会话不是群聊');
+  await requireGroupManager(c.env, id, actor.id, true);
+  const timestamp = nowIso();
+  await c.env.DB.prepare(
+    "UPDATE chat_conversations SET status = 'deleted', deleted_at = ?, updated_at = ? WHERE id = ?"
+  ).bind(timestamp, timestamp, id).run();
+  await insertAudit(c.env, actor.id, 'chat.group_delete', 'conversation', id, '群主解散群聊', {});
+  return c.json({ success: true });
 });
 
 chatRoutes.get('/conversations', async c => {
@@ -196,9 +430,12 @@ chatRoutes.delete('/conversations/:id/membership', async c => {
   const actor = await requireUser(c);
   const conversation = await requireConversation(c.env, c.req.param('id'), actor.id);
   if (conversation.type !== 'group') throw badRequest('私聊不能退出，请使用屏蔽');
+  const member = await getGroupMembership(c.env, conversation.id, actor.id);
+  if (member?.role === 'owner') throw badRequest('群主需要先转让群主或解散群聊');
   await c.env.DB.prepare(
     'UPDATE chat_members SET left_at = ? WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL'
   ).bind(nowIso(), conversation.id, actor.id).run();
+  await insertAudit(c.env, actor.id, 'chat.member_leave', 'conversation', conversation.id, '群成员退出群聊', {});
   return c.json({ success: true });
 });
 

@@ -42,9 +42,9 @@ chatAdminRoutes.post('/admin/chat/groups', async c => {
   if (ownerUserId) {
     await c.env.DB.prepare(
       `INSERT INTO chat_members (conversation_id, user_id, role, joined_at, left_at, last_read_message_id, last_read_at)
-       VALUES (?, ?, 'member', ?, NULL, NULL, NULL)
+       VALUES (?, ?, 'owner', ?, NULL, NULL, NULL)
        ON CONFLICT(conversation_id, user_id) DO UPDATE
-         SET left_at = NULL, joined_at = excluded.joined_at`
+         SET role = 'owner', left_at = NULL, joined_at = excluded.joined_at`
     ).bind(id, ownerUserId, timestamp).run();
   }
   await insertAudit(c.env, actor.id, 'chat.group_create', 'conversation', id, '管理员创建群聊', { name, owner_user_id: ownerUserId });
@@ -112,6 +112,22 @@ chatAdminRoutes.patch('/admin/chat/groups/:id', async c => {
         SET name = ?, description = ?, owner_user_id = ?, updated_at = ?
       WHERE id = ?`
   ).bind(name, description, ownerUserId, nowIso(), id).run();
+  if (ownerUserId !== group.owner_user_id) {
+    if (group.owner_user_id) {
+      await c.env.DB.prepare(
+        "UPDATE chat_members SET role = 'member' WHERE conversation_id = ? AND user_id = ?"
+      ).bind(id, group.owner_user_id).run();
+    }
+    if (ownerUserId) {
+      await c.env.DB.prepare(
+        `INSERT INTO chat_members
+           (conversation_id, user_id, role, joined_at, left_at, last_read_message_id, last_read_at)
+         VALUES (?, ?, 'owner', ?, NULL, NULL, NULL)
+         ON CONFLICT(conversation_id, user_id) DO UPDATE SET
+           role = 'owner', left_at = NULL, joined_at = excluded.joined_at`
+      ).bind(id, ownerUserId, nowIso()).run();
+    }
+  }
   await insertAudit(c.env, actor.id, 'chat.group_update', 'conversation', id, '管理员更新群聊', { name, description, owner_user_id: ownerUserId });
   const updated = await c.env.DB.prepare('SELECT * FROM chat_conversations WHERE id = ?').bind(id).first<ConversationRow>();
   return c.json({ item: updated });
@@ -160,9 +176,10 @@ chatAdminRoutes.delete('/admin/chat/groups/:id/members/:user_id', async c => {
   const userId = c.req.param('user_id');
   idSchema.parse(userId);
   const group = await c.env.DB.prepare(
-    "SELECT id FROM chat_conversations WHERE id = ? AND type = 'group' AND status = 'active'"
-  ).bind(id).first<{ id: string }>();
+    "SELECT id, owner_user_id FROM chat_conversations WHERE id = ? AND type = 'group' AND status = 'active'"
+  ).bind(id).first<{ id: string; owner_user_id: string | null }>();
   if (!group) throw notFound('群聊不存在');
+  if (group.owner_user_id === userId) throw badRequest('请先转让或清除群负责人');
   const timestamp = nowIso();
   const result = await c.env.DB.prepare(
     'UPDATE chat_members SET left_at = ? WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL'

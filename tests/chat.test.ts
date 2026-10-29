@@ -15,7 +15,8 @@ async function migrate() {
     '0004_engagement.sql', '0005_oauth_providers.sql', '0006_app_settings.sql',
     '0007_site_settings.sql', '0008_user_preferences.sql', '0009_user_profiles.sql',
     '0010_admin_console.sql', '0011_enrollment_year.sql', '0012_invitation_roles.sql',
-    '0013_moderation_automation.sql', '0014_chat.sql'
+    '0013_moderation_automation.sql', '0014_chat.sql', '0015_claude_skin.sql',
+    '0016_group_chat_management.sql'
   ];
   for (const file of files) {
     const sql = readFileSync(`src/migrations/${file}`, 'utf8');
@@ -93,9 +94,11 @@ interface Conversation {
   unread_count: number;
   blocked_by_me: boolean;
   blocked_me: boolean;
-  member?: { last_read_message_id: string | null } | null;
   counterpart?: { id: string; nickname?: string; avatar_data_url?: string | null } | null;
   last_message?: { id: string; content_markdown: string } | null;
+  announcement?: string;
+  member?: { role?: 'owner' | 'admin' | 'member'; group_nickname?: string | null; last_read_message_id: string | null } | null;
+  members?: Array<{ user_id: string; group_role: 'owner' | 'admin' | 'member'; group_nickname: string | null }>;
 }
 
 interface Message {
@@ -341,5 +344,84 @@ describe('administrator-managed group chat', () => {
 
     const adminMessages = await get<{ items: Message[] }>(`/admin/chat/groups/${id}/messages`, admin);
     expect(adminMessages.status).toBe(404);
+  });
+});
+
+describe('member-managed group chat', () => {
+  it('supports QQ-style creation, managers, nicknames, invitations, ownership transfer and dissolution', async () => {
+    const owner = await user('qq-owner', 'qq-owner', 'member');
+    const member = await user('qq-member', 'qq-member', 'member');
+    const invitee = await user('qq-invitee', 'qq-invitee', 'member');
+    const outsider = await user('qq-outsider', 'qq-outsider', 'member');
+
+    const search = await get<{ items: Array<{ id: string }> }>('/chat/users?q=invitee', owner);
+    expect(search.status).toBe(200);
+    expect(search.body.items.some(item => item.id === 'qq-invitee')).toBe(true);
+
+    const created = await post<{ item: Conversation }>('/groups', {
+      name: 'QQ 风格测试群', description: '项目交流', member_ids: ['qq-member']
+    }, owner);
+    expect(created.status).toBe(201);
+    expect(created.body.item.member?.role).toBe('owner');
+    expect(created.body.item.members?.map(item => [item.user_id, item.group_role])).toEqual([
+      ['qq-owner', 'owner'], ['qq-member', 'member']
+    ]);
+    const id = created.body.item.id;
+
+    const ownerCannotLeave = await del(`/conversations/${id}/membership`, owner);
+    expect(ownerCannotLeave.status).toBe(400);
+    const ordinaryCannotInvite = await post(`/groups/${id}/members`, { user_ids: ['qq-invitee'] }, member);
+    expect(ordinaryCannotInvite.status).toBe(403);
+
+    const promote = await patch<{ members: Conversation['members'] }>(`/groups/${id}/members/qq-member`, { role: 'admin' }, owner);
+    expect(promote.status).toBe(200);
+    expect(promote.body.members?.find(item => item.user_id === 'qq-member')?.group_role).toBe('admin');
+
+    const update = await patch<{ item: Conversation }>(`/groups/${id}`, {
+      name: '项目交流群', description: '每日同步进展', announcement: '文明交流，重要信息及时确认。'
+    }, member);
+    expect(update.status).toBe(200);
+    expect(update.body.item.announcement).toContain('文明交流');
+
+    const invite = await post<{ members: Conversation['members'] }>(`/groups/${id}/members`, {
+      user_ids: ['qq-invitee']
+    }, member);
+    expect(invite.status).toBe(200);
+    expect(invite.body.members?.some(item => item.user_id === 'qq-invitee')).toBe(true);
+
+    const nickname = await patch<{ members: Conversation['members'] }>(`/groups/${id}/members/qq-invitee`, {
+      group_nickname: '小助手'
+    }, invitee);
+    expect(nickname.status).toBe(200);
+    expect(nickname.body.members?.find(item => item.user_id === 'qq-invitee')?.group_nickname).toBe('小助手');
+
+    const outsiderDetail = await get(`/conversations/${id}`, outsider);
+    expect(outsiderDetail.status).toBe(403);
+    const transfer = await post<{ item: Conversation }>(`/groups/${id}/transfer`, { user_id: 'qq-invitee' }, owner);
+    expect(transfer.status).toBe(200);
+    expect(transfer.body.item.member?.role).toBe('admin');
+    expect(transfer.body.item.members?.find(item => item.user_id === 'qq-invitee')?.group_role).toBe('owner');
+
+    const formerOwnerCannotDissolve = await del(`/groups/${id}`, owner);
+    expect(formerOwnerCannotDissolve.status).toBe(403);
+    const dissolved = await del(`/groups/${id}`, invitee);
+    expect(dissolved.status).toBe(200);
+    const missing = await get(`/conversations/${id}`, member);
+    expect(missing.status).toBe(404);
+  });
+
+  it('requires at least one valid invitee and lets managers remove ordinary members', async () => {
+    const owner = await user('group2-owner', 'group2-owner', 'member');
+    const member = await user('group2-member', 'group2-member', 'member');
+    const empty = await post('/groups', { name: '空群', member_ids: [] }, owner);
+    expect(empty.status).toBe(400);
+    const created = await post<{ item: Conversation }>('/groups', {
+      name: '成员管理群', member_ids: ['group2-member']
+    }, owner);
+    const removed = await del<{ members: Conversation['members'] }>(`/groups/${created.body.item.id}/members/group2-member`, owner);
+    expect(removed.status).toBe(200);
+    expect(removed.body.members?.some(item => item.user_id === 'group2-member')).toBe(false);
+    const denied = await get(`/conversations/${created.body.item.id}`, member);
+    expect(denied.status).toBe(403);
   });
 });

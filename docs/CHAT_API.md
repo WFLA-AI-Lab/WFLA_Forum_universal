@@ -1,6 +1,6 @@
-# WFLA Wall Chat API（v0.10.0）
+# WFLA Wall Chat API（v0.10.0 + Group Chat）
 
-> 适用版本：`v0.10.0` ｜ API：`v1` ｜ Schema：`14`。本文档给 Zx_ 实现正式前端使用。
+> 适用版本：`v0.10.0` ｜ API：`v1` ｜ Schema：`16`。
 > 仅验收自托管 Node.js + SQLite；聊天实时方案为 HTTP 分页 + 5 秒增量轮询。
 
 ## 核心规则
@@ -8,7 +8,8 @@
 - 登录与 Cookie 与现有 API 相同：HttpOnly session cookie。
 - 所有接口从 session 判定当前用户；任何 body/query 中的用户 id 都只表示目标，不表示调用者。
 - 私聊：active 用户可直接发起；无同意流程；被对方屏蔽后无法创建/发送。
-- 群聊：仅站点 admin/owner 可创建和维护；群主只是展示责任人，不拥有特殊权限。
+- 群聊：active 用户可邀请至少 1 位 active 用户创建；群角色分为群主、群管理员和成员。
+- 群主可任免管理员、转让群主、解散群聊；群主与群管理员可维护群资料、公告与成员。
 - 消息：纯文本 Markdown 渲染，1–2000 字；无附件/回复/转发/搜索/编辑。
 - 用户删除自己的消息会变成 tombstone；服务端保留原始审计数据。
 - 退出群后不能读取历史；管理员重新加入后恢复访问。
@@ -24,6 +25,7 @@
   "type": "direct",
   "title": "张三",
   "description": null,
+  "announcement": "",
   "counterpart": {
     "id": "uuid",
     "username": "zhangsan",
@@ -48,6 +50,8 @@
   "last_message_at": "2026-10-27T00:00:00.000Z",
   "unread_count": 1,
   "member": {
+    "role": "member",
+    "group_nickname": null,
     "joined_at": "2026-10-27T00:00:00.000Z",
     "left_at": null,
     "last_read_message_id": null,
@@ -58,7 +62,7 @@
 }
 ```
 
-群聊中 `type` 为 `group`，`title` 来自 `name`，`counterpart` 为 `null`，`owner` 为用户摘要。
+群聊中 `type` 为 `group`，`title` 来自 `name`，`counterpart` 为 `null`，`owner` 为群主摘要；详情接口额外返回 `members`，成员含 `group_role` 与 `group_nickname`。
 
 ### Message
 
@@ -80,6 +84,40 @@
 删除后的消息仍返回 `status: "deleted"` 和 `deleted_at`，正文为删除占位。
 
 ## 用户端接口
+
+### 搜索聊天用户
+
+`GET /api/v1/chat/users?q=<姓名|昵称|用户名>`
+
+返回最多 30 个 active 用户，供创建群聊和邀请成员使用。
+
+### 创建群聊
+
+`POST /api/v1/groups`
+
+```json
+{ "name": "机器人社项目组", "description": "项目交流", "member_ids": ["user-id"] }
+```
+
+创建者自动成为群主；群名 2–80 字，简介最多 500 字，至少选择 1 位成员，群上限 200 人。
+
+### 群资料与公告
+
+`PATCH /api/v1/groups/:id`
+
+```json
+{ "name": "新群名", "description": "群简介", "announcement": "群公告" }
+```
+
+群主或群管理员可修改；公告最多 1000 字。
+
+### 群成员管理
+
+- `POST /api/v1/groups/:id/members`：`{ "user_ids": ["user-id"] }`，群主/管理员邀请成员。
+- `PATCH /api/v1/groups/:id/members/:user_id`：本人可设置 `group_nickname`；群主可将其他成员的 `role` 设为 `admin` 或 `member`。
+- `DELETE /api/v1/groups/:id/members/:user_id`：群主/管理员移除成员；管理员不能移除群主或其他管理员。
+- `POST /api/v1/groups/:id/transfer`：`{ "user_id": "member-id" }`，群主转让群聊，原群主转为管理员。
+- `DELETE /api/v1/groups/:id`：群主解散群聊（软删除，保留审计数据）。
 
 ### 发起 / 复用唯一私聊
 
@@ -149,7 +187,7 @@
 
 `DELETE /api/v1/conversations/:id/membership`
 
-仅群聊；私聊返回 `400`。退出后历史不可读，管理员重新加入后恢复。
+仅群聊；私聊返回 `400`。群主必须先转让群主或解散群聊；退出后历史不可读，被重新邀请后恢复。
 
 ### 删除自己的消息
 
@@ -206,7 +244,7 @@
 3. 轮询：每 5 秒用最新消息 id 调 `GET .../messages?after=<id>`；收到新消息后调用 `/read`。
 4. 历史：向上滚动时使用 `before=next_cursor`，并反转服务端 DESC 数组以呈现场顺序。
 5. 删除消息后，将本地消息替换为服务端 tombstone，不移除列表项。
-6. 群管理后台 UI 由 Zx_设计；调用上述 admin API，不引入群主权限操作。
+6. 群资料弹层展示公告、群昵称与角色；仅按 `member.role` 显示对应管理操作。
 
 ## 临时验收页
 
