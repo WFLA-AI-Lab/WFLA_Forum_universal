@@ -1,7 +1,7 @@
 {
   "version": "v0.11.0",
   "tag": "v0.11.0",
-  "commit": "35d42b6a5ad2107a176bdf5c8fe641ec932543a5",
+  "commit": "35d6542e154c9f88a859b526023dae6677ac07db",
   "release_date": "2026-10-29",
   "contract": {
     "schema": 17,
