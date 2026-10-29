@@ -109,7 +109,7 @@ const ADMIN_TABS: { key: AdminTab; en: string; zh: string }[] = [
 const FALLBACK_SITE: SiteConfig = {
   forum_name: '世外墙 WFLA Wall',
   tagline: '世外中学校园论坛',
-  version: '0.11.0',
+  version: '0.11.1',
   api_version: 'v1',
   skin_contract_version: 4,
   default_skin: 'x',

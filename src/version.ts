@@ -3,7 +3,7 @@
  *
  * Bump these when cutting a release; see docs/RELEASE_AND_ARCHIVE.md.
  */
-export const APP_VERSION = '0.11.0';
+export const APP_VERSION = '0.11.1';
 /** Version of the HTTP contract mounted under /api/v1. Breaking changes bump this. */
 export const API_VERSION = 'v1';
 /** Highest applied file in src/migrations. Compared against the database at boot. */
