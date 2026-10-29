@@ -1,0 +1,47 @@
+{
+  "checks": [],
+  "backup": {
+    "ref": "backups/wfla-wall-2026-10-24T16-14-22Z-prev0.1.0.sqlite",
+    "notes": "snapshot taken before the first release; filename records prev0.1.0",
+    "created_at": "2026-10-24T16:14:22Z"
+  },
+  "version": "v0.1.0",
+  "commit": "c4f3a99d4db0f60f1b0479bb956231bd665f2b47",
+  "assets": [],
+  "migration": {
+    "files": [
+      "src/migrations/0001_init.sql",
+      "src/migrations/0002_invitations_external_auth.sql",
+      "src/migrations/0003_microsoft_oauth.sql",
+      "src/migrations/0004_engagement.sql",
+      "src/migrations/0005_oauth_providers.sql",
+      "src/migrations/0006_app_settings.sql",
+      "src/migrations/0007_site_settings.sql"
+    ],
+    "applied": true,
+    "notes": "first release: migrations 0001-0007 are introduced here, schema_version=7"
+  },
+  "rollback": {
+    "database": "restore from verified backup only; migrations 0001-0007 are forward-only",
+    "target_tag": null,
+    "code": "no earlier release tag exists; redeploy from v0.1.0 or restore the pre-v0.1.0 backup"
+  },
+  "contract": {
+    "schema": 7,
+    "api": "v1",
+    "skin": 1
+  },
+  "tag": "v0.1.0",
+  "release_date": "2026-10-25",
+  "artifacts": {
+    "frontend_dist": "frontend/dist",
+    "public": "public",
+    "build_command": "npm run frontend:build"
+  },
+  "backfill": {
+    "recorded_at": "2026-10-29",
+    "source": "retrospective backfill from the git tag, its target commit and that commit’s src/version.ts + docs/CHANGELOG.md",
+    "checks": "release-time check output was not retained; checks is intentionally empty rather than guessed",
+    "migration_applied_basis": "these tags were deployed to this self-hosted instance; the migration is recorded as applied on that basis"
+  }
+}

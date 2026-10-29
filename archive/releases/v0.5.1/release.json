@@ -1,0 +1,39 @@
+{
+  "checks": [],
+  "backup": {
+    "ref": null,
+    "notes": "no dedicated pre-release snapshot for this patch was retained; backups/ is excluded from version control",
+    "created_at": null
+  },
+  "version": "v0.5.1",
+  "commit": "d61b8824b3325dba5e1220217167b67dcd749a06",
+  "assets": [],
+  "migration": {
+    "files": [],
+    "applied": false,
+    "notes": "no database migration in this release; schema stays at 13"
+  },
+  "rollback": {
+    "database": "no schema change; no database rollback required",
+    "target_tag": "v0.5.0",
+    "code": "git checkout v0.5.0"
+  },
+  "contract": {
+    "schema": 13,
+    "api": "v1",
+    "skin": 2
+  },
+  "tag": "v0.5.1",
+  "release_date": "2026-10-26",
+  "artifacts": {
+    "frontend_dist": "frontend/dist",
+    "public": "public",
+    "build_command": "npm run frontend:build"
+  },
+  "backfill": {
+    "recorded_at": "2026-10-29",
+    "source": "retrospective backfill from the git tag, its target commit and that commit’s src/version.ts + docs/CHANGELOG.md",
+    "checks": "release-time check output was not retained; checks is intentionally empty rather than guessed",
+    "migration_applied_basis": "these tags were deployed to this self-hosted instance; the migration is recorded as applied on that basis"
+  }
+}

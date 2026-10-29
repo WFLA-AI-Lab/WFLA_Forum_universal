@@ -16,7 +16,9 @@
   "assets": [],
   "migration": {
     "notes": "",
-    "file": "src/migrations/00XX_name.sql",
+    "files": [
+      "src/migrations/00XX_name.sql"
+    ],
     "applied": false
   },
   "rollback": {

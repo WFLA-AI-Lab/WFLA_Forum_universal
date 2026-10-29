@@ -1,0 +1,43 @@
+{
+  "checks": [],
+  "backup": {
+    "ref": "backups/pre-v0.3.0-admin-2026-10-25T18-47-47Z",
+    "notes": "pre-release snapshot from the admin console work that shipped as v0.3.1",
+    "created_at": "2026-10-25T10:47:47Z"
+  },
+  "version": "v0.3.1",
+  "commit": "1a77bb5a23f432bfc9e41bb1e3f030b4799c03ae",
+  "assets": [],
+  "migration": {
+    "files": [
+      "src/migrations/0009_user_profiles.sql",
+      "src/migrations/0010_admin_console.sql",
+      "src/migrations/0011_enrollment_year.sql"
+    ],
+    "applied": true,
+    "notes": "user profiles + independent admin console + graduation_year renamed to enrollment_year; schema_version 8 -> 11"
+  },
+  "rollback": {
+    "database": "restore the pre-v0.3.x backup; migrations 0009-0011 are forward-only (0011 renames a column)",
+    "target_tag": "v0.2.0",
+    "code": "git checkout v0.2.0"
+  },
+  "contract": {
+    "schema": 11,
+    "api": "v1",
+    "skin": 2
+  },
+  "tag": "v0.3.1",
+  "release_date": "2026-10-25",
+  "artifacts": {
+    "frontend_dist": "frontend/dist",
+    "public": "public",
+    "build_command": "npm run frontend:build"
+  },
+  "backfill": {
+    "recorded_at": "2026-10-29",
+    "source": "retrospective backfill from the git tag, its target commit and that commit’s src/version.ts + docs/CHANGELOG.md",
+    "checks": "release-time check output was not retained; checks is intentionally empty rather than guessed",
+    "migration_applied_basis": "these tags were deployed to this self-hosted instance; the migration is recorded as applied on that basis"
+  }
+}

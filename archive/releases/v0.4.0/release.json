@@ -1,0 +1,41 @@
+{
+  "checks": [],
+  "backup": {
+    "ref": "backups/pre-v0.4.0-invite-roles-20261025T122931Z",
+    "notes": "pre-release snapshot taken before the role-bearing invitation migration",
+    "created_at": "2026-10-25T12:29:32Z"
+  },
+  "version": "v0.4.0",
+  "commit": "3d6af33efd38c41d2a3f5e5f49e076265a309283",
+  "assets": [],
+  "migration": {
+    "files": [
+      "src/migrations/0012_invitation_roles.sql"
+    ],
+    "applied": true,
+    "notes": "invitations gain a target role (member / moderator / admin); schema_version 11 -> 12"
+  },
+  "rollback": {
+    "database": "restore the pre-v0.4.0 backup; migration 0012 is forward-only",
+    "target_tag": "v0.3.1",
+    "code": "git checkout v0.3.1"
+  },
+  "contract": {
+    "schema": 12,
+    "api": "v1",
+    "skin": 2
+  },
+  "tag": "v0.4.0",
+  "release_date": "2026-10-25",
+  "artifacts": {
+    "frontend_dist": "frontend/dist",
+    "public": "public",
+    "build_command": "npm run frontend:build"
+  },
+  "backfill": {
+    "recorded_at": "2026-10-29",
+    "source": "retrospective backfill from the git tag, its target commit and that commit’s src/version.ts + docs/CHANGELOG.md",
+    "checks": "release-time check output was not retained; checks is intentionally empty rather than guessed",
+    "migration_applied_basis": "these tags were deployed to this self-hosted instance; the migration is recorded as applied on that basis"
+  }
+}
