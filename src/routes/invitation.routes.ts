@@ -6,7 +6,13 @@ import { badRequest, forbidden, notFound } from '../core/errors';
 import { createId, nowIso } from '../core/utils';
 import { insertAudit } from '../modules/moderation/audit';
 import bcrypt from 'bcryptjs';
-import { usernameSchema, passwordSchema, realNameSchema, enrollmentYearSchema } from '../core/validation';
+import {
+  avatarDataUrlSchema,
+  nicknameSchema,
+  passwordSchema,
+  realNameSchema,
+  studentNumberSchema
+} from '../core/validation';
 
 type InvitationRole = 'member' | 'moderator' | 'admin';
 
@@ -78,10 +84,12 @@ invitationRoutes.get('/invitations', async c => {
 
 invitationRoutes.post('/register', async c => {
   const body = await c.req.json().catch(() => null);
-  const username = usernameSchema.parse(body?.username);
   const password = passwordSchema.parse(body?.password);
   const realName = realNameSchema.parse(body?.real_name);
-  const enrollmentYear = enrollmentYearSchema.parse(body?.enrollment_year);
+  const studentNumber = studentNumberSchema.parse(body?.student_number);
+  const nickname = nicknameSchema.parse(body?.nickname);
+  const avatarDataUrl = avatarDataUrlSchema.parse(body?.avatar_data_url);
+  const enrollmentYear = studentNumber.slice(0, 4);
   const code = String(body?.invitation_code ?? '').trim();
   if (!/^[a-f0-9]{32}$/.test(code)) throw badRequest('邀请码无效');
   const invitation = await c.env.DB.prepare(
@@ -90,9 +98,12 @@ invitationRoutes.post('/register', async c => {
   if (!invitation || invitation.used_by || invitation.revoked_at || (invitation.expires_at && new Date(invitation.expires_at).getTime() <= Date.now())) {
     throw badRequest('邀请码不存在、已使用或已过期');
   }
-  const existing = await c.env.DB.prepare('SELECT 1 FROM users WHERE username = ? COLLATE NOCASE').bind(username).first();
-  if (existing) throw badRequest('用户名已存在');
+  const existing = await c.env.DB.prepare(
+    'SELECT 1 FROM users WHERE student_number = ? LIMIT 1'
+  ).bind(studentNumber).first();
+  if (existing) throw badRequest('该学号已注册');
   const id = createId();
+  const username = `wfla_${id.replaceAll('-', '').slice(0, 16)}`;
   const timestamp = nowIso();
   const role = invitationRole(invitation.role);
   const passwordHash = await bcrypt.hash(password, 12);
@@ -100,15 +111,32 @@ invitationRoutes.post('/register', async c => {
   // registrant's claim updates zero rows and its user insert is rolled back.
   await c.env.DB.batch([
     c.env.DB.prepare(
-      `INSERT INTO users (id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
-    ).bind(id, username, passwordHash, realName, enrollmentYear, role, timestamp, timestamp),
+      `INSERT INTO users
+         (id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at, student_number)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
+    ).bind(id, username, passwordHash, realName, enrollmentYear, role, timestamp, timestamp, studentNumber),
+    c.env.DB.prepare(
+      `INSERT INTO user_profiles (user_id, nickname, avatar_data_url, updated_at)
+       VALUES (?, ?, ?, ?)`
+    ).bind(id, nickname, avatarDataUrl, timestamp),
     c.env.DB.prepare('UPDATE invitations SET used_by = ? WHERE id = ? AND used_by IS NULL AND revoked_at IS NULL').bind(id, invitation.id)
   ]);
   const claimed = await c.env.DB.prepare('SELECT used_by FROM invitations WHERE id = ?').bind(invitation.id).first<{ used_by: string | null }>();
   if (claimed?.used_by !== id) throw badRequest('邀请码已被使用，请重新获取');
   await insertAudit(c.env, null, 'invitation.register', 'user', id, 'invitation registration pending approval', { invitation_id: invitation.id, proposed_role: role });
-  return c.json({ item: { id, username, real_name: realName, enrollment_year: enrollmentYear, role, status: 'pending' } }, 201);
+  return c.json({
+    item: {
+      id,
+      username,
+      student_number: studentNumber,
+      real_name: realName,
+      enrollment_year: enrollmentYear,
+      nickname,
+      avatar_data_url: avatarDataUrl,
+      role,
+      status: 'pending'
+    }
+  }, 201);
 });
 
 invitationRoutes.post('/users/:id/activate', async c => {

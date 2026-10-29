@@ -111,7 +111,7 @@ const FALLBACK_SITE: SiteConfig = {
   tagline: '世外中学校园论坛',
   version: '0.10.0',
   api_version: 'v1',
-  skin_contract_version: 3,
+  skin_contract_version: 4,
   default_skin: 'x',
   skins: [
     { id: 'x', name: 'WFLA X', description: '响应式校园实时信息流', status: 'stable' },
@@ -171,7 +171,9 @@ export default function App() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [regForm, setRegForm] = useState<RegisterFormState>({ invitation_code: '', username: '', password: '', real_name: '', enrollment_year: '' });
+  const [regForm, setRegForm] = useState<RegisterFormState>({
+    invitation_code: '', student_number: '', password: '', real_name: '', nickname: '', avatar_data_url: null
+  });
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileForm, setProfileForm] = useState<ProfileFormState>({ nickname: '', avatar_data_url: null });
   const [reply, setReply] = useState('');
@@ -871,8 +873,9 @@ export default function App() {
     event.preventDefault();
     try {
       await api.post('/register', regForm);
+      setRegForm({ invitation_code: '', student_number: '', password: '', real_name: '', nickname: '', avatar_data_url: null });
       setSuccess('注册申请已提交，请等待管理员激活后再登录');
-      setView({ name: 'settings' }); setError('');
+      setView({ name: 'profile' }); setError('');
     } catch (e) { setError((e as Error).message); }
   }
 

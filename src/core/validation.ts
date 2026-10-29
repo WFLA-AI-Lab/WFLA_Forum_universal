@@ -10,6 +10,16 @@ export const chatMessageSchema = z.string().trim().min(1).max(2000);
 export const chatClientSchema = z.string().trim().min(1).max(128);
 export const titleSchema = z.string().trim().min(2).max(120);
 export const realNameSchema = z.string().trim().regex(/^[\u4e00-\u9fa5]{2,10}$/, '真实姓名必须为2-10个中文字符');
+export const studentNumberSchema = z.coerce
+  .string()
+  .trim()
+  .regex(/^20\d{6}$/, '学号必须为8位数字，前4位为入学年份');
+export const nicknameSchema = z.string()
+  .trim()
+  .regex(/^[\p{L}\p{N}_ .·-]{1,24}$/u, '昵称需为1-24个中英文字符、数字或常用符号');
+export const avatarDataUrlSchema = z.string()
+  .max(350_000, '头像处理后不得超过256KB')
+  .regex(/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/, '头像仅支持PNG、JPEG或WebP');
 // Accept JSON numbers as well as strings: both the web form and API clients
 // have historically sent this field in either representation.
 export const enrollmentYearSchema = z.coerce

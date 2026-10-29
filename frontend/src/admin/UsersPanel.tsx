@@ -9,7 +9,7 @@ const ROLE_LABEL: Record<string, string> = { owner: '负责人', admin: '管理�
 const ROLE_RANK: Record<string, number> = { owner: 4, admin: 3, moderator: 2, member: 1 };
 const STATUS_LABEL: Record<string, string> = { active: '正常', pending: '待激活', muted: '已禁言', banned: '已封禁', deleted: '已删除' };
 type Notify = (tone: 'success' | 'error', message: string) => void;
-interface AdminUser extends User { session_count?: number; thread_count?: number; post_count?: number; oauth_providers?: string | null }
+interface AdminUser extends User { student_number?: string | null; session_count?: number; thread_count?: number; post_count?: number; oauth_providers?: string | null }
 interface UserDetail { user: AdminUser; oauth_accounts: { provider: string; email: string | null; linked_at: string }[]; notes: { id: string; body: string; created_at: string; author_real_name: string | null }[]; sanctions: { id: string; action: string; reason: string; created_at: string; actor_real_name: string | null }[]; counts: { sessions?: number; threads?: number; posts?: number } }
 
 function randomPassword() { const bytes = new Uint32Array(3); crypto.getRandomValues(bytes); return `Wf!${bytes[0].toString(36)}${bytes[1].toString(36)}${bytes[2].toString(36)}A9`; }
@@ -78,7 +78,7 @@ export function UsersPanel({ me, notify }: { me: User; notify: Notify }) {
   return (
     <>
       <section className="adm-toolbar">
-        <div className="adm-search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索用户名、真实姓名" aria-label="搜索账号" />{query && <button type="button" onClick={() => setQuery('')}>×</button>}</div>
+        <div className="adm-search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索学号、用户名、真实姓名" aria-label="搜索账号" />{query && <button type="button" onClick={() => setQuery('')}>×</button>}</div>
         <select value={role} onChange={e => setRole(e.target.value)}><option value="">全部角色</option>{Object.keys(ROLE_LABEL).filter(value => value !== 'owner' || me.role === 'owner').map(value => <option key={value} value={value}>{ROLE_LABEL[value]}</option>)}</select>
         <select value={status} onChange={e => setStatus(e.target.value)}><option value="">全部状态</option>{Object.entries(STATUS_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
         <button type="button" className="adm-primary push" onClick={() => setCreating(true)}>＋ 创建账号</button>
@@ -86,10 +86,11 @@ export function UsersPanel({ me, notify }: { me: User; notify: Notify }) {
       <section className="adm-card adm-table-card">
         <header><div><small>{total} ACCOUNTS</small><h3>账号与权限</h3></div><span className="adm-permission-note">你只能管理低于「{ROLE_LABEL[me.role]}」的账号</span></header>
         <div className="adm-table-wrap"><table className="adm-table">
-          <thead><tr><th>账号</th><th>入学届别</th><th>角色</th><th>状态</th><th>登录渠道</th><th>活跃会话</th><th>内容</th><th /></tr></thead>
-          <tbody>{items.length === 0 ? <tr><td colSpan={8}><div className="adm-empty"><span>○</span><p>没有符合条件的账号</p></div></td></tr> : items.map(user => (
+          <thead><tr><th>账号</th><th>学号</th><th>入学届别</th><th>角色</th><th>状态</th><th>登录渠道</th><th>活跃会话</th><th>内容</th><th /></tr></thead>
+          <tbody>{items.length === 0 ? <tr><td colSpan={9}><div className="adm-empty"><span>○</span><p>没有符合条件的账号</p></div></td></tr> : items.map(user => (
             <tr key={user.id} className={selected === user.id ? 'selected' : ''}>
               <td><div className="adm-user-cell"><span className="adm-avatar">{user.real_name.slice(-1)}</span><div><b>{user.real_name}</b><small>@{user.username}</small></div></div></td>
+              <td>{user.student_number ?? '未录入'}</td>
               <td>{user.enrollment_year} 届</td>
               <td><Badge tone={user.role === 'owner' ? 'blue' : user.role === 'admin' ? 'orange' : 'neutral'}>{ROLE_LABEL[user.role]}</Badge></td>
               <td><Badge tone={statusTone(user.status)}>{STATUS_LABEL[user.status]}</Badge></td>
@@ -120,7 +121,7 @@ export function UsersPanel({ me, notify }: { me: User; notify: Notify }) {
           {!manageable && <div className="adm-locked-note">你不能管理同级、更高权限或自己的账号。</div>}
           <div className="adm-detail-stats"><div><b>{detail.counts.threads ?? 0}</b><span>话题</span></div><div><b>{detail.counts.posts ?? 0}</b><span>回复</span></div><div><b>{detail.counts.sessions ?? 0}</b><span>活跃会话</span></div><div><b>{detail.oauth_accounts.length}</b><span>第三方绑定</span></div></div>
           <section className="adm-sheet-section"><header><h3>身份与权限</h3><Badge tone={statusTone(detail.user.status)}>{STATUS_LABEL[detail.user.status]}</Badge></header>
-            <div className="adm-detail-grid"><div><span>真实姓名</span><b>{detail.user.real_name}</b></div><div><span>用户名</span><b>@{detail.user.username}</b></div><div><span>入学届别</span><b>{detail.user.enrollment_year}</b></div><div><span>当前角色</span><b>{ROLE_LABEL[detail.user.role]}</b></div></div>
+            <div className="adm-detail-grid"><div><span>真实姓名</span><b>{detail.user.real_name}</b></div><div><span>学号</span><b>{detail.user.student_number ?? '未录入'}</b></div><div><span>用户名</span><b>@{detail.user.username}</b></div><div><span>入学届别</span><b>{detail.user.enrollment_year}</b></div><div><span>当前角色</span><b>{ROLE_LABEL[detail.user.role]}</b></div></div>
             {manageable && <div className="adm-action-block"><label className="adm-field"><span>操作原因</span><input value={reason} onChange={e => setReason(e.target.value)} placeholder="封禁、禁言或变更权限时填写" /></label>
               <div className="adm-action-row">
                 <select value="" onChange={e => { if (e.target.value) void run(() => api.post(`/users/${detail.user.id}/role`, { role: e.target.value, reason: reason || '管理后台变更角色' }), '角色已更新').then(ok => { if (ok) void refreshDetail(); }); }}><option value="">即时变更权限…</option>{(['member', 'moderator', 'admin'] as const).filter(value => ROLE_RANK[value] < ROLE_RANK[me.role]).map(value => <option key={value} value={value}>{ROLE_LABEL[value]}</option>)}</select>

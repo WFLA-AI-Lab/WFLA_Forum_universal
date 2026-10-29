@@ -1,6 +1,6 @@
 # WFLA Wall API 接口文档
 
-> 适用版本：**v0.10.0** ｜ API 版本：**v1** ｜ 皮肤契约：**3** ｜ 数据库结构：**16**
+> 适用版本：**v0.10.0** ｜ API 版本：**v1** ｜ 皮肤契约：**4** ｜ 数据库结构：**17**
 
 本文件是给前端 / 移动端 / 第三方集成开发者看的接口契约。所有接口都挂在基础路径
 `/api/v1` 之下；若站点公开地址是 `https://wflawall.zh.kg`，则完整地址是
@@ -88,7 +88,7 @@
   "tagline": "世外中学校园论坛",
   "version": "0.10.0",
   "api_version": "v1",
-  "skin_contract_version": 3,
+  "skin_contract_version": 4,
   "default_skin": "x",
   "skins": [
     { "id": "x", "name": "WFLA X", "description": "...", "status": "stable" }
@@ -120,8 +120,10 @@
 请求：
 
 ```json
-{ "username": "student01", "password": "**********" }
+{ "username": "20260001", "password": "**********" }
 ```
+
+`username` 接受新注册用户的八位学号，也兼容既有账号的用户名。
 
 响应 `200`：
 
@@ -294,17 +296,23 @@
 ```json
 {
   "invitation_code": "32位小写十六进制",
-  "username": "newbie",
+  "student_number": "20260001",
   "password": "Passw0rd!!",
   "real_name": "张三",
-  "enrollment_year": "2026"
+  "nickname": "小张",
+  "avatar_data_url": "data:image/png;base64,..."
 }
 ```
+
+- `student_number`：8 位数字，前 4 位为入学年份；可作为登录凭证且全站唯一，但不会充当公开用户名。
+- `nickname`：1–24 个中英文字符、数字或常用符号。
+- `avatar_data_url`：必填，支持 PNG / JPEG / WebP，处理后不超过 256KB。
+- 学号不会进入公开用户资料；公开展示仍使用真实姓名、入学年份、昵称和头像。
 
 响应 `201`：
 
 ```json
-{ "item": { "id": "…", "username": "newbie", "real_name": "张三", "enrollment_year": "2026", "role": "member", "status": "pending" } }
+{ "item": { "id": "…", "username": "wfla_…", "student_number": "20260001", "real_name": "张三", "enrollment_year": "2026", "nickname": "小张", "avatar_data_url": "data:image/png;base64,...", "role": "member", "status": "pending" } }
 ```
 
 ### `POST /invitations` — 需要 `admin`

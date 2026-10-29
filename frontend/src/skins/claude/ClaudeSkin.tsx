@@ -5,7 +5,7 @@ import './claude.css';
 /**
  * Claude UI presentation for the complete forum experience.
  *
- * The X skin already implements every view in the v3 skin contract. Reusing
+ * The X skin already implements every view in the v4 skin contract. Reusing
  * that render tree here keeps interactions and accessibility identical while
  * this skin supplies its own typography, colour system, spacing and surfaces.
  */

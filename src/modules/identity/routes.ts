@@ -3,7 +3,14 @@ import { setCookie, deleteCookie } from 'hono/cookie';
 import bcrypt from 'bcryptjs';
 import type { Env, SessionUser } from '../../env';
 import { AppError, badRequest, conflict, unauthorized } from '../../core/errors';
-import { passwordSchema, realNameSchema, enrollmentYearSchema, usernameSchema } from '../../core/validation';
+import {
+  avatarDataUrlSchema,
+  enrollmentYearSchema,
+  nicknameSchema,
+  passwordSchema,
+  realNameSchema,
+  usernameSchema
+} from '../../core/validation';
 import { createId, addSeconds, nowIso } from '../../core/utils';
 import { loadSession, newToken, requireUser, sessionCookieName, sha256 } from './session';
 import { isAdmin, requireRole, ROLE_RANK } from '../access/service';
@@ -14,20 +21,19 @@ import { isGuestReadEnabled } from '../site/service';
 const bcryptHash = (password: string): Promise<string> => bcrypt.hash(password, 12);
 const bcryptCompare = (password: string, hash: string): Promise<boolean> => bcrypt.compare(password, hash);
 
-const nicknamePattern = /^[\p{L}\p{N}_ .·-]{1,24}$/u;
-const avatarPattern = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/;
-
 function parseProfile(body: unknown): { nickname: string; avatarDataUrl: string | null } {
   if (!body || typeof body !== 'object') throw badRequest('请求体不能为空');
   const input = body as Record<string, unknown>;
-  const nickname = typeof input.nickname === 'string' ? input.nickname.trim() : '';
-  if (!nicknamePattern.test(nickname)) throw badRequest('昵称需为 1-24 个中英文字符、数字或常用符号');
+  const nicknameResult = nicknameSchema.safeParse(input.nickname);
+  if (!nicknameResult.success) throw badRequest(nicknameResult.error.issues[0]?.message ?? '昵称格式无效');
+  const nickname = nicknameResult.data;
   const avatarDataUrl = input.avatar_data_url === null || input.avatar_data_url === ''
     ? null
     : typeof input.avatar_data_url === 'string' ? input.avatar_data_url : undefined;
   if (avatarDataUrl === undefined) throw badRequest('头像格式无效');
-  if (avatarDataUrl && (avatarDataUrl.length > 350_000 || !avatarPattern.test(avatarDataUrl))) {
-    throw badRequest('头像仅支持 PNG、JPEG 或 WebP，且处理后不得超过 256KB');
+  if (avatarDataUrl) {
+    const avatarResult = avatarDataUrlSchema.safeParse(avatarDataUrl);
+    if (!avatarResult.success) throw badRequest(avatarResult.error.issues[0]?.message ?? '头像格式无效');
   }
   return { nickname, avatarDataUrl };
 }
@@ -63,8 +69,11 @@ identityRoutes.post('/login', async c => {
     : (c.req.header('cf-connecting-ip') ?? 'unknown');
   await enforceRateLimit(`login:${ip}`);
   const row = await c.env.DB.prepare(
-    'SELECT id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at FROM users WHERE username = ? COLLATE NOCASE'
-  ).bind(body.username).first<{
+    `SELECT id, username, password_hash, real_name, enrollment_year, role, status, created_at, updated_at
+       FROM users
+      WHERE username = ? COLLATE NOCASE OR student_number = ?
+      LIMIT 1`
+  ).bind(body.username, body.username).first<{
     id: string; username: string; password_hash: string; real_name: string; enrollment_year: string;
     role: SessionUser['role']; status: SessionUser['status']; created_at: string; updated_at: string;
   }>();

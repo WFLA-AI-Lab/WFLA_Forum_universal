@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * WFLA Wall skin contract  (SKIN_CONTRACT_VERSION = 3)
+ * WFLA Wall skin contract  (SKIN_CONTRACT_VERSION = 4)
  * ============================================================================
  *
  * A *skin* is a whole frontend layout, not a colour theme. Two skins may
@@ -373,10 +373,11 @@ export type NewBoardFormState = { name: string; slug: string; description: strin
 
 export type RegisterFormState = {
   invitation_code: string;
-  username: string;
+  student_number: string;
   password: string;
   real_name: string;
-  enrollment_year: string;
+  nickname: string;
+  avatar_data_url: string | null;
 };
 
 export interface SkinForms {

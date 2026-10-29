@@ -1,6 +1,6 @@
 # 前端皮肤（Skin）开发指南
 
-> 皮肤契约版本：**3** ｜ 对应 `SKIN_CONTRACT_VERSION`（`src/version.ts`）
+> 皮肤契约版本：**4** ｜ 对应 `SKIN_CONTRACT_VERSION`（`src/version.ts`）
 
 WFLA Wall 的前端被刻意拆成两层：**容器（container）** 与 **皮肤（skin）**。
 

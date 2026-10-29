@@ -65,9 +65,9 @@
 `atLeast(role, required)`。默认拒绝；`admin` 以上才能改别人数据；`owner`
 才能改站点级配置。所有敏感操作写 `audit_logs`。
 
-**数据模型 / Data model**: 单一 SQLite 文件。核心表（当前 `SCHEMA_VERSION = 16`）：
+**数据模型 / Data model**: 单一 SQLite 文件。核心表（当前 `SCHEMA_VERSION = 17`）：
 
-- `users` — 用户与身份（真实姓名、入学届别、角色、状态）
+- `users` — 用户与身份（真实姓名、受保护学号、入学届别、角色、状态）
 - `sessions` — 会话（仅存哈希）
 - `boards` / `threads` / `posts` — 内容
 - `reports` — 举报
@@ -144,8 +144,8 @@ DOM
 | --- | --- | --- |
 | `APP_VERSION` | 应用整体版本 | 0.10.0 |
 | `API_VERSION` | HTTP 契约版本（破坏性变更才 bump） | v1 |
-| `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 16 |
-| `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 3 |
+| `SCHEMA_VERSION` | 数据库结构（= 最高迁移序号） | 17 |
+| `SKIN_CONTRACT_VERSION` | 皮肤契约版本（独立于 API） | 4 |
 
 规则：契约只增不改 → 不 bump；重命名/删除/改语义 → bump。
 详见 `docs/RELEASE_AND_ARCHIVE.md`。
