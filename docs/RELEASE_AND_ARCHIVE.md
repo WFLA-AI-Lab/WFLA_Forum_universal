@@ -1,4 +1,4 @@
-# 版本、发版与存档体系
+﻿# 版本、发版与存档体系
 
 本文规定 WFLA Wall 的版本号规则、发版流程、数据库迁移对应关系，以及数据存档 / 备份约定。
 目标：**任何一次交接、回滚或迁移都能顺着版本号找到对应代码、数据库结构与备份。**
@@ -10,7 +10,7 @@
 所有版本号集中在 **`src/version.ts`**，不要在别处硬编码：
 
 ```ts
-export const APP_VERSION = '0.10.0';         // 应用（产品）版本
+export const APP_VERSION = '0.11.0';         // 应用（产品）版本
 export const API_VERSION = 'v1';             // HTTP 契约版本
 export const SCHEMA_VERSION = 17;             // 数据库结构版本（= 最高迁移序号）
 export const SKIN_CONTRACT_VERSION = 4;      // 前端皮肤契约版本
@@ -68,7 +68,7 @@ export const SKIN_CONTRACT_VERSION = 4;      // 前端皮肤契约版本
 ### 迁移铁律
 
 1. 迁移文件**只增不改**。已发布过的迁移文件一旦被线上执行过，就不再编辑它。
-2. 新迁移的文件名必须是下一个序号：`0013_xxx.sql`。
+2. 新迁移的文件名必须是下一个序号：`0018_xxx.sql`。
 3. 新增迁移后，把 `src/version.ts` 的 `SCHEMA_VERSION` 同步 +1，并更新上面的表格。
 4. 迁移应当**幂等**（用 `IF NOT EXISTS` / `ON CONFLICT DO NOTHING`），以便重复执行安全。
 5. 自托管部署的迁移命令：
@@ -84,7 +84,7 @@ npm run selfhost:migrate
 
 ## 4. 发版流程（Release Checklist）
 
-以发布 `v0.10.0` 为例：
+以发布 `v0.11.0` 为例：
 
 1. **确认版本号**：改 `src/version.ts`、`package.json`、`frontend/package.json` 三处一致。
 2. **确认迁移**：若新增了迁移，`SCHEMA_VERSION` 已同步，本文档表格已更新。
@@ -105,8 +105,8 @@ npm --prefix frontend run build
 
 ```bash
 git add -A
-git commit -m "release: v0.10.0"
-git tag -a v0.10.0 -m "WFLA Wall v0.10.0"
+git commit -m "release: v0.11.0"
+git tag -a v0.11.0 -m "WFLA Wall v0.11.0"
 git push origin main --follow-tags
 ```
 
@@ -160,7 +160,7 @@ npm run selfhost:backup
 ### 5.3 代码存档
 
 - `main` 分支 = 可发布状态；所有面向协作者的内容（README、`docs/API.md`、皮肤指南）必须同步更新。
-- 每次发版打 **附注 tag**（`git tag -a v0.10.0`），tag 就是不可变的存档点。
+- 每次发版打 **附注 tag**（`git tag -a v0.11.0`），tag 就是不可变的存档点。
 - 历史被安全重写过（如清理过泄露的密钥）之后，任何旧克隆都必须**重新克隆**，不能 merge 旧历史。
 
 ---

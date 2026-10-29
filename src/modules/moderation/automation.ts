@@ -216,7 +216,7 @@ export async function applyPublicationRules(
 
 /**
  * Applies the same publication risks to chat messages. Chat content is never
- * automatically hidden in v0.10.0; a matching message is recorded as a risk
+ * automatically hidden in v0.11.0; a matching message is recorded as a risk
  * event and moderators are notified for human review.
  */
 export async function applyChatRules(

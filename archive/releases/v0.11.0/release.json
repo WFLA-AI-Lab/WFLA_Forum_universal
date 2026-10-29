@@ -1,0 +1,42 @@
+{
+  "version": "v0.11.0",
+  "tag": "v0.11.0",
+  "commit": "35d42b6a5ad2107a176bdf5c8fe641ec932543a5",
+  "release_date": "2026-10-29",
+  "contract": {
+    "schema": 17,
+    "api": "v1",
+    "skin": 4
+  },
+  "migration": {
+    "files": [
+      "src/migrations/0015_claude_skin.sql",
+      "src/migrations/0016_group_chat_management.sql",
+      "src/migrations/0017_student_registration_profile.sql"
+    ],
+    "applied": true,
+    "notes": "schema_version 14 -> 17; applied locally and verified via /api/v1/health"
+  },
+  "checks": [
+    "backend type-check/lint",
+    "frontend type-check/build",
+    "self-host migration to schema 17",
+    "one-click self-host build/sync/restart",
+    "HTTP health/site-config verification"
+  ],
+  "backup": {
+    "ref": "backups/wfla-wall-2026-10-29T12-03-28Z.sqlite",
+    "notes": "pre-migration backup before applying 0015/0016/0017",
+    "created_at": "2026-10-29T12:03:28Z"
+  },
+  "rollback": {
+    "database": "restore the pre-migration backup; migrations 0015-0017 are forward-only",
+    "target_tag": "v0.10.0",
+    "code": "git checkout v0.10.0"
+  },
+  "artifacts": {
+    "frontend_dist": "frontend/dist",
+    "public": "public",
+    "build_command": "npm run frontend:build"
+  }
+}
