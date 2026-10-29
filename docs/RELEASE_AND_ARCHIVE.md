@@ -12,8 +12,8 @@
 ```ts
 export const APP_VERSION = '0.10.0';         // 应用（产品）版本
 export const API_VERSION = 'v1';             // HTTP 契约版本
-export const SCHEMA_VERSION = 14;             // 数据库结构版本（= 最高迁移序号）
-export const SKIN_CONTRACT_VERSION = 3;      // 前端皮肤契约版本
+export const SCHEMA_VERSION = 17;             // 数据库结构版本（= 最高迁移序号）
+export const SKIN_CONTRACT_VERSION = 4;      // 前端皮肤契约版本
 ```
 
 `package.json` 与 `frontend/package.json` 的 `version` 字段必须与 `APP_VERSION` 保持一致
@@ -63,6 +63,7 @@ export const SKIN_CONTRACT_VERSION = 3;      // 前端皮肤契约版本
 | `0014_chat.sql` | **14** | 私聊、后台管理群聊与消息举报 |
 | `0015_claude_skin.sql` | **15** | 注册 Claude UI 皮肤到默认允许列表 |
 | `0016_group_chat_management.sql` | **16** | 用户自建群、群主/管理员、群公告与群昵称 |
+| `0017_student_registration_profile.sql` | **17** | 注册采集唯一八位学号，并同时创建昵称与头像资料 |
 
 ### 迁移铁律
 

@@ -16,7 +16,7 @@ async function migrate() {
     '0007_site_settings.sql', '0008_user_preferences.sql', '0009_user_profiles.sql',
     '0010_admin_console.sql', '0011_enrollment_year.sql', '0012_invitation_roles.sql',
     '0013_moderation_automation.sql', '0014_chat.sql', '0015_claude_skin.sql',
-    '0016_group_chat_management.sql'
+    '0016_group_chat_management.sql', '0017_student_registration_profile.sql'
   ];
   for (const file of files) {
     const sql = readFileSync(`src/migrations/${file}`, 'utf8');

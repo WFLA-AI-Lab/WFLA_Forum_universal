@@ -9,7 +9,7 @@
 上海市世外中学校园论坛 —— 一个**可扩展、可监管、可交接**的校园社区平台，
 自托管（Node.js + SQLite），通过内网穿透提供公网访问。
 
-Current version: **v0.10.0** ｜ API: **v1** ｜ DB schema: **16** ｜ Skin contract: **3**
+Current version: **v0.10.0** ｜ API: **v1** ｜ DB schema: **17** ｜ Skin contract: **4**
 
 ---
 
@@ -17,7 +17,7 @@ Current version: **v0.10.0** ｜ API: **v1** ｜ DB schema: **16** ｜ Skin cont
 
 ### 核心特性
 
-- **邀请制注册**：邀请码一次性、可设有效期，并可指定注册后的目标角色（成员 / 监管者 / 管理员）；注册后账号为 `pending`，必须由有权限的管理员在后台**手动激活**。
+- **邀请制注册**：注册页采集邀请码、真实姓名、八位学号、昵称与头像；学号作为登录凭证但不公开展示，注册后为 `pending`，必须由有权限的管理员在后台**手动激活**。
 - **分级邀请权限**：owner 可发管理员邀请码，admin/owner 可发监管者或成员邀请码；不能发放同级或更高权限。
 - **多种登录方式**：内部账号密码、GitHub OAuth、Microsoft OAuth（第三方身份需先绑定到论坛账号）。
 - **游客可浏览**公开内容；发帖、举报、通知等需要登录。
@@ -132,8 +132,8 @@ Windows 服务器上推荐使用仓库内的一键脚本：`scripts/一键配置
 ```ts
 APP_VERSION        = '0.10.0'  // 应用版本
 API_VERSION        = 'v1'      // HTTP 契约版本
-SCHEMA_VERSION = 16        // 数据库结构版本（= 最高迁移序号）
-SKIN_CONTRACT_VERSION = 3      // 前端皮肤契约版本
+SCHEMA_VERSION = 17        // 数据库结构版本（= 最高迁移序号）
+SKIN_CONTRACT_VERSION = 4      // 前端皮肤契约版本
 ```
 
 发版流程、迁移对应表、备份与存档约定见 [`docs/RELEASE_AND_ARCHIVE.md`](docs/RELEASE_AND_ARCHIVE.md)。
@@ -305,8 +305,8 @@ Single source of truth is `src/version.ts`:
 ```ts
 APP_VERSION           = '0.10.0'
 API_VERSION           = 'v1'
-SCHEMA_VERSION = 16
-SKIN_CONTRACT_VERSION = 3
+SCHEMA_VERSION = 17
+SKIN_CONTRACT_VERSION = 4
 ```
 
 Release flow, migration table and backup rules:

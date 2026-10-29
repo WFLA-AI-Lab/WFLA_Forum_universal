@@ -178,24 +178,24 @@ adminRoutes.get('/admin/users', async c => {
   const offset = boundedInteger(c.req.query('offset'), 0, 0, 100000);
   const pattern = `%${query}%`;
   const rows = await c.env.DB.prepare(`
-    SELECT u.id, u.username, u.real_name, u.enrollment_year, u.role, u.status, u.created_at, u.updated_at,
+    SELECT u.id, u.username, u.student_number, u.real_name, u.enrollment_year, u.role, u.status, u.created_at, u.updated_at,
       (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id AND s.expires_at > ?) AS session_count,
       (SELECT COUNT(*) FROM threads t WHERE t.author_id = u.id AND t.status != 'deleted') AS thread_count,
       (SELECT COUNT(*) FROM posts p WHERE p.author_id = u.id AND p.status != 'deleted') AS post_count,
       (SELECT GROUP_CONCAT(DISTINCT o.provider) FROM oauth_accounts o WHERE o.user_id = u.id) AS oauth_providers
     FROM users u
-    WHERE (? = '' OR u.username LIKE ? OR u.real_name LIKE ?)
+    WHERE (? = '' OR u.username LIKE ? OR u.student_number LIKE ? OR u.real_name LIKE ?)
       AND (? = '' OR u.role = ?) AND (? = '' OR u.status = ?)
     ORDER BY CASE u.status WHEN 'pending' THEN 0 WHEN 'active' THEN 1 ELSE 2 END,
              CASE u.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'moderator' THEN 2 ELSE 3 END,
              u.created_at DESC
     LIMIT ? OFFSET ?
-  `).bind(nowIso(), query, pattern, pattern, role, role, status, status, limit, offset).all();
+  `).bind(nowIso(), query, pattern, pattern, pattern, role, role, status, status, limit, offset).all();
   const total = await c.env.DB.prepare(`
     SELECT COUNT(*) AS total FROM users u
-    WHERE (? = '' OR u.username LIKE ? OR u.real_name LIKE ?)
+    WHERE (? = '' OR u.username LIKE ? OR u.student_number LIKE ? OR u.real_name LIKE ?)
       AND (? = '' OR u.role = ?) AND (? = '' OR u.status = ?)
-  `).bind(query, pattern, pattern, role, role, status, status).first<{ total: number }>();
+  `).bind(query, pattern, pattern, pattern, role, role, status, status).first<{ total: number }>();
   return c.json({ items: rows.results ?? [], total: Number(total?.total ?? 0), limit, offset });
 });
 
@@ -203,7 +203,7 @@ adminRoutes.get('/admin/users/:id', async c => {
   await requireModerator(c);
   const id = c.req.param('id');
   const [user, oauth, notes, sanctions, counts] = await Promise.all([
-    c.env.DB.prepare('SELECT id, username, real_name, enrollment_year, role, status, created_at, updated_at FROM users WHERE id = ?').bind(id).first(),
+    c.env.DB.prepare('SELECT id, username, student_number, real_name, enrollment_year, role, status, created_at, updated_at FROM users WHERE id = ?').bind(id).first(),
     c.env.DB.prepare('SELECT provider, email, linked_at FROM oauth_accounts WHERE user_id = ? ORDER BY linked_at').bind(id).all(),
     c.env.DB.prepare('SELECT n.id, n.body, n.created_at, a.real_name AS author_real_name FROM user_notes n LEFT JOIN users a ON a.id = n.author_id WHERE n.user_id = ? ORDER BY n.created_at DESC LIMIT 50').bind(id).all(),
     c.env.DB.prepare('SELECT s.id, s.action, s.reason, s.expires_at, s.created_at, a.real_name AS actor_real_name FROM sanctions s LEFT JOIN users a ON a.id = s.actor_id WHERE s.user_id = ? ORDER BY s.created_at DESC LIMIT 50').bind(id).all(),

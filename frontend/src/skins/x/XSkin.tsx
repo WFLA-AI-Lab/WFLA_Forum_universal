@@ -119,7 +119,7 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
       <h1>登录校园社区</h1>
       <p className="x-muted">使用已获准进入论坛的账号继续。</p>
       <form onSubmit={actions.login} className="x-form">
-        <label><span>用户名</span><input value={forms.username} onChange={event => forms.setUsername(event.target.value)} autoComplete="username" required placeholder="Username"/></label>
+        <label><span>学号 / 用户名</span><input value={forms.username} onChange={event => forms.setUsername(event.target.value)} autoComplete="username" required placeholder="八位学号或已有用户名"/></label>
         <label><span>密码</span><input type="password" value={forms.password} onChange={event => forms.setPassword(event.target.value)} autoComplete="current-password" required placeholder="Password"/></label>
         <button className="x-primary" type="submit">登录</button>
       </form>
@@ -352,7 +352,56 @@ export default function XSkin({ forum }: { forum: SkinContext }) {
 
   function Register() {
     if (!site.registration_enabled) return <Empty icon="user" title="注册暂未开放" body="请联系管理组获取账号。"/>;
-    return <section className="x-auth register"><p className="x-eyebrow">INVITATION ONLY</p><h1>创建校园账号</h1><p className="x-muted">需要有效邀请码，提交后等待管理员激活。</p><form className="x-form" onSubmit={actions.register}><label><span>邀请码</span><input value={forms.regForm.invitation_code} onChange={event => forms.setRegForm(current => ({ ...current, invitation_code: event.target.value }))} required/></label><label><span>用户名</span><input value={forms.regForm.username} onChange={event => forms.setRegForm(current => ({ ...current, username: event.target.value }))} autoComplete="username" required/></label><label><span>真实姓名</span><input value={forms.regForm.real_name} onChange={event => forms.setRegForm(current => ({ ...current, real_name: event.target.value }))} required/></label><label><span>高中入学年份</span><input inputMode="numeric" value={forms.regForm.enrollment_year} onChange={event => forms.setRegForm(current => ({ ...current, enrollment_year: event.target.value }))} placeholder="例如 2026" required/></label><label><span>密码</span><input type="password" value={forms.regForm.password} onChange={event => forms.setRegForm(current => ({ ...current, password: event.target.value }))} autoComplete="new-password" required/></label><button className="x-primary" type="submit">提交注册申请</button></form><button className="x-text-button" type="button" onClick={() => go({ name: 'profile' })}>返回登录</button></section>;
+    const form = forms.regForm;
+    const ready = /^[a-f0-9]{32}$/.test(form.invitation_code.trim())
+      && /^20\d{6}$/.test(form.student_number)
+      && /^[\u4e00-\u9fa5]{2,10}$/.test(form.real_name.trim())
+      && /^[\p{L}\p{N}_ .·-]{1,24}$/u.test(form.nickname.trim())
+      && Boolean(form.avatar_data_url)
+      && form.password.length >= 10
+      && /[a-z]/.test(form.password)
+      && /[A-Z]/.test(form.password)
+      && /[0-9]/.test(form.password)
+      && /[^A-Za-z0-9]/.test(form.password);
+
+    function chooseRegistrationAvatar(file?: File) {
+      if (!file) return;
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+        messages.setError('头像仅支持 PNG、JPEG 或 WebP');
+        return;
+      }
+      if (file.size > 256 * 1024) {
+        messages.setError('头像文件不能超过 256KB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        forms.setRegForm(current => ({ ...current, avatar_data_url: String(reader.result) }));
+        messages.setError('');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    return <section className="x-auth register">
+      <div className="x-register-heading">
+        <div className="x-auth-brand">W</div>
+        <div><p className="x-eyebrow">INVITATION ONLY</p><h1>创建校园账号</h1><p className="x-muted">填写实名资料，提交后由管理员审核激活。</p></div>
+      </div>
+      <form className="x-form x-register-form" onSubmit={actions.register}>
+        <label className="x-register-wide"><span>邀请码</span><input value={form.invitation_code} onChange={event => forms.setRegForm(current => ({ ...current, invitation_code: event.target.value.trim().toLowerCase() }))} maxLength={32} autoComplete="off" placeholder="输入 32 位邀请码" required/></label>
+        <label><span>真实姓名</span><input value={form.real_name} onChange={event => forms.setRegForm(current => ({ ...current, real_name: event.target.value }))} autoComplete="name" placeholder="与学校信息一致" minLength={2} maxLength={10} required/></label>
+        <label><span>八位学号</span><input value={form.student_number} onChange={event => forms.setRegForm(current => ({ ...current, student_number: event.target.value.replace(/\D/g, '').slice(0, 8) }))} inputMode="numeric" autoComplete="username" pattern="20[0-9]{6}" maxLength={8} placeholder="例如 20260001" required/><small>学号将作为登录账号，前四位为入学年份</small></label>
+        <div className="x-register-profile x-register-wide">
+          <Avatar name={form.nickname || form.real_name || 'W'} src={form.avatar_data_url} size={76}/>
+          <div><b>设置头像</b><p>上传 PNG、JPEG 或 WebP，文件不超过 256KB。</p><div><label className="x-file">{form.avatar_data_url ? '更换头像' : '选择头像'}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => chooseRegistrationAvatar(event.target.files?.[0])}/></label>{form.avatar_data_url && <button type="button" onClick={() => forms.setRegForm(current => ({ ...current, avatar_data_url: null }))}>移除</button>}</div></div>
+        </div>
+        <label><span>昵称</span><input value={form.nickname} onChange={event => forms.setRegForm(current => ({ ...current, nickname: event.target.value }))} maxLength={24} placeholder="社区内展示的名字" required/><small>1–24 个中英文字符、数字或常用符号</small></label>
+        <label><span>登录密码</span><input type="password" value={form.password} onChange={event => forms.setRegForm(current => ({ ...current, password: event.target.value }))} autoComplete="new-password" minLength={10} maxLength={128} placeholder="至少10位，含大小写、数字和符号" required/><small>需同时包含大写字母、小写字母、数字和符号</small></label>
+        <div className="x-register-note x-register-wide"><Icon name="shield" size={18}/><span>真实姓名和学号仅用于校园身份审核；头像与昵称会展示在社区中。</span></div>
+        <button className="x-primary x-register-submit x-register-wide" type="submit" disabled={!ready}>提交注册申请</button>
+      </form>
+      <button className="x-text-button" type="button" onClick={() => go({ name: 'profile' })}>已有账号？返回登录</button>
+    </section>;
   }
 
   function Body() {

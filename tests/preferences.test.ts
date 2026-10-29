@@ -58,8 +58,8 @@ describe('per-account preferences', () => {
     const response = await app.request('/api/v1/site/config', {}, env);
     expect(response.status).toBe(200);
     const config = await response.json() as { skin_contract_version: number; default_skin: string; skins: { id: string }[] };
-    expect(SKIN_CONTRACT_VERSION).toBe(3);
-    expect(config.skin_contract_version).toBe(3);
+    expect(SKIN_CONTRACT_VERSION).toBe(4);
+    expect(config.skin_contract_version).toBe(4);
     expect(config.default_skin).toBe('x');
     expect(config.skins.map(skin => skin.id)).toEqual(expect.arrayContaining(['x', 'claude']));
   });

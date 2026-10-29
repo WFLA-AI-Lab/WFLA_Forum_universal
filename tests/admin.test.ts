@@ -10,7 +10,7 @@ let env: Env;
 let mf: Awaited<ReturnType<typeof createTestEnv>>['mf'];
 
 async function migrate() {
-  const files = ['0001_init.sql', '0002_invitations_external_auth.sql', '0003_microsoft_oauth.sql', '0004_engagement.sql', '0005_oauth_providers.sql', '0006_app_settings.sql', '0007_site_settings.sql', '0008_user_preferences.sql', '0009_user_profiles.sql', '0010_admin_console.sql', '0011_enrollment_year.sql', '0012_invitation_roles.sql', '0013_moderation_automation.sql', '0014_chat.sql', '0015_claude_skin.sql', '0016_group_chat_management.sql'];
+  const files = ['0001_init.sql', '0002_invitations_external_auth.sql', '0003_microsoft_oauth.sql', '0004_engagement.sql', '0005_oauth_providers.sql', '0006_app_settings.sql', '0007_site_settings.sql', '0008_user_preferences.sql', '0009_user_profiles.sql', '0010_admin_console.sql', '0011_enrollment_year.sql', '0012_invitation_roles.sql', '0013_moderation_automation.sql', '0014_chat.sql', '0015_claude_skin.sql', '0016_group_chat_management.sql', '0017_student_registration_profile.sql'];
   for (const file of files) {
     const sql = readFileSync(`src/migrations/${file}`, 'utf8');
     for (const statement of sql.split(/;\s*(?:\r?\n|$)/).map(value => value.replace(/^\s*--.*$/gm, '').trim()).filter(value => value && !/^PRAGMA\b/i.test(value))) {
@@ -69,22 +69,23 @@ describe('admin hierarchy', () => {
 });
 
 describe('role-bearing invitations', () => {
-  it('returns a readable validation error instead of HTTP 500 for invalid enrollment years', async () => {
+  it('returns a readable validation error instead of HTTP 500 for invalid student numbers', async () => {
     const response = await app.request('/api/v1/register', {
       method: 'POST',
       headers: json({}),
       body: JSON.stringify({
         invitation_code: 'a'.repeat(32),
-        username: 'invalid-year',
+        student_number: '1234',
         password: 'TestPass1!',
         real_name: '测试戊',
-        enrollment_year: 1999
+        nickname: '小戊',
+        avatar_data_url: 'data:image/png;base64,iVBORw0KGgo='
       })
     }, env);
     expect(response.status).toBe(422);
     const body = await response.json() as { error: { code: string; message: string } };
     expect(body.error.code).toBe('VALIDATION_ERROR');
-    expect(body.error.message).toContain('入学年份');
+    expect(body.error.message).toContain('学号');
   });
 
   it('lets the owner issue admin invites and rejects admin-issued admin invites', async () => {
@@ -105,7 +106,8 @@ describe('role-bearing invitations', () => {
     const admin = await user('admin-activate', 'admin-activate', 'admin');
     const issued = await app.request('/api/v1/invitations', { method: 'POST', headers: { ...cookie(owner), ...json({}) }, body: JSON.stringify({ role: 'admin', ttl_hours: 168 }) }, env);
     const issuedBody = await issued.json() as { item: { code: string } };
-    const registered = await app.request('/api/v1/register', { method: 'POST', headers: json({}), body: JSON.stringify({ invitation_code: issuedBody.item.code, username: 'new-admin', password: 'TestPass1!', real_name: '测试乙', enrollment_year: 2026 }) }, env);
+    const avatar = 'data:image/png;base64,iVBORw0KGgo=';
+    const registered = await app.request('/api/v1/register', { method: 'POST', headers: json({}), body: JSON.stringify({ invitation_code: issuedBody.item.code, student_number: '20260001', password: 'TestPass1!', real_name: '测试乙', nickname: '小乙', avatar_data_url: avatar }) }, env);
     expect(registered.status).toBe(201);
     const registeredBody = await registered.json() as { item: { id: string; role: string; status: string } };
     expect(registeredBody.item.role).toBe('admin');
@@ -114,8 +116,53 @@ describe('role-bearing invitations', () => {
     expect(denied.status).toBe(403);
     const approved = await app.request(`/api/v1/users/${registeredBody.item.id}/activate`, { method: 'POST', headers: cookie(owner) }, env);
     expect(approved.status).toBe(200);
-    const row = await env.DB.prepare('SELECT role, status FROM users WHERE id = ?').bind(registeredBody.item.id).first<{ role: string; status: string }>();
-    expect(row).toEqual({ role: 'admin', status: 'active' });
+    const row = await env.DB.prepare('SELECT username, student_number, enrollment_year, role, status FROM users WHERE id = ?').bind(registeredBody.item.id).first<{ username: string; student_number: string; enrollment_year: string; role: string; status: string }>();
+    expect(row).toMatchObject({ student_number: '20260001', enrollment_year: '2026', role: 'admin', status: 'active' });
+    expect(row?.username).toMatch(/^wfla_[a-f0-9]{16}$/);
+    const profile = await env.DB.prepare('SELECT nickname, avatar_data_url FROM user_profiles WHERE user_id = ?').bind(registeredBody.item.id).first<{ nickname: string; avatar_data_url: string }>();
+    expect(profile).toEqual({ nickname: '小乙', avatar_data_url: avatar });
+    const adminList = await app.request('/api/v1/admin/users?query=20260001', { headers: cookie(owner) }, env);
+    expect(adminList.status).toBe(200);
+    expect((await adminList.json() as { items: { id: string; student_number: string }[] }).items).toEqual([
+      expect.objectContaining({ id: registeredBody.item.id, student_number: '20260001' })
+    ]);
+    const adminDetail = await app.request(`/api/v1/admin/users/${registeredBody.item.id}`, { headers: cookie(owner) }, env);
+    expect((await adminDetail.json() as { user: { student_number: string } }).user.student_number).toBe('20260001');
+    const publicProfile = await app.request(`/api/v1/users/${registeredBody.item.id}`, { headers: cookie(owner) }, env);
+    expect((await publicProfile.json() as { user: Record<string, unknown> }).user).not.toHaveProperty('student_number');
+    const login = await app.request('/api/v1/login', {
+      method: 'POST', headers: json({}), body: JSON.stringify({ username: '20260001', password: 'TestPass1!' })
+    }, env);
+    expect(login.status).toBe(200);
+  });
+
+  it('requires complete profile fields and keeps student numbers unique', async () => {
+    const owner = await user('owner-student-number', 'owner-student-number', 'owner');
+    const issue = async () => {
+      const response = await app.request('/api/v1/invitations', {
+        method: 'POST', headers: { ...cookie(owner), ...json({}) }, body: JSON.stringify({ role: 'member' })
+      }, env);
+      return (await response.json() as { item: { code: string } }).item.code;
+    };
+    const avatar = 'data:image/png;base64,iVBORw0KGgo=';
+    const payload = {
+      student_number: '20260004', password: 'TestPass1!', real_name: '测试己', nickname: '小己', avatar_data_url: avatar
+    };
+    const first = await app.request('/api/v1/register', {
+      method: 'POST', headers: json({}), body: JSON.stringify({ invitation_code: await issue(), ...payload })
+    }, env);
+    expect(first.status).toBe(201);
+    const duplicate = await app.request('/api/v1/register', {
+      method: 'POST', headers: json({}), body: JSON.stringify({ invitation_code: await issue(), ...payload })
+    }, env);
+    expect(duplicate.status).toBe(400);
+    expect((await duplicate.json() as { error: { message: string } }).error.message).toContain('学号');
+    const missingAvatar = await app.request('/api/v1/register', {
+      method: 'POST', headers: json({}), body: JSON.stringify({
+        invitation_code: await issue(), student_number: '20260005', password: 'TestPass1!', real_name: '测试庚', nickname: '小庚'
+      })
+    }, env);
+    expect(missingAvatar.status).toBe(422);
   });
 
   it('does not expose admin invitations to a regular admin', async () => {
@@ -138,11 +185,12 @@ describe('role-bearing invitations', () => {
     const owner = await user('owner-single-use', 'owner-single-use', 'owner');
     const issued = await app.request('/api/v1/invitations', { method: 'POST', headers: { ...cookie(owner), ...json({}) }, body: JSON.stringify({ role: 'member', ttl_hours: 168 }) }, env);
     const code = (await issued.json() as { item: { code: string } }).item.code;
-    const first = await app.request('/api/v1/register', { method: 'POST', headers: json({}), body: JSON.stringify({ invitation_code: code, username: 'invite-first', password: 'TestPass1!', real_name: '测试丙', enrollment_year: '2026' }) }, env);
-    const second = await app.request('/api/v1/register', { method: 'POST', headers: json({}), body: JSON.stringify({ invitation_code: code, username: 'invite-second', password: 'TestPass1!', real_name: '测试丁', enrollment_year: '2026' }) }, env);
+    const avatar = 'data:image/png;base64,iVBORw0KGgo=';
+    const first = await app.request('/api/v1/register', { method: 'POST', headers: json({}), body: JSON.stringify({ invitation_code: code, student_number: '20260002', password: 'TestPass1!', real_name: '测试丙', nickname: '小丙', avatar_data_url: avatar }) }, env);
+    const second = await app.request('/api/v1/register', { method: 'POST', headers: json({}), body: JSON.stringify({ invitation_code: code, student_number: '20260003', password: 'TestPass1!', real_name: '测试丁', nickname: '小丁', avatar_data_url: avatar }) }, env);
     expect(first.status).toBe(201);
     expect(second.status).toBe(400);
-    const count = await env.DB.prepare('SELECT COUNT(*) AS total FROM users WHERE username IN (?, ?)').bind('invite-first', 'invite-second').first<{ total: number }>();
+    const count = await env.DB.prepare('SELECT COUNT(*) AS total FROM users WHERE student_number IN (?, ?)').bind('20260002', '20260003').first<{ total: number }>();
     expect(Number(count?.total)).toBe(1);
   });
   it('keeps legacy invitations as member invitations by default', async () => {
